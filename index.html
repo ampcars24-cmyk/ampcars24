@@ -195,6 +195,7 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
     'cars24_gsheet_cache_lac','cars24_dod_arrays',
     'cars24_pdi_store','cars24_challan_store','cars24_lac_store',
     'cars24_elite_store','cars24_vhr_store','cars24_audit_log',
+    'cars24_chat_messages',
   ];
 
   // Store original before any override
@@ -410,6 +411,39 @@ header {
 .nav-links a { font-size: 13px; font-weight: 500; color: var(--sub); text-decoration: none; letter-spacing: 0.5px; transition: color 0.2s; }
 .nav-links a:hover { color: var(--text); }
 .badge { background: var(--blue); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; padding: 5px 14px; border-radius: 20px; text-transform: uppercase; }
+
+/* ── C24 Notification Badges ── */
+.c24-nb { display:inline-flex;align-items:center;justify-content:center;background:#ef4444;color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;padding:0 5px;margin-left:6px;line-height:1;vertical-align:middle;animation:c24nb-pop .25s ease; }
+@keyframes c24nb-pop { from{transform:scale(0)}to{transform:scale(1)} }
+/* ── C24 Toast ── */
+#c24-toast-container { position:fixed;bottom:24px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none; }
+.c24-toast { background:var(--sf,#0E1420);border:1px solid var(--bd,rgba(255,255,255,.12));border-left:4px solid #4f46e5;border-radius:10px;padding:12px 16px;min-width:260px;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.4);pointer-events:all;display:flex;align-items:flex-start;gap:10px;animation:c24toast-in .3s ease; }
+.c24-toast.c24-toast--success { border-left-color:#10b981; }
+.c24-toast.c24-toast--warn    { border-left-color:#f59e0b; }
+.c24-toast.c24-toast--info    { border-left-color:#3b82f6; }
+@keyframes c24toast-in { from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)} }
+.c24-toast-icon { font-size:18px;flex-shrink:0;margin-top:1px; }
+.c24-toast-body { flex:1; }
+.c24-toast-title { font-weight:700;font-size:13px;color:var(--t1,#fff);margin-bottom:2px; }
+.c24-toast-msg   { font-size:12px;color:var(--t3,rgba(255,255,255,.5));line-height:1.4; }
+/* ── Cars24 Chat ── */
+.eva-msg { display:flex;align-items:flex-end;gap:8px; }
+.eva-msg--user { flex-direction:row-reverse; }
+.eva-avatar { width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.eva-msg--user .eva-avatar { background:linear-gradient(135deg,#059669,#10b981); }
+.eva-bubble { max-width:78%;background:var(--bd,#e2e5ef);border:1px solid var(--bd,#e2e5ef);border-radius:14px 14px 14px 4px;padding:10px 14px;font-size:13px;line-height:1.55;color:var(--tx,#111827); }
+.eva-msg--user .eva-bubble { border-radius:14px 14px 4px 14px;background:rgba(79,70,229,.15);border-color:rgba(79,70,229,.35);color:var(--tx,#111827); }
+.eva-typing-bubble { display:flex;gap:4px;align-items:center;padding:12px 16px; }
+.eva-typing-bubble span { width:7px;height:7px;border-radius:50%;background:var(--t3,#9ca3af);display:inline-block;animation:eva-bounce .9s infinite; }
+.eva-typing-bubble span:nth-child(2){animation-delay:.15s}
+.eva-typing-bubble span:nth-child(3){animation-delay:.3s}
+@keyframes eva-bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.eva-qp { background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.25);color:#4f46e5;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s; }
+.eva-qp:hover { background:rgba(79,70,229,.18); }
+/* ── Admin query card ── */
+.eva-query-card { background:var(--sb,#fff);border:1px solid var(--bd,#e2e5ef);border-radius:12px;padding:16px 18px;color:var(--tx,#111827); }
+.eva-query-card.unread { border-left:3px solid #4f46e5; }
+.eva-reply-input { width:100%;background:var(--bg,#f0f2f8);border:1px solid var(--bd,#e2e5ef);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--tx,#111827);font-family:inherit;resize:vertical;min-height:60px;margin-top:10px;outline:none; }
 
 /* ─── TICKER ─── */
 .ticker { background: var(--blue); padding: 10px 0; overflow: hidden; }
@@ -3041,6 +3075,7 @@ function navScrollTo(id) {
         <div class="ni" onclick="showV('import-log',this)"><span class="nic">📜</span>Import Log</div>
         <div class="ni" onclick="showV('audit-log',this)"><span class="nic">🔍</span>Audit Log</div>
         <div class="ni" onclick="showV('credentials',this)"><span class="nic">🔑</span>Credentials & Email</div>
+        <div class="ni" onclick="showV('partner-queries',this)" id="nav-admin-queries"><span class="nic">💬</span>Partner Queries<span class="c24-nb" id="nb-admin-queries" style="display:none"></span></div>
       </div>
     </nav>
 
@@ -3065,20 +3100,22 @@ function navScrollTo(id) {
       <div class="ng">
         <div class="ngl">Finance</div>
         <div class="ni" onclick="showPV('p-payout',this)"><span class="nic">💰</span>Payout Summary</div>
-        <div class="ni" onclick="showPV('p-invoices',this)"><span class="nic">🧾</span>My Invoices</div>
+        <div class="ni" onclick="showPV('p-invoices',this)" id="nav-p-invoices"><span class="nic">🧾</span>My Invoices<span class="c24-nb" id="nb-invoices" style="display:none"></span></div>
         <div class="ni" onclick="showPV('p-payments',this)"><span class="nic">✅</span>Payment Proofs</div>
       </div>
       <div class="ng">
         <div class="ngl">Channels</div>
         <div class="ni" onclick="showPV('p-seller-channels',this)"><span class="nic">🚗</span>Seller</div>
         <div class="ni" onclick="showPV('p-buyer',this)"><span class="nic">🛒</span>Buyer Panel</div>
+        <div class="ni" onclick="showPV('p-elite',this)"><span class="nic">🏆</span>Elite Performance</div>
       </div>
       <div class="ng">
         <div class="ngl">Info & Reports</div>
-        <div class="ni" onclick="showPV('p-announcements',this)"><span class="nic">📢</span>Announcements</div>
-        <div class="ni" onclick="showPV('p-targets',this)"><span class="nic">🎯</span>My Targets</div>
+        <div class="ni" onclick="showPV('p-announcements',this)" id="nav-p-announcements"><span class="nic">📢</span>Announcements<span class="c24-nb ann-badge" id="nb-announcements" style="display:none"></span></div>
+        <div class="ni" onclick="showPV('p-targets',this)" id="nav-p-targets"><span class="nic">🎯</span>My Targets<span class="c24-nb" id="nb-targets" style="display:none"></span></div>
         <div class="ni" onclick="showPV('p-reports',this)"><span class="nic">📤</span>Download Reports</div>
         <div class="ni" onclick="showPV('p-settings',this)"><span class="nic">🔑</span>Change Password</div>
+        <div class="ni" onclick="showPV('p-chat',this)" id="nav-p-chat"><span class="nic">💬</span>Ask Cars24<span class="c24-nb" id="nb-chat" style="display:none"></span></div>
       </div>
     </nav>
 
@@ -4141,6 +4178,18 @@ function navScrollTo(id) {
         </div>
       </div>
 
+      <!-- PARTNER QUERIES (Admin inbox) -->
+      <div class="view" id="view-partner-queries">
+        <div class="ph" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div class="pt">💬 Partner Queries</div>
+            <div class="ps">Messages from partners via Cars24 Support — reply directly from here</div>
+          </div>
+          <button onclick="evaAdminMarkAllRead()" style="background:rgba(79,70,229,.1);color:#a5b4fc;border:1px solid rgba(79,70,229,.3);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">✓ Mark all read</button>
+        </div>
+        <div id="admin-queries-list" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;"></div>
+      </div>
+
       <!-- CREDENTIALS MANAGER -->
       <div class="view" id="view-credentials">
         <div class="ph" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -4648,6 +4697,88 @@ function navScrollTo(id) {
         </div>
       </div>
 
+      <!-- ══ PARTNER ELITE VIEW ══ -->
+      <div class="view" id="view-p-elite">
+        <div class="ph">
+          <div class="pt">🏆 My Elite Performance</div>
+          <div class="ps">Elite vs Non-Elite · Inspections · Stock-ins · I2SI% · Payout</div>
+        </div>
+        <div class="fb" style="margin-bottom:14px;">
+          <div class="fbrow" style="gap:10px;flex-wrap:wrap;align-items:center;">
+            <span class="rl">Month:</span>
+            <div class="rts" id="p-elite-month-btns"></div>
+          </div>
+        </div>
+        <div class="kg" id="p-elite-kpis" style="margin-bottom:14px;"></div>
+        <div id="p-elite-empty" style="display:none;text-align:center;padding:48px 20px;">
+          <div style="font-size:40px;margin-bottom:12px;">🏆</div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:6px;color:var(--t2);">No Elite Data Yet</div>
+          <div style="font-size:13px;color:var(--t3);">Your elite performance data will appear here once Cars24 imports the monthly elite sheet.</div>
+        </div>
+        <div id="p-elite-table-wrap">
+          <div class="tc">
+            <div class="tch">
+              <div class="tct">Monthly Elite Breakdown</div>
+              <span id="p-elite-sub" style="font-size:11px;color:var(--t3);"></span>
+            </div>
+            <div class="tw"><table>
+              <thead><tr>
+                <th>Month</th>
+                <th class="num">Leads</th>
+                <th class="num">Total Insps</th>
+                <th class="num" style="color:#10b981;">Elite Insps</th>
+                <th class="num">Non-Elite</th>
+                <th class="num">Total Stkn</th>
+                <th class="num" style="color:#10b981;">Elite Stkn</th>
+                <th class="num">Non-Elite</th>
+                <th class="num">E I2SI%</th>
+                <th class="num">NE I2SI%</th>
+                <th class="num" style="color:#10b981;">Elite Payout</th>
+              </tr></thead>
+              <tbody id="p-elite-tbl"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ CARS24 CHAT VIEW ══ -->
+      <div class="view" id="view-p-chat">
+        <div class="ph">
+          <div class="pt">💬 Cars24 Support</div>
+          <div class="ps">Ask anything about payouts, targets, invoices or raise a query to the Cars24 team</div>
+        </div>
+        <div id="eva-chat-wrap" style="display:flex;flex-direction:column;height:calc(100vh - 180px);min-height:400px;max-width:760px;">
+          <!-- Chat messages -->
+          <div id="eva-messages" style="flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:12px;">
+            <div class="eva-msg eva-msg--bot">
+              <div class="eva-avatar">E</div>
+              <div class="eva-bubble">Hi! I'm your Cars24 Support assistant. Ask me about your payouts, targets, invoices — or raise a query to the admin team. How can I help you today?</div>
+            </div>
+          </div>
+          <!-- Typing indicator -->
+          <div id="eva-typing" style="display:none;padding:6px 4px;">
+            <div class="eva-msg eva-msg--bot">
+              <div class="eva-avatar">E</div>
+              <div class="eva-bubble eva-typing-bubble"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+          <!-- Quick prompts -->
+          <div id="eva-quick-prompts" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;">
+            <button class="eva-qp" onclick="evaQuickPrompt(this)">What's my payout this month?</button>
+            <button class="eva-qp" onclick="evaQuickPrompt(this)">How do I submit an invoice?</button>
+            <button class="eva-qp" onclick="evaQuickPrompt(this)">Explain my targets</button>
+            <button class="eva-qp" onclick="evaRaiseQuery()">Raise a query to admin</button>
+          </div>
+          <!-- Input -->
+          <div style="display:flex;gap:8px;padding:10px 0 4px;border-top:1px solid var(--bd,#e2e5ef);">
+            <input id="eva-input" type="text" placeholder="Type your message…" autocomplete="off"
+              style="flex:1;background:var(--sb,#fff);border:1px solid var(--bd,#e2e5ef);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--tx,#111827);outline:none;font-family:inherit;"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();evaSend();}"/>
+            <button onclick="evaSend()" style="background:var(--ac,#4f46e5);border:none;border-radius:10px;padding:10px 18px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">Send ↑</button>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -4723,52 +4854,75 @@ function navScrollTo(id) {
     // Always read fresh — getLatestCreds() reads localStorage and syncs all refs
     var creds = (typeof getLatestCreds==='function') ? getLatestCreds() : (window.PARTNER_CREDS||[]);
 
-    // Partner login reads EXCLUSIVELY from PARTNER_SHEET (partner tab gid=0)
-    // NEVER falls back to admin data store — prevents admin data leaking to partners
     var partnerSheetData = {};
     try { var psd=localStorage.getItem('cars24_partner_sheet_data'); partnerSheetData=psd?JSON.parse(psd):(window.PARTNER_SHEET||{}); } catch(e){ partnerSheetData=window.PARTNER_SHEET||{}; }
     var partners = Object.values(partnerSheetData);
-    // No admin fallback — partners only see Partner Sheet data
 
+    // ── Master admin ─────────────────────────────────────────────
     if (u === 'admin') {
       if (p !== adminPw) { err.textContent='❌ Incorrect admin password.'; err.style.display='block'; return; }
       showPortal('admin','Admin',null); return;
     }
-    // Check secondary admin accounts
-    var adminAccts = [];
-    try{ var saa=localStorage.getItem('cars24_admin_accounts'); adminAccts=saa?JSON.parse(saa):[]; }catch(e){}
-    var adminAcct = null;
-    for(var ai=0;ai<adminAccts.length;ai++){ if((adminAccts[ai].username||'').toLowerCase()===u){adminAcct=adminAccts[ai];break;} }
-    if(adminAcct){
-      if(adminAcct.password!==p){ err.textContent='❌ Incorrect admin password.'; err.style.display='block'; return; }
-      showPortal('admin', adminAcct.display||adminAcct.username, null); return;
-    }
-    var cred=null;
-    for(var i=0;i<creds.length;i++){ if((creds[i].username||'').toLowerCase()===u){cred=creds[i];break;} }
-    if(!cred){ err.textContent='❌ Username not found.'; err.style.display='block'; return; }
-    if(cred.status==='Not Active'){ err.textContent='❌ Account inactive. Contact admin.'; err.style.display='block'; return; }
-    if(cred.password!==p){ err.textContent='❌ Incorrect password.'; err.style.display='block'; return; }
-    var partner=null;
-    for(var j=0;j<partners.length;j++){
-      var pt=partners[j];
-      if(!pt||!pt.name) continue;
-      var ptN=pt.name.toLowerCase().replace(/\s+/g,'');
-      var crN=(cred.display||'').toLowerCase().replace(/\s+/g,'');
-      if(pt.name===cred.display||pt.name.toLowerCase()===cred.display.toLowerCase()
-        ||ptN.slice(0,12)===u||ptN.includes(crN.slice(0,8))||crN.includes(ptN.slice(0,8))){
-        partner=pt; break;
+
+    // ── Check if username exists in partner_creds FIRST ──────────
+    // Prevents a username that also appears in admin_accounts from
+    // being blocked by the admin check (e.g. naseem in both lists)
+    var isPartner = false;
+    for(var pi=0;pi<creds.length;pi++){ if((creds[pi].username||'').toLowerCase()===u){isPartner=true;break;} }
+
+    // ── Secondary admin accounts (only if NOT a partner username) ─
+    if(!isPartner){
+      var adminAccts = [];
+      try{ var saa=localStorage.getItem('cars24_admin_accounts'); adminAccts=saa?JSON.parse(saa):[]; }catch(e){}
+      for(var ai=0;ai<adminAccts.length;ai++){
+        if((adminAccts[ai].username||'').toLowerCase()===u){
+          if(adminAccts[ai].password!==p){ err.textContent='❌ Incorrect admin password.'; err.style.display='block'; return; }
+          showPortal('admin', adminAccts[ai].display||adminAccts[ai].username, null); return;
+        }
       }
     }
-    // If not in PARTNER_SHEET, create empty shell (partner can log in, data loads after sync)
-    if(!partner){
-      partner={name:cred.display,display:cred.display,status:'Active',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}};
+
+    // ── Partner login ─────────────────────────────────────────────
+    function _attemptLogin(credList){
+      var cred=null;
+      for(var i=0;i<credList.length;i++){ if((credList[i].username||'').toLowerCase()===u){cred=credList[i];break;} }
+      if(!cred){ err.textContent='❌ Username not found.'; err.style.display='block'; return; }
+      if(cred.status==='Not Active'){ err.textContent='❌ Account inactive. Contact admin.'; err.style.display='block'; return; }
+      if(cred.password!==p){ err.textContent='❌ Incorrect password.'; err.style.display='block'; return; }
+      var partner=null;
+      for(var j=0;j<partners.length;j++){
+        var pt=partners[j];
+        if(!pt||!pt.name) continue;
+        var ptN=pt.name.toLowerCase().replace(/\s+/g,'');
+        var crN=(cred.display||'').toLowerCase().replace(/\s+/g,'');
+        if(pt.name===cred.display||pt.name.toLowerCase()===cred.display.toLowerCase()
+          ||ptN.slice(0,12)===u||ptN.includes(crN.slice(0,8))||crN.includes(ptN.slice(0,8))){
+          partner=pt; break;
+        }
+      }
+      if(!partner){
+        partner={name:cred.display,display:cred.display,status:'Active',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}};
+      }
+      partner.username = cred.username;
+      partner.display  = cred.display;
+      partner.password = cred.password;
+      partner.credName = cred.display;
+      showPortal('partner', cred.display, partner);
     }
-    // Attach ALL credential fields to partner for unambiguous sync lookup
-    partner.username = cred.username;
-    partner.display  = cred.display;
-    partner.password = cred.password; // needed for password change
-    partner.credName = cred.display;  // preserve original cred display name
-    showPortal('partner', cred.display, partner);
+
+    // Fresh device — pull from Supabase first if creds empty
+    if(creds.length === 0 && typeof window.c24SyncPull === 'function'){
+      err.textContent = '⏳ Loading credentials…';
+      err.style.display = 'block';
+      window.c24SyncPull(function(){
+        err.style.display = 'none';
+        var fc=[];
+        try{ var _fc=localStorage.getItem('cars24_partner_creds'); fc=_fc?JSON.parse(_fc):[]; }catch(e){}
+        _attemptLogin(fc);
+      });
+    } else {
+      _attemptLogin(creds);
+    }
   };
 })();
 </script>
@@ -4972,6 +5126,139 @@ var GRAND   = {};
 var PERIOD  = {};
 var RMETA   = {};
 
+// ══════════════════════════════════════════════════════════════════
+//  C24 YEAR FILTER ENGINE
+//  Auto-injects a Year selector above every month-button container.
+//  Works for ALL views — admin and partner — with zero per-view changes.
+//
+//  Usage: call c24YearFilter.init(containerId) after building month btns
+//  Or:    call c24YearFilter.applyAll() to refresh all visible containers
+// ══════════════════════════════════════════════════════════════════
+var c24YearFilter = (function(){
+  var _activeYear = {}; // per containerId
+
+  // Get distinct years from month registry
+  function _getYears(){
+    var reg = loadMonthRegistry ? loadMonthRegistry() : {yearMap:{}};
+    var years = [];
+    Object.values(reg.yearMap||{}).forEach(function(y){
+      if(y && years.indexOf(y)===-1) years.push(y);
+    });
+    return years.sort();
+  }
+
+  // Get year for a month short key (e.g. "Mar" → 2026)
+  function _yearFor(m){
+    var reg = loadMonthRegistry ? loadMonthRegistry() : {yearMap:{}};
+    return reg.yearMap[m] || null;
+  }
+
+  // Build/refresh year pills above a month-btn container
+  function init(containerId){
+    var wrap = document.getElementById(containerId);
+    if(!wrap) return;
+
+    var years = _getYears();
+    if(years.length < 2){
+      // Only one year — remove any existing year row and show all months
+      var old = document.getElementById('yf-'+containerId);
+      if(old) old.remove();
+      wrap.querySelectorAll('.rt').forEach(function(b){ b.style.display=''; });
+      return;
+    }
+
+    // Default: most recent year
+    if(!_activeYear[containerId]){
+      _activeYear[containerId] = years[years.length-1];
+    }
+
+    // Create or update year pill row
+    var yRow = document.getElementById('yf-'+containerId);
+    if(!yRow){
+      yRow = document.createElement('div');
+      yRow.id = 'yf-'+containerId;
+      yRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;';
+      var lbl = document.createElement('span');
+      lbl.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-right:2px;';
+      lbl.textContent = 'Year:';
+      yRow.appendChild(lbl);
+      // Insert before the wrap container's parent row, or before wrap itself
+      var parent = wrap.parentNode;
+      parent.insertBefore(yRow, wrap);
+    }
+
+    // Rebuild year pills
+    // Keep the label (first child), replace rest
+    while(yRow.children.length > 1) yRow.removeChild(yRow.lastChild);
+    years.forEach(function(y){
+      var btn = document.createElement('button');
+      btn.className = 'rt c24-yr-pill' + (y===_activeYear[containerId]?' active':'');
+      btn.textContent = y;
+      btn.style.cssText = 'font-size:11px;padding:3px 10px;';
+      btn.onclick = (function(yr, cid){
+        return function(){
+          _activeYear[cid] = yr;
+          // Update pill active states
+          var row = document.getElementById('yf-'+cid);
+          if(row) row.querySelectorAll('.c24-yr-pill').forEach(function(p){ p.classList.toggle('active', p.textContent==yr); });
+          // Filter month buttons
+          _filterMonths(cid);
+          // Auto-click first visible active month btn if current is hidden
+          var w = document.getElementById(cid);
+          if(!w) return;
+          var activeBtn = w.querySelector('.rt.active');
+          if(activeBtn && activeBtn.style.display==='none'){
+            var firstVisible = w.querySelector('.rt:not(.c24-yr-pill):not([style*="display: none"]):not([style*="display:none"])');
+            if(firstVisible) firstVisible.click();
+          } else if(!activeBtn){
+            var firstVisible2 = w.querySelector('.rt:not(.c24-yr-pill):not([style*="display: none"]):not([style*="display:none"])');
+            if(firstVisible2) firstVisible2.click();
+          }
+        };
+      })(y, containerId);
+      yRow.appendChild(btn);
+    });
+
+    _filterMonths(containerId);
+  }
+
+  // Show/hide month buttons based on active year
+  function _filterMonths(containerId){
+    var wrap = document.getElementById(containerId);
+    if(!wrap) return;
+    var yr = _activeYear[containerId];
+    wrap.querySelectorAll('.rt:not(.c24-yr-pill)').forEach(function(btn){
+      // Derive month key from button text (e.g. "Mar" or "Mar 2026" or "Mar'26")
+      var raw = (btn.textContent||btn.dataset.month||'').trim();
+      var mKey = raw.split(/[\s']/)[0]; // first word = month short key
+      var btnYear = _yearFor(mKey);
+      btn.style.display = (!yr || !btnYear || btnYear===yr) ? '' : 'none';
+    });
+  }
+
+  // Apply to all known month-btn containers
+  function applyAll(){
+    var ids = [
+      'dod-month-btns','mom-btns','wdwe-month-btns','proj-month-btns',
+      'biz-month-btns','target-month-btns','av-month-btns','elite-month-btns',
+      'lb-month-btns','sc-month-btns','buyer-month-btns','vas-month-btns',
+      'payout-month-btns','inv-month-btns-admin','proof-month-btns',
+      'p-elite-month-btns','p-buyer-month-btns','p-sc-month-btns',
+      'p-seller-month-btns'
+    ];
+    ids.forEach(init);
+  }
+
+  // Set year for a container (called externally if needed)
+  function setYear(containerId, year){
+    _activeYear[containerId] = year;
+    init(containerId);
+  }
+
+  return { init:init, applyAll:applyAll, setYear:setYear, getYears:_getYears };
+})();
+
+
 function rebuildMonthMeta(){
   var reg = loadMonthRegistry();
   MONTHS  = reg.order.slice();
@@ -5063,6 +5350,8 @@ function rebuildMonthMeta(){
     if(!mtdPrev || !MONTHS.includes(mtdPrev)) mtdPrev = MONTHS[MONTHS.length-2]||MONTHS[0]||'';
     if(!pTrendPair) pTrendPair = (MONTHS[MONTHS.length-1]||'')+'_'+(MONTHS[MONTHS.length-2]||'');
   }
+  // Refresh year filters across all views
+  try{ if(typeof c24YearFilter!=='undefined') setTimeout(function(){ c24YearFilter.applyAll(); }, 50); }catch(e){}
 }
 
 // ─── _shortLabel — abbreviate "May 2025" → "May'25", "Jan 2026" → "Jan'26" ───
@@ -5121,6 +5410,7 @@ function _rebuildRangeButtons(){
     mtdBtn.textContent = mtdLabel;
     mtdBtn.onclick = function(){ setRange(lastDataM,this); };
   }
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('range-btns');
 }
 
 function _rebuildMtdButtons(){
@@ -5182,6 +5472,7 @@ function _rebuildDodMonthButtons(){
   // Update subtitle
   var ps = document.getElementById('dod-ps');
   if(ps && DOD_DATES.length > 0) ps.textContent = 'Daily trends · '+DOD_DATES[0].slice(0,7)+' – '+DOD_DATES[DOD_DATES.length-1].slice(0,7)+' · '+DOD_DATES.length+' days';
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('dod-month-btns');
 }
 
 function _rebuildTrendDropdown(){
@@ -5488,6 +5779,7 @@ function triggerPartnerView(id){
   if(id==='p-payments')buildPartnerPayments();
   if(id==='p-reports')buildPartnerReports();
   if(id==='p-buyer')buildPartnerBuyer();
+  if(id==='p-elite')buildPartnerEliteView();
 }
 
 // ════════════════════════════════════════════════
@@ -5703,7 +5995,7 @@ function buildMonthlyChart(){
   const ctx=document.getElementById('monthlyChart');if(!ctx)return;
   if(CH.mc)CH.mc.destroy();
   const months=(RMETA[curRange].months||MONTHS);
-  CH.mc=new Chart(ctx,{type:chartType,data:{labels:months.map(m=>MLABEL[m]),datasets:[
+  CH.mc=new Chart(ctx,{type:chartType,data:{labels:months.map(function(m){return MLABEL[m]||m;}),datasets:[
     {label:'Leads',data:months.map(m=>GRAND.leads[m]),backgroundColor:'rgba(79,70,229,.75)',borderColor:'#4f46e5',borderWidth:2,borderRadius:5,tension:.4,fill:false,pointRadius:4},
     {label:'Appointments',data:months.map(m=>GRAND.appts[m]),backgroundColor:'rgba(20,184,166,.7)',borderColor:'#14b8a6',borderWidth:2,borderRadius:5,tension:.4,fill:false,pointRadius:4},
     {label:'Inspections',data:months.map(m=>GRAND.insps[m]),backgroundColor:'rgba(139,92,246,.7)',borderColor:'#8b5cf6',borderWidth:2,borderRadius:5,tension:.4,fill:false,pointRadius:4},
@@ -5999,7 +6291,7 @@ function buildDodStats(){
   tbody.innerHTML = rows.join('');
 }
 
-function buildDodMonthBtns(){ _rebuildDodMonthButtons(); }
+function buildDodMonthBtns(){ _rebuildDodMonthButtons(); if(typeof c24YearFilter!=='undefined') c24YearFilter.init('dod-month-btns'); }
 
 function _getDayLabel(dateStr){
   var d=new Date(dateStr);
@@ -6538,7 +6830,7 @@ function buildPartnerOverview(){
     <div class="partner-hero">
       <div class="ph-badge"><span class="ph-dot"></span>${p.status}</div>
       <div class="ph-name">${p.name}</div>
-      <div class="ph-sub">Partner Dashboard · ${MLABEL[MONTHS[0]]||MONTHS[0]} – ${MLABEL[MONTHS[MONTHS.length-1]]||MONTHS[MONTHS.length-1]}</div>
+      <div class="ph-sub">Partner Dashboard · ${(MLABEL&&MLABEL[MONTHS[0]])||MONTHS[0]||'—'} – ${(MLABEL&&MLABEL[MONTHS[MONTHS.length-1]])||MONTHS[MONTHS.length-1]||'—'}</div>
       <div class="ph-stats">
         <div class="ph-stat"><div class="ph-stat-v">${fmtN(totL)}</div><div class="ph-stat-l">Total Leads</div></div>
         <div class="ph-stat"><div class="ph-stat-v">${fmtN(totI)}</div><div class="ph-stat-l">Inspections</div></div>
@@ -6549,7 +6841,7 @@ function buildPartnerOverview(){
     </div>`;
 
   document.getElementById('p-kpis').innerHTML=[
-    {l:'Total Leads',v:totL,s:MONTHS.map(m=>MLABEL[m].slice(0,3)+': '+fmtN(p.leads[m]||0)).join(' · '),col:'cb'},
+    {l:'Total Leads',v:totL,s:MONTHS.map(m=>(MLABEL[m]||m).slice(0,3)+': '+fmtN(p.leads[m]||0)).join(' · '),col:'cb'},
     {l:'Appointments',v:totA,s:pct(totA,totL)+'% of leads',col:'ct'},
     {l:'Inspections',v:totI,s:pct(totI,totL)+'% of leads',col:'cp'},
     {l:'Stock-ins',v:totS,s:pct(totS,totI)+'% of inspections',col:'cg'},
@@ -6575,7 +6867,7 @@ function buildPartnerOverview(){
     const P=m==='Total'?totP:(p.payout[m]||0);
     const cv=L>0?(S/L*100).toFixed(2):'—';
     const isTotal=m==='Total';
-    return`<tr${isTotal?' class="sumrow"':''}><td style="font-weight:${isTotal?700:500}">${isTotal?'Total':MLABEL[m]}</td><td class="num">${L.toLocaleString()}</td><td class="num">${A.toLocaleString()}</td><td class="num">${I.toLocaleString()}</td><td class="num">${S}</td><td class="num">${P>0?fmtL(P):'—'}</td><td class="num">${cv}${cv!=='—'?'%':''}</td></tr>`;
+    return`<tr${isTotal?' class="sumrow"':''}><td style="font-weight:${isTotal?700:500}">${isTotal?'Total':(MLABEL[m]||m)}</td><td class="num">${L.toLocaleString()}</td><td class="num">${A.toLocaleString()}</td><td class="num">${I.toLocaleString()}</td><td class="num">${S}</td><td class="num">${P>0?fmtL(P):'—'}</td><td class="num">${cv}${cv!=='—'?'%':''}</td></tr>`;
   }).join('');
 
   // Announcement preview on overview
@@ -6614,24 +6906,84 @@ function setPCT(t){pChartType=t;document.getElementById('pctbar').classList.togg
 function buildPartnerMonthly(){
   const p=currentPartner;if(!p)return;
   document.getElementById('pm-title').textContent=p.name+' — Monthly Breakdown';
-  document.getElementById('p-month-cards').innerHTML=MONTHS.map(m=>{
+
+  // Year filter
+  var reg = typeof loadMonthRegistry==='function' ? loadMonthRegistry() : {yearMap:{}};
+  var years = [];
+  MONTHS.forEach(function(m){ var y=reg.yearMap[m]; if(y&&years.indexOf(y)===-1) years.push(y); });
+  years.sort();
+
+  // Inject year selector above cards if multiple years
+  var view = document.getElementById('view-p-monthly');
+  var existingYF = view ? view.querySelector('#pm-year-filter') : null;
+  if(existingYF) existingYF.remove();
+  if(years.length > 1 && view){
+    if(!window._pmYear || years.indexOf(window._pmYear)===-1) window._pmYear = years[years.length-1];
+    var yDiv = document.createElement('div');
+    yDiv.id = 'pm-year-filter';
+    yDiv.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:10px;';
+    yDiv.innerHTML = '<span style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);">Year:</span>';
+    years.forEach(function(y){
+      var btn = document.createElement('button');
+      btn.className = 'rt' + (y===window._pmYear?' active':'');
+      btn.textContent = y;
+      btn.style.cssText = 'font-size:11px;padding:3px 10px;';
+      btn.onclick = (function(yr){ return function(){
+        window._pmYear = yr;
+        yDiv.querySelectorAll('.rt').forEach(function(b){ b.classList.toggle('active', b.textContent==yr); });
+        _renderPMonthCards(p, reg);
+      }; })(y);
+      yDiv.appendChild(btn);
+    });
+    var cardsEl = document.getElementById('p-month-cards');
+    if(cardsEl) view.insertBefore(yDiv, cardsEl);
+  } else {
+    window._pmYear = years[0] || null;
+  }
+
+  _renderPMonthCards(p, reg);
+}
+
+function _renderPMonthCards(p, reg){
+  reg = reg || (typeof loadMonthRegistry==='function' ? loadMonthRegistry() : {yearMap:{}});
+  var filtered = window._pmYear
+    ? MONTHS.filter(function(m){ return reg.yearMap[m]===window._pmYear; })
+    : MONTHS;
+  if(!filtered.length) filtered = MONTHS; // fallback — show all if year filter yields nothing
+  document.getElementById('p-month-cards').innerHTML=filtered.map(function(m){
     const L=p.leads[m]||0,I=p.insps[m]||0,S=p.stocks[m]||0,P=p.payout[m]||0;
+    var lbl = (MLABEL&&MLABEL[m]) ? MLABEL[m] : m;
     return`<div class="mc" onclick="selectMonth('${m}',this)">
-      <div class="mc-month">${MLABEL[m]}</div>
+      <div class="mc-month">${lbl}</div>
       <div class="mc-val">${fmtN(L)}</div>
       <div class="mc-sub">Leads · ${I} insps · ${S} stocks</div>
       ${P>0?`<div style="font-size:11px;color:#10b981;margin-top:4px;font-weight:600">${fmtL(P)} payout</div>`:''}
     </div>`;
   }).join('');
-  selectMonth('Dec', document.querySelector('.mc'));
+  // Auto-select last card (most recent month)
+  var cards = document.querySelectorAll('#p-month-cards .mc');
+  var lastCard = cards[cards.length-1];
+  var lastMonth = filtered[filtered.length-1];
+  if(lastCard && lastMonth) selectMonth(lastMonth, lastCard);
 }
+
 function selectMonth(m, el){
-  selMonth=m; const p=currentPartner;
+  if(!m) return;
+  selMonth = m;
+  const p = currentPartner; if(!p) return;
   document.querySelectorAll('.mc').forEach(c=>c.classList.remove('sel'));
-  if(el)el.classList.add('sel');
+  if(el) el.classList.add('sel');
   const L=p.leads[m]||0,A=p.appts[m]||0,I=p.insps[m]||0,S=p.stocks[m]||0,Py=p.payout[m]||0;
-  document.getElementById('pm-detail-title').textContent=p.name+' · '+MLABEL[m]+' Detailed Stats';
-  const rows=[{l:'Total Leads',v:L.toLocaleString(),s:'Total leads generated'},{l:'Appointments',v:A.toLocaleString(),s:pct(A,L)+'% of leads'},{l:'Inspections',v:I.toLocaleString(),s:pct(I,L)+'% of leads'},{l:'Stock-ins',v:S.toLocaleString(),s:pct(S,I)+'% of inspections'},{l:'Lead→Stock Conv',v:(L>0?(S/L*100).toFixed(2):0)+'%',s:'Overall conversion'},{l:'Payout',v:Py>0?fmtL(Py):'—',s:'Total earnings for '+MLABEL[m]}];
+  var lbl = (MLABEL&&MLABEL[m]) ? MLABEL[m] : m; // guard against undefined MLABEL
+  document.getElementById('pm-detail-title').textContent = p.name+' · '+lbl+' Detailed Stats';
+  const rows=[
+    {l:'Total Leads',      v:L.toLocaleString(),                        s:'Total leads generated'},
+    {l:'Appointments',     v:A.toLocaleString(),                        s:pct(A,L)+'% of leads'},
+    {l:'Inspections',      v:I.toLocaleString(),                        s:pct(I,L)+'% of leads'},
+    {l:'Stock-ins',        v:S.toLocaleString(),                        s:pct(S,I)+'% of inspections'},
+    {l:'Lead→Stock Conv',  v:(L>0?(S/L*100).toFixed(2):0)+'%',         s:'Overall conversion'},
+    {l:'Payout',           v:Py>0?fmtL(Py):'—',                        s:'Total earnings for '+lbl}
+  ];
   document.getElementById('pm-detail-content').innerHTML=rows.map(r=>`<div class="sr"><div class="sl">${r.l}</div><div style="text-align:right"><div class="sv">${r.v}</div><div style="font-size:10px;color:var(--t3);margin-top:1px">${r.s}</div></div></div>`).join('');
 }
 
@@ -6681,10 +7033,10 @@ function buildPartnerPayout(){
     <div class="kc cb"><div class="kl">Total Payout</div><div class="kv">${totP>0?fmtL(totP):'—'}</div><div class="ks">${MLABEL[MONTHS[0]]||MONTHS[0]} – ${MLABEL[MONTHS[MONTHS.length-1]]||MONTHS[MONTHS.length-1]}</div></div>
     <div class="kc cg"><div class="kl">Total Stock-ins</div><div class="kv">${totS}</div><div class="ks">Across all months</div></div>
     <div class="kc ct"><div class="kl">Avg Payout/Month</div><div class="kv">${totP>0?fmtL(Math.round(totP/4)):'—'}</div><div class="ks">4 months average</div></div>
-    <div class="kc cp"><div class="kl">Best Month</div><div class="kv">${MONTHS.reduce((b,m)=>(p.payout[m]||0)>(p.payout[b]||0)?m:b,'Dec')}</div><div class="ks">Highest payout</div></div>`;
+    <div class="kc cp"><div class="kl">Best Month</div><div class="kv">${MONTHS.length?MLABEL[MONTHS.reduce((b,m)=>(p.payout[m]||0)>(p.payout[b]||0)?m:b,MONTHS[0])]||MONTHS[0]:'—'}</div><div class="ks">Highest payout</div></div>`;
   document.getElementById('p-payout-tbl').innerHTML=MONTHS.map(m=>{
     const P=p.payout[m]||0,S=p.stocks[m]||0,I=p.insps[m]||0,L=p.leads[m]||0;
-    return`<tr><td style="font-weight:600">${MLABEL[m]}</td><td class="num">${S}</td><td class="num">${I.toLocaleString()}</td><td class="num">${L.toLocaleString()}</td><td class="num" style="font-weight:700;color:${P>0?'#10b981':'var(--t3)'}">${P>0?fmtL(P):'—'}</td><td><span class="ba ${P>0?'bag':'bar'}"><span class="bdot"></span>${P>0?'Paid':'No Data'}</span></td></tr>`;
+    return`<tr><td style="font-weight:600">${MLABEL[m]||m}</td><td class="num">${S}</td><td class="num">${I.toLocaleString()}</td><td class="num">${L.toLocaleString()}</td><td class="num" style="font-weight:700;color:${P>0?'#10b981':'var(--t3)'}">${P>0?fmtL(P):'—'}</td><td><span class="ba ${P>0?'bag':'bar'}"><span class="bdot"></span>${P>0?'Paid':'No Data'}</span></td></tr>`;
   }).join('');
 }
 
@@ -7552,6 +7904,7 @@ function buildTargetMonthBtns(){
     if(window._targetMonth) btmSel.value = window._targetMonth;
     window._btmMonth = btmSel.value;
   }
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('target-month-btns');
 }
 
 function buildTargets(q){
@@ -8081,6 +8434,7 @@ function initAdminView(){
       noB.textContent = 'No admin data imported yet';
       wrap.appendChild(noB);
     }
+    if(typeof c24YearFilter!=='undefined') c24YearFilter.init('av-month-btns');
   }
   buildAdminView();
 }
@@ -8453,6 +8807,7 @@ function initSellerChannels(){
       }; })(m);
       wrap.appendChild(b);
     });
+    if(typeof c24YearFilter!=='undefined') c24YearFilter.init('sc-month-btns');
   }
   // Build partner selector — merge PARTNER_SHEET + PARTNERS names
   var sel = document.getElementById('sc-partner-sel');
@@ -8623,6 +8978,7 @@ function buildPartnerSellerChannels(){
       };})(m);
       wrap.appendChild(b);
     });
+    if(typeof c24YearFilter!=='undefined') c24YearFilter.init('p-sc-month-btns');
   }
   _renderPartnerSC();
 }
@@ -8703,6 +9059,7 @@ function buildPayoutMonthBtns(){
     btn.onclick=(function(mm){return function(){_payoutMonth=mm;document.querySelectorAll('#payout-month-btns .rt').forEach(x=>x.classList.remove('active'));this.classList.add('active');renderPayoutTable();};})(m);
     wrap.appendChild(btn);
   });
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('payout-month-btns');
 }
 function renderPayoutTable(){
   var store=getPayoutStore(), q=(document.getElementById('payout-search')||{value:''}).value.toLowerCase();
@@ -8855,6 +9212,7 @@ function buildInvMonthBtnsAdmin(){
     btn.onclick=(function(mm){return function(){_invMonthAdmin=mm;document.querySelectorAll('#inv-month-btns-admin .rt').forEach(x=>x.classList.remove('active'));this.classList.add('active');renderInvoiceTableAdmin();};})(m);
     wrap.appendChild(btn);
   });
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('inv-month-btns-admin');
 }
 function renderInvoiceTableAdmin(){
   var invs=getInvoices(), q=(document.getElementById('inv-search-admin')||{value:''}).value.toLowerCase();
@@ -8910,6 +9268,7 @@ function buildProofMonthBtns(){
     btn.onclick=(function(mm){return function(){_proofMonth=mm;document.querySelectorAll('#proof-month-btns .rt').forEach(x=>x.classList.remove('active'));this.classList.add('active');renderProofTable();};})(m);
     wrap.appendChild(btn);
   });
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('proof-month-btns');
 }
 function renderProofTable(){
   var proofs=getProofs(), q=(document.getElementById('proof-search')||{value:''}).value.toLowerCase();
@@ -9486,6 +9845,7 @@ function buildBuyerMonthBtns(){
     }; })(m);
     wrap.appendChild(btn);
   });
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('buyer-month-btns');
 }
 
 // Canonical month abbreviation map
@@ -9683,6 +10043,7 @@ function buildPartnerBuyer(){
         }; })(m);
         wrap.appendChild(btn);
       });
+      if(typeof c24YearFilter!=='undefined') c24YearFilter.init('p-buyer-month-btns');
     }
   }
   renderPartnerBuyerPanel();
@@ -9758,6 +10119,150 @@ function renderPartnerBuyerPanel(){
       }).join('');
     }
   }
+}
+
+// ════════════════════════════════════════════════════════════
+//  PARTNER ELITE VIEW
+// ════════════════════════════════════════════════════════════
+var _pEliteMonth = 'all';
+
+function buildPartnerEliteView(){
+  var p = currentPartner; if(!p) return;
+  var pName = (p.display||p.name||'').trim();
+  var store = getEliteStore();
+  var months = Object.keys(store).sort();
+
+  var emptyEl  = document.getElementById('p-elite-empty');
+  var tableWrap = document.getElementById('p-elite-table-wrap');
+  var monthWrap = document.getElementById('p-elite-month-btns');
+  var kpisEl   = document.getElementById('p-elite-kpis');
+  var tbl      = document.getElementById('p-elite-tbl');
+  var subEl    = document.getElementById('p-elite-sub');
+
+  // Filter months that have data for this partner
+  var myMonths = months.filter(function(m){
+    return (store[m].partners||[]).some(function(r){
+      return _eliteNameMatch(r.name, pName);
+    });
+  });
+
+  if(!myMonths.length){
+    if(emptyEl)   emptyEl.style.display = '';
+    if(tableWrap) tableWrap.style.display = 'none';
+    if(kpisEl)    kpisEl.innerHTML = '';
+    if(monthWrap) monthWrap.innerHTML = '';
+    return;
+  }
+  if(emptyEl)   emptyEl.style.display = 'none';
+  if(tableWrap) tableWrap.style.display = '';
+
+  // Month buttons — "All" + each month
+  if(monthWrap){
+    monthWrap.innerHTML = '';
+    var allBtn = document.createElement('button');
+    allBtn.className = 'rt' + (_pEliteMonth==='all'?' active':'');
+    allBtn.textContent = 'All';
+    allBtn.onclick = function(){
+      _pEliteMonth = 'all';
+      monthWrap.querySelectorAll('.rt').forEach(function(x){ x.classList.remove('active'); });
+      this.classList.add('active');
+      _renderPartnerEliteTable(store, myMonths, pName);
+    };
+    monthWrap.appendChild(allBtn);
+    myMonths.forEach(function(m){
+      var btn = document.createElement('button');
+      btn.className = 'rt' + (m===_pEliteMonth?' active':'');
+      btn.textContent = m;
+      btn.onclick = (function(mm){ return function(){
+        _pEliteMonth = mm;
+        monthWrap.querySelectorAll('.rt').forEach(function(x){ x.classList.remove('active'); });
+        this.classList.add('active');
+        _renderPartnerEliteTable(store, myMonths, pName);
+      }; })(m);
+      monthWrap.appendChild(btn);
+    });
+    if(typeof c24YearFilter!=='undefined') c24YearFilter.init('p-elite-month-btns');
+  }
+
+  _renderPartnerEliteTable(store, myMonths, pName);
+}
+
+function _eliteNameMatch(a, b){
+  if(!a||!b) return false;
+  var an = a.toLowerCase().replace(/\s+/g,'');
+  var bn = b.toLowerCase().replace(/\s+/g,'');
+  return an===bn || an.includes(bn.slice(0,8)) || bn.includes(an.slice(0,8));
+}
+
+function _renderPartnerEliteTable(store, myMonths, pName){
+  var kpisEl = document.getElementById('p-elite-kpis');
+  var tbl    = document.getElementById('p-elite-tbl');
+  var subEl  = document.getElementById('p-elite-sub');
+
+  // Collect rows for selected months
+  var activeMo = _pEliteMonth==='all' ? myMonths : (myMonths.includes(_pEliteMonth)?[_pEliteMonth]:[]);
+
+  var rows = [];
+  activeMo.forEach(function(m){
+    var partners = store[m].partners||[];
+    var matched = partners.filter(function(r){ return _eliteNameMatch(r.name, pName); });
+    // If multiple campaign rows, show each; otherwise one row per month
+    matched.forEach(function(r){ rows.push(Object.assign({}, r, {_month: m})); });
+  });
+
+  if(!rows.length){
+    if(tbl) tbl.innerHTML = '<tr><td colspan="11" class="empty">No data for this period.</td></tr>';
+    if(kpisEl) kpisEl.innerHTML = '';
+    return;
+  }
+
+  // Aggregate totals for KPI cards
+  var totL=0, totI=0, totEI=0, totNEI=0, totS=0, totES=0, totNES=0, totP=0;
+  rows.forEach(function(r){
+    totL  += r.leads||0;  totI  += r.insps||0;
+    totEI += r.elite_insp||0; totNEI += r.non_elite_insp||0;
+    totS  += r.stocks||0; totES += r.elite_stkn||0; totNES += r.non_elite_stkn||0;
+    totP  += r.payout_elite||0;
+  });
+  var eI2si  = totEI>0&&totI>0 ? (totEI/totI*100).toFixed(1)+'%' : '—';
+  var neI2si = totNEI>0&&totI>0? (totNEI/totI*100).toFixed(1)+'%': '—';
+  var payStr = totP>=100000?'₹'+(totP/100000).toFixed(1)+'L':totP>=1000?'₹'+(totP/1000).toFixed(0)+'K':totP?'₹'+totP:'—';
+
+  // KPI cards
+  if(kpisEl) kpisEl.innerHTML = [
+    {l:'Leads',          v:totL.toLocaleString(),          s:'Total leads',                       col:'cb'},
+    {l:'Total Insps',    v:totI.toLocaleString(),          s:'All inspections',                   col:'ct'},
+    {l:'Elite Insps',    v:totEI.toLocaleString(),         s:eI2si+' of total · Elite only',     col:'cg'},
+    {l:'Non-Elite Insps',v:totNEI.toLocaleString(),        s:neI2si+' of total',                 col:''},
+    {l:'Elite Stkn',     v:totES.toLocaleString(),         s:'of '+totS+' total stock-ins',       col:'cp'},
+    {l:'Elite Payout',   v:payStr,                         s:'Cumulative elite payout',           col:'ca'},
+  ].map(function(k){
+    return '<div class="kc '+(k.col||'')+'" style="'+(k.col?'':'background:var(--sf);border:1px solid var(--bd);')+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div></div>';
+  }).join('');
+
+  // Table rows
+  if(subEl) subEl.textContent = rows.length+' row'+(rows.length!==1?'s':'')+' · '+(activeMo.length>1?'All months':activeMo[0]);
+  if(tbl) tbl.innerHTML = rows.map(function(r){
+    var eI  = r.elite_insp||0, neI = r.non_elite_insp||0;
+    var eS  = r.elite_stkn||0, neS = r.non_elite_stkn||0;
+    var eI2 = r.e_i2si ? (r.e_i2si*100>1 ? r.e_i2si.toFixed(1)+'%' : (r.e_i2si*100).toFixed(1)+'%') : (eI&&r.insps ? (eI/r.insps*100).toFixed(1)+'%' : '—');
+    var neI2= r.ne_i2si? (r.ne_i2si*100>1? r.ne_i2si.toFixed(1)+'%': (r.ne_i2si*100).toFixed(1)+'%'): (neI&&r.insps ? (neI/r.insps*100).toFixed(1)+'%' : '—');
+    var pay = r.payout_elite||0;
+    var payS= pay>=100000?'₹'+(pay/100000).toFixed(1)+'L':pay>=1000?'₹'+(pay/1000).toFixed(0)+'K':pay?'₹'+pay:'—';
+    return '<tr>'
+      +'<td style="font-weight:700;color:var(--ac)">'+escH(r._month)+'</td>'
+      +'<td class="num">'+(r.leads||0).toLocaleString()+'</td>'
+      +'<td class="num">'+(r.insps||0).toLocaleString()+'</td>'
+      +'<td class="num" style="color:#10b981;font-weight:700">'+eI.toLocaleString()+'</td>'
+      +'<td class="num">'+neI.toLocaleString()+'</td>'
+      +'<td class="num">'+(r.stocks||0).toLocaleString()+'</td>'
+      +'<td class="num" style="color:#10b981;font-weight:700">'+eS.toLocaleString()+'</td>'
+      +'<td class="num">'+neS.toLocaleString()+'</td>'
+      +'<td class="num" style="color:#10b981;font-weight:600">'+eI2+'</td>'
+      +'<td class="num">'+neI2+'</td>'
+      +'<td class="num" style="color:#10b981;font-weight:700">'+payS+'</td>'
+      +'</tr>';
+  }).join('');
 }
 
 </script>
@@ -11718,8 +12223,8 @@ var GSHEET_ID = (function(){
 // Key = short tab name, Value = numeric GID string
 // All confirmed GIDs from user-provided sheet URLs
 var GSHEET_TAB_GIDS = {
-  'Partner':  '0',           // Partner View (gid=0)
-  'Admin':    '1012408495',  // Admin View   (gid=1012408495)
+  // Partner tab (gid=0) removed — Admin tab now populates both PARTNERS and PARTNER_SHEET
+  'Admin':    '1012408495',  // Admin View   (gid=1012408495) — primary data source for all views
   'Overview': '588337111',   // DOD/Dashboard (gid=588337111)
   'Buyer':    '1913073478',  // Buyer View   (gid=1913073478)
   'Elite':    '564077706',   // Elite Dashboard (gid=564077706)
@@ -12506,7 +13011,9 @@ function _integrateGSheetAdmin(rows){
 
     saveAdminViewStore(store);
 
-    // Admin is primary source for PARTNERS — overwrite with full admin data
+    // ── Admin tab is now primary source for BOTH PARTNERS and PARTNER_SHEET ──
+    // PARTNERS  → powers admin dashboard, grand totals, DOD, charts
+    // PARTNER_SHEET → powers individual partner login dashboards
     Object.keys(store).forEach(function(fullMo){
       var md = store[fullMo]; if(!md||!md.partners) return;
       var shortM = null;
@@ -12514,19 +13021,18 @@ function _integrateGSheetAdmin(rows){
       if(!shortM){ var sm = fullMo.split(' ')[0]; if(sm.length===3) shortM=sm; }
       if(!shortM) return;
       md.partners.forEach(function(p){
+        // ── Populate PARTNERS (admin dashboard) ──────────────────────
         var partner = PARTNERS.find(function(x){ return x.name.toLowerCase().trim()===p.name.toLowerCase().trim(); });
         if(!partner){
           partner={name:p.name,status:'Active',region:p.region||'',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}};
           PARTNERS.push(partner);
         }
-        // Core metrics
         partner.leads[shortM]  = p.leads||0;
         partner.appts[shortM]  = p.appts||0;
         partner.insps[shortM]  = p.insps||0;
         partner.stocks[shortM] = p.stocks||0;
         partner.payout[shortM] = Math.round(p.payout||0);
         if(p.region && !partner.region) partner.region = p.region;
-        // Extended admin fields — stored in ext for detailed views
         if(!partner.ext) partner.ext={};
         partner.ext[fullMo] = {
           leads:p.leads||0, appts:p.appts||0, insps:p.insps||0, stocks:p.stocks||0, payout:Math.round(p.payout||0),
@@ -12537,11 +13043,25 @@ function _integrateGSheetAdmin(rows){
           cpi_organic:p.cpi_organic||0, payout_organic:p.payout_organic||0,
           region:p.region||'', view_type:'admin'
         };
+
+        // ── Populate PARTNER_SHEET (partner login dashboards) ────────
+        if(!PARTNER_SHEET[p.name]) PARTNER_SHEET[p.name]={name:p.name,status:'Active',region:p.region||'',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}};
+        var ps = PARTNER_SHEET[p.name];
+        ps.leads[shortM]  = p.leads||0;
+        ps.appts[shortM]  = p.appts||0;
+        ps.insps[shortM]  = p.insps||0;
+        ps.stocks[shortM] = p.stocks||0;
+        ps.payout[shortM] = Math.round(p.payout||0);
+        if(p.region && !ps.region) ps.region = p.region;
+        if(!ps.ext) ps.ext={};
+        ps.ext[fullMo] = partner.ext[fullMo]; // share same ext object
       });
     });
+
     savePartners(PARTNERS);
-    console.log('[GSheet->Admin] done, store months:', Object.keys(store).join(', '));
-  try{ setTimeout(function(){ document.querySelectorAll('#view-admin-view table').forEach(function(t){ if(typeof makeSortable==='function') makeSortable(t); }); },200); }catch(e){}
+    savePartnerSheet(PARTNER_SHEET);
+    console.log('[GSheet->Admin] done — populated PARTNERS + PARTNER_SHEET, months:', Object.keys(store).join(', '));
+    try{ setTimeout(function(){ document.querySelectorAll('#view-admin-view table').forEach(function(t){ if(typeof makeSortable==='function') makeSortable(t); }); },200); }catch(e){}
   }catch(e){ console.error('[GSheet->Admin]',e); }
 }
 
@@ -12801,15 +13321,15 @@ function _refreshActiveViewAfterSync(){
       }
     }catch(de){ console.warn('[Cache] DOD restore:',de); }
     // Load other cached sheet data
-    // Order matters: seller first (base data), then admin OVERWRITES PARTNERS (admin is primary source)
-    ['dod','seller','buyer','vhr','pdi','challan','lac','elite','admin'].forEach(function(type){
+    // Admin tab is now primary source — populates both PARTNERS and PARTNER_SHEET
+    // seller cache kept for Seller Channels row-level detail only (not used for overview)
+    ['dod','buyer','vhr','pdi','challan','lac','elite','admin'].forEach(function(type){
       var cached=_loadSheetCache(type);
       if(!cached || !cached.length) return;
       try{
         if(type==='dod' && DOD_DATES.length===0) _integrateGSheetDOD(cached);
-        if(type==='seller')  _integrateGSheetPartner(cached,'Partner');
         if(type==='buyer')   _integrateGSheetBuyer(cached);
-        if(type==='admin')   _integrateGSheetAdmin(cached);  // runs LAST — admin overwrites PARTNERS
+        if(type==='admin')   _integrateGSheetAdmin(cached);  // primary — populates PARTNERS + PARTNER_SHEET
         if(type==='vhr')     _integrateGSheetVHR(cached);
         if(type==='pdi')     _integrateGSheetPDI(cached);
         if(type==='challan') _integrateGSheetChallan(cached);
@@ -12909,6 +13429,7 @@ function buildVasMonthBtns(){
     }; })(m);
     wrap.appendChild(btn);
   });
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('vas-month-btns');
 }
 
 function buildVasCurrent(){
@@ -13285,6 +13806,583 @@ console.log('[Cars24 v24] Unified patch loaded OK');
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     C24 NOTIFICATION + CARS24 CHAT ENGINE
+     • Toast notifications (bottom-right)
+     • Red badge counters on sidebar items
+     • Triggers on: announcements / invoices / targets push
+     • Cars24 Support chat: Claude API (AI) + escalate to admin
+     • Admin query inbox with reply
+     • Chat history stored in Supabase (cars24_chat_messages)
+══════════════════════════════════════════════════════════════════ -->
+<div id="c24-toast-container"></div>
+<script>
+(function(){
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+//  1. TOAST SYSTEM
+// ═══════════════════════════════════════════════════════
+window.c24Toast = function(title, msg, type, dur){
+  var wrap = document.getElementById('c24-toast-container');
+  if(!wrap) return;
+  var icons = { success:'✅', warn:'⚠️', info:'💬', default:'🔔' };
+  var t = document.createElement('div');
+  t.className = 'c24-toast' + (type ? ' c24-toast--'+type : '');
+  t.innerHTML = '<div class="c24-toast-icon">'+(icons[type]||icons.default)+'</div>'
+    + '<div class="c24-toast-body"><div class="c24-toast-title">'+title+'</div>'
+    + (msg ? '<div class="c24-toast-msg">'+msg+'</div>' : '') + '</div>'
+    + '<div onclick="this.parentNode.remove()" style="cursor:pointer;color:var(--t3);font-size:16px;padding-left:8px;flex-shrink:0;">✕</div>';
+  wrap.appendChild(t);
+  setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, dur||5000);
+};
+
+// ═══════════════════════════════════════════════════════
+//  2. BADGE SYSTEM
+// ═══════════════════════════════════════════════════════
+var _c24Seen = {};
+try{ _c24Seen = JSON.parse(localStorage.getItem('c24_notif_seen')||'{}'); }catch(e){}
+function _saveSeen(){ try{ localStorage.setItem('c24_notif_seen', JSON.stringify(_c24Seen)); }catch(e){} }
+
+function c24SetBadge(id, count){
+  var el = document.getElementById('nb-'+id);
+  if(!el) return;
+  if(count > 0){
+    el.textContent = count > 99 ? '99+' : String(count);
+    el.style.display = 'inline-flex';
+  } else {
+    el.style.display = 'none';
+  }
+}
+window.c24SetBadge = c24SetBadge;
+
+function c24ClearBadge(id){
+  c24SetBadge(id, 0);
+  // Mark all current items as seen
+  if(id === 'announcements'){
+    var anns = [];
+    try{ anns = JSON.parse(localStorage.getItem('cars24_announcements')||'[]'); }catch(e){}
+    anns.forEach(function(a){ _c24Seen['ann_'+a.id] = true; });
+    _saveSeen();
+  }
+  if(id === 'invoices'){
+    var invs = [];
+    try{ invs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]'); }catch(e){}
+    invs.forEach(function(inv){ _c24Seen['inv_'+inv.id] = true; });
+    _saveSeen();
+  }
+  if(id === 'targets'){
+    var tgt = {};
+    try{ tgt = JSON.parse(localStorage.getItem('cars24_target_store')||'{}'); }catch(e){}
+    _c24Seen['targets_ts'] = Date.now();
+    _saveSeen();
+  }
+}
+window.c24ClearBadge = c24ClearBadge;
+
+// ── Compute and refresh all partner badges ──────────────
+function c24RefreshBadges(){
+  if(window.currentRole !== 'partner') return;
+  var partnerName = (window.currentPartner && (window.currentPartner.display || window.currentPartner.name)) || '';
+
+  // Announcements
+  try{
+    var anns = JSON.parse(localStorage.getItem('cars24_announcements')||'[]');
+    var unreadAnns = anns.filter(function(a){
+      if(_c24Seen['ann_'+a.id]) return false;
+      if(!a.audience || a.audience === 'all') return true;
+      return (a.audience||'').toLowerCase() === partnerName.toLowerCase();
+    });
+    c24SetBadge('announcements', unreadAnns.length);
+  }catch(e){}
+
+  // Invoices — count invoices with status change (Approved/Rejected) not yet seen
+  try{
+    var invs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
+    var myInvs = invs.filter(function(inv){
+      return (inv.partner||'').toLowerCase() === partnerName.toLowerCase()
+          && (inv.status === 'Approved' || inv.status === 'Rejected')
+          && !_c24Seen['inv_'+inv.id];
+    });
+    c24SetBadge('invoices', myInvs.length);
+  }catch(e){}
+
+  // Targets — badge if targets were updated after last seen
+  try{
+    var tgtRaw = localStorage.getItem('cars24_target_store');
+    var tgtTs  = parseInt(localStorage.getItem('__ts_cars24_target_store')||'0', 10);
+    var seenTs = _c24Seen['targets_ts'] || 0;
+    if(tgtRaw && tgtTs > seenTs) c24SetBadge('targets', 1);
+    else c24SetBadge('targets', 0);
+  }catch(e){}
+
+  // Chat — unread admin replies
+  try{
+    var msgs = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]');
+    var myUnread = msgs.filter(function(m){
+      return m.partnerName === partnerName
+          && m.role === 'admin'
+          && !_c24Seen['chat_'+m.id];
+    });
+    c24SetBadge('chat', myUnread.length);
+  }catch(e){}
+}
+window.c24RefreshBadges = c24RefreshBadges;
+
+// ── Admin badge: count unread partner queries ───────────
+function c24RefreshAdminQueryBadge(){
+  if(window.currentRole !== 'admin') return;
+  try{
+    var msgs = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]');
+    var unseen = msgs.filter(function(m){
+      return m.role === 'partner' && !_c24Seen['adminq_'+m.id];
+    });
+    c24SetBadge('admin-queries', unseen.length);
+  }catch(e){}
+}
+window.c24RefreshAdminQueryBadge = c24RefreshAdminQueryBadge;
+
+// ── Clear badge when user opens that view ───────────────
+var _origShowPV2 = window.showPV;
+window.showPV = function(id, el){
+  if(typeof _origShowPV2 === 'function') _origShowPV2.apply(this, arguments);
+  if(id === 'p-announcements'){ c24ClearBadge('announcements'); c24SetBadge('announcements',0); }
+  if(id === 'p-invoices')     { c24ClearBadge('invoices');      c24SetBadge('invoices',0); }
+  if(id === 'p-targets')      { c24ClearBadge('targets');       c24SetBadge('targets',0); }
+  if(id === 'p-chat')         { c24SetBadge('chat',0);
+    var myMsgs = [];
+    try{
+      var allM = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]');
+      var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+      myMsgs = allM.filter(function(m){ return m.partnerName===pn && m.role==='admin'; });
+    }catch(e){}
+    myMsgs.forEach(function(m){ _c24Seen['chat_'+m.id]=true; });
+    _saveSeen();
+    evaRenderMessages();
+  }
+};
+var _origShowV2 = window.showV;
+window.showV = function(id, el){
+  if(typeof _origShowV2 === 'function') _origShowV2.apply(this, arguments);
+  if(id === 'partner-queries'){
+    // Mark all partner queries as seen by admin
+    try{
+      var msgs = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]');
+      msgs.filter(function(m){ return m.role==='partner'; })
+          .forEach(function(m){ _c24Seen['adminq_'+m.id]=true; });
+      _saveSeen();
+    }catch(e){}
+    c24SetBadge('admin-queries', 0);
+    buildAdminQueriesInbox();
+  }
+};
+
+// ── Notification triggers: patch save functions ─────────
+// Hook into localStorage writes for key sync keys
+var _origLS = localStorage.setItem.bind(localStorage);
+var _notifPatched = false;
+function _patchNotifHooks(){
+  if(_notifPatched) return;
+  _notifPatched = true;
+  var _baseSet = window._c24_rawSetItem || _origLS;
+  var _hookedSet = localStorage.setItem;
+  // Wrap the existing overridden setItem
+  var _prevSet = localStorage.setItem;
+  localStorage.setItem = function(key, value){
+    _prevSet.call(localStorage, key, value);
+    _onStorageWrite(key, value);
+  };
+}
+
+function _onStorageWrite(key, value){
+  try{
+    // Announcements updated → toast for partner
+    if(key === 'cars24_announcements' && window.currentRole === 'partner'){
+      setTimeout(function(){
+        c24RefreshBadges();
+        var anns = [];
+        try{ anns = JSON.parse(value||'[]'); }catch(e){}
+        var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+        var newAnn = anns.filter(function(a){
+          if(_c24Seen['ann_'+a.id]) return false;
+          return !a.audience || a.audience==='all' || (a.audience||'').toLowerCase()===pn.toLowerCase();
+        });
+        if(newAnn.length) c24Toast('📢 New Announcement', newAnn[newAnn.length-1].title, 'info');
+      }, 300);
+    }
+    // Invoices updated → toast for partner if status changed
+    if(key === 'cars24_invoices' && window.currentRole === 'partner'){
+      setTimeout(function(){
+        c24RefreshBadges();
+        var invs = [];
+        try{ invs = JSON.parse(value||'[]'); }catch(e){}
+        var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+        var changed = invs.filter(function(inv){
+          return (inv.partner||'').toLowerCase()===pn.toLowerCase()
+              && (inv.status==='Approved'||inv.status==='Rejected')
+              && !_c24Seen['inv_'+inv.id];
+        });
+        if(changed.length){
+          var inv = changed[0];
+          c24Toast(inv.status==='Approved' ? '✅ Invoice Approved' : '❌ Invoice Rejected',
+            'Invoice #'+(inv.invoiceNo||inv.id)+' has been '+inv.status.toLowerCase(), inv.status==='Approved'?'success':'warn');
+        }
+      }, 300);
+    }
+    // Targets updated → toast for partner
+    if(key === 'cars24_target_store' && window.currentRole === 'partner'){
+      setTimeout(function(){
+        c24RefreshBadges();
+        var seenTs = _c24Seen['targets_ts']||0;
+        var nowTs = parseInt(localStorage.getItem('__ts_cars24_target_store')||'0',10);
+        if(nowTs > seenTs) c24Toast('🎯 Targets Updated', 'Your monthly targets have been updated by admin.', 'info');
+      }, 300);
+    }
+    // Chat messages → toast + badge
+    if(key === 'cars24_chat_messages'){
+      setTimeout(function(){
+        if(window.currentRole==='partner') c24RefreshBadges();
+        if(window.currentRole==='admin')   c24RefreshAdminQueryBadge();
+      }, 200);
+    }
+  }catch(ex){}
+}
+
+// ── Poll-based badge refresh (catches Supabase pulls) ───
+setInterval(function(){
+  if(window.currentRole==='partner') c24RefreshBadges();
+  if(window.currentRole==='admin')   c24RefreshAdminQueryBadge();
+}, 15000);
+
+// Init on login
+var _origShowPortal3 = window.showPortal;
+window.showPortal = function(role, user, partner){
+  if(typeof _origShowPortal3==='function') _origShowPortal3.apply(this, arguments);
+  _patchNotifHooks();
+  setTimeout(function(){
+    if(role==='partner') c24RefreshBadges();
+    if(role==='admin')   c24RefreshAdminQueryBadge();
+  }, 1500);
+};
+
+// ═══════════════════════════════════════════════════════
+//  3. CARS24 CHAT ENGINE
+// ═══════════════════════════════════════════════════════
+var _evaMsgs   = [];   // in-memory message thread for current session
+var _evaBusy   = false;
+
+// Load existing chat from localStorage (filtered to this partner)
+function evaLoadHistory(){
+  var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+  if(!pn) return;
+  try{
+    var all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]');
+    _evaMsgs = all.filter(function(m){ return m.partnerName===pn; });
+  }catch(e){ _evaMsgs=[]; }
+}
+
+function evaSaveHistory(){
+  var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+  if(!pn) return;
+  try{
+    var all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]');
+    // Remove old messages for this partner, replace with current
+    all = all.filter(function(m){ return m.partnerName!==pn; });
+    all = all.concat(_evaMsgs);
+    // Keep last 200 messages total
+    if(all.length>200) all=all.slice(-200);
+    var serialised = JSON.stringify(all);
+    localStorage.setItem('cars24_chat_messages', serialised);
+    // Sync to Supabase
+    if(window._c24Cloud && window._c24Cloud.push){
+      window._c24Cloud.push('cars24_chat_messages', serialised);
+    }
+  }catch(e){}
+}
+
+function evaRenderMessages(){
+  var el = document.getElementById('eva-messages');
+  if(!el) return;
+  evaLoadHistory();
+  if(_evaMsgs.length === 0){
+    el.innerHTML = '<div class="eva-msg eva-msg--bot">'
+      + '<div class="eva-avatar">E</div>'
+      + '<div class="eva-bubble">Hi! I\'m your Cars24 Support assistant. Ask me about your payouts, targets, invoices — or raise a query to the admin team. How can I help you today?</div>'
+      + '</div>';
+    return;
+  }
+  el.innerHTML = _evaMsgs.map(function(m){
+    var isBot  = m.role==='eva'||m.role==='admin';
+    var isUser = m.role==='partner';
+    var avatar = m.role==='admin' ? 'A' : 'E';
+    var cls    = isUser ? 'eva-msg--user' : 'eva-msg--bot';
+    var label  = m.role==='admin' ? '<div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Cars24 Team</div>' : '';
+    return '<div class="eva-msg '+cls+'">'
+      + '<div class="eva-avatar">'+( isUser ? (window.currentUser||'P')[0].toUpperCase() : avatar)+'</div>'
+      + '<div class="eva-bubble">'+label+escH(m.text)+'</div>'
+      + '</div>';
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function evaAppendMessage(role, text){
+  var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+  var msg = { id: Date.now()+'_'+Math.random().toString(36).slice(2,7), role:role, text:text, partnerName:pn, ts:Date.now() };
+  _evaMsgs.push(msg);
+  evaSaveHistory();
+  evaRenderMessages();
+  return msg;
+}
+
+function evaShowTyping(show){
+  var el = document.getElementById('eva-typing');
+  if(el) el.style.display = show ? 'block' : 'none';
+  var msgs = document.getElementById('eva-messages');
+  if(msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+function evaHideQuickPrompts(){
+  var el = document.getElementById('eva-quick-prompts');
+  if(el) el.style.display = 'none';
+}
+
+window.evaQuickPrompt = function(btn){
+  var text = btn ? btn.textContent : '';
+  if(!text) return;
+  var input = document.getElementById('eva-input');
+  if(input){ input.value = text; }
+  evaHideQuickPrompts();
+  evaSend();
+};
+
+// Raise query button — guides user to describe their issue, doesn't auto-send
+window.evaRaiseQuery = function(){
+  evaHideQuickPrompts();
+  var input = document.getElementById('eva-input');
+  if(input){
+    input.placeholder = 'Describe your issue (min 10 chars) then press Send…';
+    input.value = 'raise a query: ';
+    input.focus();
+    // Place cursor at end
+    var len = input.value.length;
+    input.setSelectionRange(len, len);
+  }
+  evaAppendMessage('eva', 'Please describe your issue after "raise a query:" and press Send — I\'ll forward it to the Cars24 admin team right away.');
+};
+
+window.evaSend = function(){
+  if(_evaBusy) return;
+  var input = document.getElementById('eva-input');
+  if(!input) return;
+  var text = (input.value||'').trim();
+  // ── Empty message guard ───────────────────────────────────────────
+  if(!text){
+    input.style.borderColor = '#ef4444';
+    input.placeholder = 'Please type a message first…';
+    setTimeout(function(){ input.style.borderColor = ''; input.placeholder = 'Type your message…'; }, 2000);
+    return;
+  }
+  input.value = '';
+  evaHideQuickPrompts();
+  evaAppendMessage('partner', text);
+
+  // ── Escalation: only if explicitly asked AND has actual content beyond keyword ──
+  // e.g. "raise a query to admin" alone → prompt them to describe the issue
+  // "raise a query: invoice not approved" → escalate with context
+  var isEscalateOnly = /^(raise a query( to admin)?|speak to admin|contact admin|escalate|talk to human|talk to admin)$/i.test(text);
+  var isEscalateWithContent = /raise|query|admin|speak to|talk to|contact|escalate|human/i.test(text) && text.length > 30;
+
+  if(isEscalateOnly){
+    // Prompt them to describe their issue instead of silently notifying admin
+    evaAppendMessage('eva', 'Sure! Please describe your issue or question and I\'ll pass it to the Cars24 team. What would you like help with?');
+    return;
+  }
+
+  if(isEscalateWithContent){
+    _evaBusy = true;
+    evaShowTyping(true);
+    setTimeout(function(){
+      evaShowTyping(false);
+      _evaBusy = false;
+      evaAppendMessage('eva', 'Your query has been sent to the Cars24 admin team. They\'ll respond here shortly. You can also reach out via your dedicated campaign manager.');
+      evaStoreQueryForAdmin(text);
+      c24RefreshAdminQueryBadge();
+      c24Toast('✅ Query sent', 'Admin has been notified of your message.', 'success');
+    }, 800);
+    return;
+  }
+
+  _evaBusy = true;
+  evaShowTyping(true);
+
+  // Build context from partner data
+  var pn  = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'Partner';
+  var ctx = _buildEvaContext();
+
+  var messages = [{ role:'user', content: text }];
+  // Include last 6 messages as history
+  if(_evaMsgs.length > 1){
+    var hist = _evaMsgs.slice(-7, -1);
+    messages = hist.map(function(m){
+      return { role: (m.role==='partner'?'user':'assistant'), content: m.text };
+    }).concat(messages);
+  }
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: 'You are the Cars24 Affiliate Partner support assistant. Be concise, friendly and helpful. '
+        + 'You help partners understand their payouts, targets, invoices and portal features. '
+        + 'Here is the current partner context:\n' + ctx
+        + '\nIf asked something you cannot answer from the data, suggest they type "raise a query: [their issue]" to escalate to the admin team.',
+      messages: messages
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    evaShowTyping(false);
+    _evaBusy = false;
+    var reply = (data.content&&data.content[0]&&data.content[0].text) || 'Sorry, I couldn\'t process that right now. Try typing "raise a query: [your issue]" to reach the admin team.';
+    evaAppendMessage('eva', reply);
+  })
+  .catch(function(e){
+    evaShowTyping(false);
+    _evaBusy = false;
+    evaAppendMessage('eva', 'I\'m having trouble connecting right now. Please try again in a moment, or type "raise a query: [your issue]" to reach the admin team directly.');
+  });
+};
+
+function _buildEvaContext(){
+  var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+  var lines = ['Partner name: '+pn];
+  try{
+    var tgt = JSON.parse(localStorage.getItem('cars24_target_store')||'{}');
+    var myT = tgt[pn]||tgt[(pn||'').toLowerCase()]||null;
+    if(myT) lines.push('Targets: '+JSON.stringify(myT));
+  }catch(e){}
+  try{
+    var po = JSON.parse(localStorage.getItem('cars24_payout_store')||'{}');
+    var myP = po[pn]||po[(pn||'').toLowerCase()]||null;
+    if(myP) lines.push('Payout data: '+JSON.stringify(myP));
+  }catch(e){}
+  try{
+    var invs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
+    var myI = invs.filter(function(i){ return (i.partner||'').toLowerCase()===pn.toLowerCase(); }).slice(-5);
+    if(myI.length) lines.push('Recent invoices: '+JSON.stringify(myI));
+  }catch(e){}
+  try{
+    var anns = JSON.parse(localStorage.getItem('cars24_announcements')||'[]');
+    if(anns.length) lines.push('Latest announcement: '+anns[anns.length-1].title+' — '+anns[anns.length-1].body);
+  }catch(e){}
+  return lines.join('\n');
+}
+
+// Wire chat view open
+var _origShowPV3 = window.showPV;
+window.showPV = function(id, el){
+  if(typeof _origShowPV3 === 'function') _origShowPV3.apply(this, arguments);
+  if(id === 'p-chat') setTimeout(evaRenderMessages, 100);
+};
+
+// ═══════════════════════════════════════════════════════
+//  4. ADMIN QUERY INBOX
+// ═══════════════════════════════════════════════════════
+window.buildAdminQueriesInbox = function(){
+  var el = document.getElementById('admin-queries-list');
+  if(!el) return;
+  var all = [];
+  try{ all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
+  // Group by partner
+  var byPartner = {};
+  all.forEach(function(m){
+    if(!byPartner[m.partnerName]) byPartner[m.partnerName]={'name':m.partnerName,'msgs':[]};
+    byPartner[m.partnerName].msgs.push(m);
+  });
+  var partners = Object.values(byPartner);
+  if(!partners.length){
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--t3);font-size:13px;">No partner queries yet. Messages from partners via Cars24 Support will appear here.</div>';
+    return;
+  }
+  el.innerHTML = partners.map(function(p){
+    var lastMsg = p.msgs[p.msgs.length-1];
+    var hasUnread = p.msgs.some(function(m){ return m.role==='partner'&&!_c24Seen['adminq_'+m.id]; });
+    var thread = p.msgs.map(function(m){
+      var isAdmin = m.role==='admin';
+      var time = new Date(m.ts).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;'+(isAdmin?'flex-direction:row-reverse':'')+'">'
+        + '<div style="width:26px;height:26px;border-radius:50%;background:'+(isAdmin?'#4f46e5':'#059669')
+        + ';color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+        + (isAdmin?'A':p.name[0].toUpperCase())+'</div>'
+        + '<div style="max-width:75%"><div style="background:var(--bg,#080C14);border:1px solid var(--bd,rgba(255,255,255,.08));border-radius:10px;padding:8px 12px;font-size:12px;color:var(--t1);">'+escH(m.text)+'</div>'
+        + '<div style="font-size:10px;color:var(--t3);margin-top:3px;'+(isAdmin?'text-align:right':'')+'">'+time+'</div></div>'
+        + '</div>';
+    }).join('');
+    return '<div class="eva-query-card '+(hasUnread?'unread':'')+'" id="aqcard-'+p.name+'">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+      + '<div style="font-weight:700;font-size:14px;">'+escH(p.name)+(hasUnread?'<span class="c24-nb" style="margin-left:8px;">New</span>':'')+'</div>'
+      + '<div style="font-size:10px;color:var(--t3);">'+p.msgs.length+' message'+(p.msgs.length!==1?'s':'')+'</div></div>'
+      + '<div style="max-height:280px;overflow-y:auto;padding:4px 0 8px;">'+thread+'</div>'
+      + '<div style="border-top:1px solid var(--bd,rgba(255,255,255,.08));padding-top:10px;">'
+      + '<textarea class="eva-reply-input" id="areply-'+p.name+'" placeholder="Reply to '+escH(p.name)+'…"></textarea>'
+      + '<button onclick="evaAdminReply(\''+p.name+'\')" style="margin-top:6px;background:#4f46e5;border:none;border-radius:8px;padding:7px 18px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Send Reply ↑</button>'
+      + '</div></div>';
+  }).join('');
+};
+
+window.evaAdminReply = function(partnerName){
+  var ta = document.getElementById('areply-'+partnerName);
+  if(!ta) return;
+  var text = (ta.value||'').trim();
+  if(!text) return;
+  ta.value = '';
+  // Save reply into chat messages
+  var all = [];
+  try{ all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
+  var msg = { id:Date.now()+'_admin', role:'admin', text:text, partnerName:partnerName, ts:Date.now() };
+  all.push(msg);
+  if(all.length>200) all=all.slice(-200);
+  var serialised = JSON.stringify(all);
+  localStorage.setItem('cars24_chat_messages', serialised);
+  if(window._c24Cloud && window._c24Cloud.push) window._c24Cloud.push('cars24_chat_messages', serialised);
+  c24Toast('✅ Reply sent', 'Your reply to '+partnerName+' has been sent.', 'success');
+  // Rebuild inbox
+  buildAdminQueriesInbox();
+  // Badge partner chat
+  c24RefreshAdminQueryBadge();
+};
+
+window.evaAdminMarkAllRead = function(){
+  var all = [];
+  try{ all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
+  all.filter(function(m){ return m.role==='partner'; })
+     .forEach(function(m){ _c24Seen['adminq_'+m.id]=true; });
+  _saveSeen();
+  c24SetBadge('admin-queries', 0);
+  buildAdminQueriesInbox();
+  c24Toast('✓ All marked read', '', 'success');
+};
+
+// Add cars24_chat_messages to Supabase sync keys
+(function(){
+  if(window._c24Cloud && window._c24Cloud.localOnly){
+    // already global — nothing to do
+  }
+  // Register in early intercept SYNC_KEYS if possible
+  try{
+    var early = window.__c24EarlySyncKeys;
+    if(Array.isArray(early) && early.indexOf('cars24_chat_messages')===-1){
+      early.push('cars24_chat_messages');
+    }
+  }catch(e){}
+})();
+
+console.log('[C24Notif+Chat] Engine loaded ✅');
+})();
+</script>
 
 </body>
 
@@ -13678,6 +14776,7 @@ function buildEliteMonthBtns(){
     btn.onclick=(function(mm){ return function(){ _eliteMonth=mm; wrap.querySelectorAll('.rt').forEach(function(x){x.classList.remove('active');}); this.classList.add('active'); buildEliteView(); }; })(m);
     wrap.appendChild(btn);
   });
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('elite-month-btns');
 }
 
 function buildEliteView(){
@@ -14020,6 +15119,7 @@ function buildBizMonthBtns(){
     }; })(m);
     wrap.appendChild(btn);
   });
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('biz-month-btns');
 }
 
 function _getBizRows(){
@@ -14308,6 +15408,7 @@ function _buildProjMonthBtns(){
     _projMonth=allM[allM.length-1];
     if(wrap.lastChild) wrap.lastChild.classList.add('active');
   }
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('proj-month-btns');
 }
 
 function buildProjView(){
@@ -14818,6 +15919,7 @@ function _initLogicBuilder(){
     wrap.appendChild(btn);
   });
   if(!_lbMonth&&window.MONTHS&&window.MONTHS.length) _lbMonth=window.MONTHS[window.MONTHS.length-1];
+  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('lb-month-btns');
   try{ var saved=localStorage.getItem('cars24_logic_rules'); if(saved){ _lbRules=Object.assign(_lbRules,JSON.parse(saved)); _syncRuleInputs(); } }catch(e){}
   previewAllLogicRules();
 }
@@ -15140,32 +16242,35 @@ window.doPortalLogin = function() {
   var creds = [];
   try{ var _s=localStorage.getItem('cars24_partner_creds'); creds=_s?JSON.parse(_s):(window.PARTNER_CREDS||[]); }catch(e){ creds=window.PARTNER_CREDS||[]; }
 
-  // Admin login — check before anything else
+  // ── Master admin ──────────────────────────────────────────────────
   if(u === 'admin'){
     if(p !== adminPw){ err.textContent='❌ Incorrect admin password.'; err.style.display='block'; return; }
     window.showPortal('admin', 'Admin', null); return;
   }
 
-  // Secondary admin accounts
-  var adminAccts = [];
-  try{ var _saa=localStorage.getItem('cars24_admin_accounts'); adminAccts=_saa?JSON.parse(_saa):[]; }catch(e){}
-  for(var ai=0; ai<adminAccts.length; ai++){
-    if((adminAccts[ai].username||'').toLowerCase() === u){
-      if(adminAccts[ai].password !== p){ err.textContent='❌ Incorrect admin password.'; err.style.display='block'; return; }
-      window.showPortal('admin', adminAccts[ai].display||adminAccts[ai].username, null); return;
+  // ── Partner takes priority over secondary admin if same username ──
+  var isPartner = false;
+  for(var pi=0; pi<creds.length; pi++){ if((creds[pi].username||'').toLowerCase()===u){ isPartner=true; break; } }
+
+  // ── Secondary admin accounts (skip if username is a partner) ─────
+  if(!isPartner){
+    var adminAccts = [];
+    try{ var _saa=localStorage.getItem('cars24_admin_accounts'); adminAccts=_saa?JSON.parse(_saa):[]; }catch(e){}
+    for(var ai=0; ai<adminAccts.length; ai++){
+      if((adminAccts[ai].username||'').toLowerCase() === u){
+        if(adminAccts[ai].password !== p){ err.textContent='❌ Incorrect admin password.'; err.style.display='block'; return; }
+        window.showPortal('admin', adminAccts[ai].display||adminAccts[ai].username, null); return;
+      }
     }
   }
 
   // ── Partner login ─────────────────────────────────────────────────
-  // If creds are empty (fresh device, Supabase not yet pulled) — pull first then retry
   function _attemptPartnerLogin(credList){
     var cred = null;
     for(var i=0; i<credList.length; i++){ if((credList[i].username||'').toLowerCase()===u){ cred=credList[i]; break; } }
     if(!cred){ err.textContent='❌ Username not found.'; err.style.display='block'; return; }
     if(cred.status==='Not Active'){ err.textContent='❌ Account inactive. Contact admin.'; err.style.display='block'; return; }
     if(cred.password !== p){ err.textContent='❌ Incorrect password.'; err.style.display='block'; return; }
-
-    // Resolve partner data from sheet
     var partnerSheetData = {};
     try{ var _psd=localStorage.getItem('cars24_partner_sheet_data'); partnerSheetData=_psd?JSON.parse(_psd):(window.PARTNER_SHEET||{}); }catch(e){ partnerSheetData=window.PARTNER_SHEET||{}; }
     var partners = Object.values(partnerSheetData);
@@ -15182,18 +16287,19 @@ window.doPortalLogin = function() {
       }
     }
     if(!partner){ partner={name:cred.display,status:'Active',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}}; }
+    partner.username=cred.username; partner.display=cred.display;
+    partner.password=cred.password; partner.credName=cred.display;
     window.showPortal('partner', cred.display, partner);
   }
 
   if(creds.length === 0 && typeof window.c24SyncPull === 'function'){
-    // Fresh device — pull from Supabase first, then attempt login
     err.textContent = '⏳ Loading credentials…';
     err.style.display = 'block';
     window.c24SyncPull(function(){
       err.style.display = 'none';
-      var freshCreds = [];
-      try{ var _fc=localStorage.getItem('cars24_partner_creds'); freshCreds=_fc?JSON.parse(_fc):[]; }catch(e){}
-      _attemptPartnerLogin(freshCreds);
+      var fc=[];
+      try{ var _fc=localStorage.getItem('cars24_partner_creds'); fc=_fc?JSON.parse(_fc):[]; }catch(e){}
+      _attemptPartnerLogin(fc);
     });
   } else {
     _attemptPartnerLogin(creds);
@@ -15699,9 +16805,10 @@ console.log('[Cars24 v33] Master fix patch applied — login ✓ session restore
           }
         }
         if(!window.PARTNERS || !window.PARTNERS.length){
-          var cachedP = typeof _loadSheetCache==='function' ? _loadSheetCache('seller') : null;
-          if(cachedP && cachedP.length && typeof _integrateGSheetPartner==='function'){
-            _integrateGSheetPartner(cachedP, 'Partner');
+          // Admin tab is primary — try admin cache as fallback
+          var cachedAdmin = typeof _loadSheetCache==='function' ? _loadSheetCache('admin') : null;
+          if(cachedAdmin && cachedAdmin.length && typeof _integrateGSheetAdmin==='function'){
+            _integrateGSheetAdmin(cachedAdmin);
             try{ rebuildMonthMeta(); }catch(e){}
           }
         }
@@ -18157,6 +19264,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     'cars24_gsheet_cache_challan',  // raw Challan tab rows
     'cars24_gsheet_cache_lac',      // raw LAC tab rows
     'cars24_dod_arrays',            // processed DOD arrays (fast restore)
+    'cars24_chat_messages',         // EVA chat + admin replies (cross-device)
   ];
 
   // Map: which SYNC_KEY change should re-render which functions per role
@@ -18245,7 +19353,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     'cars24_pdi_store':     { admin: ['buildTargets','updateDashboard'], partner: ['buildPartnerTargets'] },
     'cars24_challan_store': { admin: ['buildTargets','updateDashboard'], partner: ['buildPartnerTargets'] },
     'cars24_lac_store':     { admin: ['buildTargets','updateDashboard'], partner: ['buildPartnerTargets'] },
-    'cars24_elite_store':   { admin: ['buildTargets','updateDashboard'], partner: ['buildPartnerTargets'] },
+    'cars24_elite_store':   { admin: ['buildTargets','updateDashboard'], partner: ['buildPartnerTargets','buildPartnerEliteView'] },
     'cars24_vhr_store':     { admin: ['buildTargets','updateDashboard'], partner: ['buildPartnerTargets'] },
     'cars24_audit_log':     { admin: ['renderAuditLog'], partner: [] }
   };
@@ -18557,7 +19665,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     if(gsheetCacheChanged || _has('cars24_partner_sheet_data')){
       try{
         // Re-run all integrators from the now-updated cache
-        var cacheTypes = ['dod','seller','buyer','vhr','pdi','challan','lac','elite','admin'];
+        var cacheTypes = ['dod','buyer','vhr','pdi','challan','lac','elite','admin'];
         cacheTypes.forEach(function(type){
           var key = 'cars24_gsheet_cache_'+type;
           if(!_has(key) && !all) return; // only reprocess changed caches
@@ -18565,9 +19673,8 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
           try{ var raw=localStorage.getItem(key); cached=raw?JSON.parse(raw):null; }catch(e){}
           if(!cached||!cached.length) return;
           try{
-            if(type==='seller')  { if(typeof _integrateGSheetPartner==='function') _integrateGSheetPartner(cached,'Partner'); }
-            else if(type==='buyer')   { if(typeof _integrateGSheetBuyer==='function')  _integrateGSheetBuyer(cached); }
-            else if(type==='admin')   { if(typeof _integrateGSheetAdmin==='function')   _integrateGSheetAdmin(cached); }
+            if(type==='buyer')   { if(typeof _integrateGSheetBuyer==='function')  _integrateGSheetBuyer(cached); }
+            else if(type==='admin')   { if(typeof _integrateGSheetAdmin==='function')   _integrateGSheetAdmin(cached); } // populates PARTNERS + PARTNER_SHEET
             else if(type==='vhr')     { if(typeof _integrateGSheetVHR==='function')     _integrateGSheetVHR(cached); }
             else if(type==='pdi')     { if(typeof _integrateGSheetPDI==='function')     _integrateGSheetPDI(cached); }
             else if(type==='challan') { if(typeof _integrateGSheetChallan==='function') _integrateGSheetChallan(cached); }

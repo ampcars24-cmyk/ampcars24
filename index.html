@@ -15140,7 +15140,7 @@ window.doPortalLogin = function() {
   var creds = [];
   try{ var _s=localStorage.getItem('cars24_partner_creds'); creds=_s?JSON.parse(_s):(window.PARTNER_CREDS||[]); }catch(e){ creds=window.PARTNER_CREDS||[]; }
 
-  // Admin login
+  // Admin login — check before anything else
   if(u === 'admin'){
     if(p !== adminPw){ err.textContent='❌ Incorrect admin password.'; err.style.display='block'; return; }
     window.showPortal('admin', 'Admin', null); return;
@@ -15156,31 +15156,48 @@ window.doPortalLogin = function() {
     }
   }
 
-  // Partner login
-  var cred = null;
-  for(var i=0; i<creds.length; i++){ if((creds[i].username||'').toLowerCase()===u){ cred=creds[i]; break; } }
-  if(!cred){ err.textContent='❌ Username not found.'; err.style.display='block'; return; }
-  if(cred.status==='Not Active'){ err.textContent='❌ Account inactive. Contact admin.'; err.style.display='block'; return; }
-  if(cred.password !== p){ err.textContent='❌ Incorrect password.'; err.style.display='block'; return; }
+  // ── Partner login ─────────────────────────────────────────────────
+  // If creds are empty (fresh device, Supabase not yet pulled) — pull first then retry
+  function _attemptPartnerLogin(credList){
+    var cred = null;
+    for(var i=0; i<credList.length; i++){ if((credList[i].username||'').toLowerCase()===u){ cred=credList[i]; break; } }
+    if(!cred){ err.textContent='❌ Username not found.'; err.style.display='block'; return; }
+    if(cred.status==='Not Active'){ err.textContent='❌ Account inactive. Contact admin.'; err.style.display='block'; return; }
+    if(cred.password !== p){ err.textContent='❌ Incorrect password.'; err.style.display='block'; return; }
 
-  // Resolve partner data from sheet
-  var partnerSheetData = {};
-  try{ var _psd=localStorage.getItem('cars24_partner_sheet_data'); partnerSheetData=_psd?JSON.parse(_psd):(window.PARTNER_SHEET||{}); }catch(e){ partnerSheetData=window.PARTNER_SHEET||{}; }
-  var partners = Object.values(partnerSheetData);
-  if(!partners.length){
-    try{ var _sp2=localStorage.getItem('cars24_partners_data'); var _adm=_sp2?JSON.parse(_sp2):[]; if(_adm.length) partners=_adm; }catch(e){}
-  }
-  var partner = null;
-  for(var j=0; j<partners.length; j++){
-    var pt=partners[j]; if(!pt||!pt.name) continue;
-    var ptN=pt.name.toLowerCase().replace(/\s+/g,''), crN=(cred.display||'').toLowerCase().replace(/\s+/g,'');
-    if(pt.name===cred.display || pt.name.toLowerCase()===cred.display.toLowerCase()
-      || ptN.slice(0,12)===u || ptN.includes(crN.slice(0,8)) || crN.includes(ptN.slice(0,8))){
-      partner=pt; break;
+    // Resolve partner data from sheet
+    var partnerSheetData = {};
+    try{ var _psd=localStorage.getItem('cars24_partner_sheet_data'); partnerSheetData=_psd?JSON.parse(_psd):(window.PARTNER_SHEET||{}); }catch(e){ partnerSheetData=window.PARTNER_SHEET||{}; }
+    var partners = Object.values(partnerSheetData);
+    if(!partners.length){
+      try{ var _sp2=localStorage.getItem('cars24_partners_data'); var _adm=_sp2?JSON.parse(_sp2):[]; if(_adm.length) partners=_adm; }catch(e){}
     }
+    var partner = null;
+    for(var j=0; j<partners.length; j++){
+      var pt=partners[j]; if(!pt||!pt.name) continue;
+      var ptN=pt.name.toLowerCase().replace(/\s+/g,''), crN=(cred.display||'').toLowerCase().replace(/\s+/g,'');
+      if(pt.name===cred.display || pt.name.toLowerCase()===cred.display.toLowerCase()
+        || ptN.slice(0,12)===u || ptN.includes(crN.slice(0,8)) || crN.includes(ptN.slice(0,8))){
+        partner=pt; break;
+      }
+    }
+    if(!partner){ partner={name:cred.display,status:'Active',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}}; }
+    window.showPortal('partner', cred.display, partner);
   }
-  if(!partner){ partner={name:cred.display,status:'Active',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}}; }
-  window.showPortal('partner', cred.display, partner);
+
+  if(creds.length === 0 && typeof window.c24SyncPull === 'function'){
+    // Fresh device — pull from Supabase first, then attempt login
+    err.textContent = '⏳ Loading credentials…';
+    err.style.display = 'block';
+    window.c24SyncPull(function(){
+      err.style.display = 'none';
+      var freshCreds = [];
+      try{ var _fc=localStorage.getItem('cars24_partner_creds'); freshCreds=_fc?JSON.parse(_fc):[]; }catch(e){}
+      _attemptPartnerLogin(freshCreds);
+    });
+  } else {
+    _attemptPartnerLogin(creds);
+  }
 };
 
 // ── 3. Fix session restore on page reload ─────────────────────────────────────
@@ -15217,13 +15234,15 @@ function _restoreSession(){
   }catch(e){ console.warn('[C24Boot] Session restore:', e); }
 }
 
-// Fallback: if no relay configured, run session restore directly on DOMContentLoaded
+// Fallback: if Supabase not configured, run session restore directly on DOMContentLoaded
+// If Supabase IS configured, bootPull calls _restoreSession after data is loaded
 document.addEventListener('DOMContentLoaded', function(){
-  if(!window.CARS24_DRIVE_URL){
+  var sbReady = !!(window.CARS24_SUPABASE_URL && window.CARS24_SUPABASE_ANONKEY &&
+                   window.CARS24_SUPABASE_URL !== 'YOUR_SUPABASE_PROJECT_URL');
+  if(!sbReady){
     setTimeout(_restoreSession, 350);
   }
-  // If relay IS configured, bootPull (in CARS24_CONFIG block above) calls _restoreSession
-  // after Drive data is loaded — so we do NOT call it here to avoid double-render
+  // Supabase bootPull callback handles session restore when configured
 });
 
 // ── 4. Better GSheet sync feedback ───────────────────────────────────────────

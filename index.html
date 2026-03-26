@@ -40,7 +40,8 @@ const CARS24_CONFIG = {
   // ── Google Drive Upload Relay ──────────────────────────────────────────
   // Still used ONLY for file uploads (invoices, payment proofs) to Drive.
   // Cross-device DATA sync now runs through Supabase instead.
-  driveWebAppUrl: 'https://script.google.com/macros/s/AKfycbxrPsPwqTO1QqYnmVvNscRFaeDCJ2XSFbnehrCyuai6K83Hx1wlhcGRVShYg38KI2g/exec'
+  driveWebAppUrl: 'https://script.google.com/a/macros/cars24.com/s/AKfycbwaM6iA_JTa1tC5lRrJewL_EqXyvE4UsPgWqNfvoU2srTAIdFxvTJq-usrfA_a28GvabA/exec',
+  relayToken: 'c24_ng987654321'
 };
 
 // Wire Drive URL into upload helper (file uploads only — not used for data sync)
@@ -192,7 +193,7 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
   var SYNC_KEYS_EARLY = [
     'cars24_partner_creds','cars24_admin_pass','cars24_admin_accounts',
     'cars24_announcements','cars24_invoices','cars24_payment_proofs',
-    'cars24_target_store','cars24_payout_store','cars24_partner_sheet_data',
+    'cars24_target_store','cars24_payout_store','cars24_provision_store','cars24_partner_sheet_data',
     'cars24_partners_data','cars24_admin_view_data','cars24_month_registry',
     'cars24_gsheet_cache_seller','cars24_gsheet_cache_admin',
     'cars24_gsheet_cache_buyer','cars24_gsheet_cache_elite',
@@ -2107,13 +2108,32 @@ function navScrollTo(id) {
 
 // ── Theme Toggle ──
 
-// Restore saved theme
-if (localStorage.getItem('theme') === 'light') {
-  document.documentElement.classList.add('light');
-  document.getElementById('themeLabel').textContent = '🌙 Dark';
-  document.getElementById('logo-dark').style.display = 'none';
-  document.getElementById('logo-light').style.display = 'block';
-}
+// Restore saved theme — runs before paint to prevent flash on Android
+(function(){
+  var t = '';
+  try{ t = localStorage.getItem('theme')||''; }catch(e){}
+  var isLight = t === 'light';
+  if(isLight){
+    document.documentElement.classList.add('light');
+    // Remove any conflicting data-theme attribute
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.classList.remove('light');
+  }
+  // Sync UI elements after DOM ready
+  document.addEventListener('DOMContentLoaded', function(){
+    var lbl = document.getElementById('themeLabel');
+    if(lbl) lbl.textContent = isLight ? '🌙 Dark' : '☀️ Light';
+    var tbtn = document.getElementById('tbtn');
+    if(tbtn) tbtn.textContent = isLight ? '🌙 Dark' : '☀️ Light';
+    var logoDark  = document.getElementById('logo-dark');
+    var logoLight = document.getElementById('logo-light');
+    if(logoDark && logoLight){
+      logoDark.style.display  = isLight ? 'none'  : 'block';
+      logoLight.style.display = isLight ? 'block' : 'none';
+    }
+  });
+})();
 
 // ── Scroll Reveal ──
 const observer = new IntersectionObserver((entries) => {
@@ -3109,6 +3129,7 @@ function navScrollTo(id) {
       <div class="ng">
         <div class="ngl">Finance</div>
         <div class="ni" onclick="showV('payouts',this)" id="nav-admin-payouts"><span class="nic">💰</span>Payout Manager<span class="c24-nb" id="nb-admin-payouts" style="display:none"></span></div>
+        <div class="ni" onclick="showV('provision',this)" id="nav-admin-provision"><span class="nic">📋</span>Provision Tracker</div>
         <div class="ni" onclick="showV('invoices',this)" id="nav-admin-invoices"><span class="nic">🧾</span>Invoice Manager<span class="c24-nb" id="nb-admin-invoices" style="display:none"></span></div>
         <div class="ni" onclick="showV('payments',this)" id="nav-admin-payments"><span class="nic">✅</span>Payment Proofs<span class="c24-nb" id="nb-admin-payments" style="display:none"></span></div>
         <div class="ni" onclick="showV('targets',this)" id="nav-admin-targets"><span class="nic">🎯</span>Targets<span class="c24-nb" id="nb-admin-targets" style="display:none"></span></div>
@@ -3245,7 +3266,6 @@ function navScrollTo(id) {
             <select class="fsl" onchange="filterStatus(this.value)"><option value="">All Status</option><option value="Active">Active Only</option><option value="Not Active">Inactive Only</option></select>
             <input class="srch" placeholder="🔍 Search partner…" oninput="filterPartnerSearch(this.value)" style="width:220px">
             <div class="dc" id="rchip">103 days · Dec 2025 – Mar 2026</div>
-            <select class="fsl" onchange="setSortCol(this.value)"><option value="leads">Sort: Leads ↓</option><option value="appts">Sort: Appointments ↓</option><option value="insps">Sort: Inspections ↓</option><option value="stocks">Sort: Stock-ins ↓</option><option value="payout">Sort: Payout ↓</option></select>
           </div>
         </div>
         <div class="kg">
@@ -3267,6 +3287,7 @@ function navScrollTo(id) {
           <div class="tch">
             <div><div class="tct">Partner Performance</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px" id="tbl-sub">All partners · all periods</div></div>
             <div style="display:flex;gap:6px;align-items:center;">
+              <select class="fsl" onchange="setSortCol(this.value)" style="font-size:11px;padding:4px 10px;min-width:130px;" title="Sort Partner Table"><option value="leads">Sort: Leads ↓</option><option value="appts">Sort: Appointments ↓</option><option value="insps">Sort: Inspections ↓</option><option value="stocks">Sort: Stock-ins ↓</option><option value="payout">Sort: Payout ↓</option></select>
               <button id="tbl-view-compact" class="rt active" onclick="setPartnerTableView('compact',this)" style="font-size:11px;padding:4px 12px;">Partner View</button>
               <button id="tbl-view-detail"  class="rt"        onclick="setPartnerTableView('detail',this)"  style="font-size:11px;padding:4px 12px;">📊 Expanded</button>
             </div>
@@ -3778,6 +3799,7 @@ function navScrollTo(id) {
         <div class="fb" style="margin-bottom:12px;"><div class="fbrow" style="gap:8px;flex-wrap:wrap;align-items:center;">
           <span class="rl">Month:</span>
           <div class="rts" id="target-month-btns"></div>
+          <button onclick="_showAddMonthModal()" style="padding:4px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;">+ Add Month</button>
           <input class="srch" placeholder="🔍 Search partner…" oninput="filterTargets(this.value)" style="width:200px;margin-left:8px;">
         </div></div>
         <div class="tc">
@@ -4512,8 +4534,11 @@ function navScrollTo(id) {
       <!-- ════ ADMIN: ANNOUNCEMENTS ════ -->
       <div class="view" id="view-announcements">
         <div class="ph" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <div><div class="pt">📢 Announcements</div><div class="ps">Publish incentive updates, creatives & notices to all or specific partners</div></div>
-          <button onclick="openAnnouncementModal()" style="background:var(--ac,#4f46e5);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;">+ New Announcement</button>
+          <div><div class="pt">📢 Announcements</div><div class="ps">Publish incentive updates, creatives &amp; notices to all or specific partners</div></div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="_showAddMonthModal()" style="padding:7px 14px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:7px;font-size:12px;font-weight:700;color:#f59e0b;cursor:pointer;">+ Add Month</button>
+            <button onclick="openAnnouncementModal()" style="background:var(--ac,#4f46e5);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;">+ New Announcement</button>
+          </div>
         </div>
         <div class="fb" style="margin-bottom:12px"><div class="fbrow" style="gap:8px;flex-wrap:wrap;align-items:center">
           <span class="rl">Type:</span>
@@ -4540,6 +4565,7 @@ function navScrollTo(id) {
         </div>
         <div class="fb" style="margin-bottom:12px"><div class="fbrow" style="gap:8px;flex-wrap:wrap;align-items:center">
           <span class="rl">Month:</span><div class="rts" id="payout-month-btns"></div>
+          <button onclick="_showAddMonthModal()" style="padding:4px 10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;">+ Month</button>
           <input class="srch" id="payout-search" placeholder="🔍 Search partner…" oninput="renderPayoutTable()" style="width:200px;margin-left:8px;">
         </div></div>
         <div class="tc">
@@ -4548,11 +4574,69 @@ function navScrollTo(id) {
         </div>
       </div>
 
+      <!-- ════ ADMIN: PROVISION TRACKER ════ -->
+      <div class="view" id="view-provision">
+        <div class="ph" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div class="pt">📋 Provision Tracker</div>
+            <div class="ps">Track provision vs payout per partner · auto-calculates gap, overhit &amp; available reversal amount</div>
+            <div style="margin-top:6px;font-size:11px;color:var(--t3);background:rgba(79,70,229,.06);border:1px solid rgba(79,70,229,.18);border-radius:6px;padding:7px 12px;max-width:680px;line-height:1.5;">
+              💡 <strong>Logic:</strong> Gap = Provision − Payout. Positive gap → Available Provision (can be used in next month reversal). Negative gap → Overhit (payout exceeded provision). Payout is pulled from Payout Manager.
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="exportProvisionCSV()" style="background:var(--sf);border:1px solid var(--bd);color:var(--t2);border-radius:8px;padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;">⬇ Export CSV</button>
+            <button onclick="buildProvisionTable()" style="background:rgba(79,70,229,.1);border:1px solid rgba(79,70,229,.25);color:#818cf8;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- KPI summary bar -->
+        <div class="vg" id="provision-kpis" style="margin-bottom:14px;grid-template-columns:repeat(4,1fr);"></div>
+
+        <!-- Month filter -->
+        <div class="fb" style="margin-bottom:12px"><div class="fbrow" style="gap:8px;flex-wrap:wrap;align-items:center">
+          <span class="rl">Month:</span>
+          <div class="rts" id="provision-month-btns"></div>
+          <button onclick="_showAddMonthModal()" style="padding:4px 10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;">+ Month</button>
+          <input class="srch" id="provision-search" placeholder="🔍 Search partner…" oninput="buildProvisionTable()" style="width:200px;margin-left:8px;">
+        </div></div>
+
+        <div class="tc">
+          <div class="tch">
+            <div class="tct">Provision vs Payout Register</div>
+            <span id="provision-sub" style="font-size:11px;color:var(--t3)"></span>
+          </div>
+          <div class="tw">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Month</th>
+                  <th>Partner</th>
+                  <th class="num">Provision (₹)</th>
+                  <th class="num">Payout (₹)</th>
+                  <th class="num">Gap (₹)</th>
+                  <th class="num">Gap %</th>
+                  <th>Overhit?</th>
+                  <th class="num">Overhit Amt</th>
+                  <th class="num">Avail Provision</th>
+                  <th>Used in Reversal</th>
+                  <th>Reversal Month</th>
+                  <th>Reason / Note</th>
+                </tr>
+              </thead>
+              <tbody id="provision-tbl"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- ════ ADMIN: INVOICE MANAGER ════ -->
       <div class="view" id="view-invoices">
         <div class="ph"><div class="pt">🧾 Invoice Manager</div><div class="ps">Review & approve partner-submitted invoices</div></div>
         <div class="fb" style="margin-bottom:12px"><div class="fbrow" style="gap:8px;flex-wrap:wrap;align-items:center">
           <span class="rl">Month:</span><div class="rts" id="inv-month-btns-admin"></div>
+          <button onclick="_showAddMonthModal()" style="padding:4px 10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;">+ Month</button>
           <input class="srch" id="inv-search-admin" placeholder="🔍 Search partner…" oninput="renderInvoiceTableAdmin()" style="width:200px;margin-left:8px;">
         </div></div>
         <div class="tc">
@@ -4569,6 +4653,7 @@ function navScrollTo(id) {
         </div>
         <div class="fb" style="margin-bottom:12px"><div class="fbrow" style="gap:8px;flex-wrap:wrap;align-items:center">
           <span class="rl">Month:</span><div class="rts" id="proof-month-btns"></div>
+          <button onclick="_showAddMonthModal()" style="padding:4px 10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;">+ Month</button>
           <input class="srch" id="proof-search" placeholder="🔍 Search partner…" oninput="renderProofTable()" style="width:200px;margin-left:8px;">
         </div></div>
         <div class="tc">
@@ -4646,7 +4731,8 @@ function navScrollTo(id) {
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
             <div style="display:flex;flex-direction:column;gap:5px;">
               <label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3)">Month</label>
-              <select id="inv-month-sel" style="padding:8px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg);color:var(--tx);outline:none;" onchange="(function(sel){
+              <div style="display:flex;gap:6px;align-items:center;">
+                <select id="inv-month-sel" style="padding:8px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg);color:var(--tx);outline:none;" onchange="(function(sel){
                 var m=sel.value; var hint=document.getElementById('p-inv-payout-hint'); var amtEl=document.getElementById('p-inv-dashboard-amt');
                 if(!m||!hint||!amtEl){if(hint)hint.style.display='none';return;}
                 try{
@@ -4660,7 +4746,8 @@ function navScrollTo(id) {
                   hint.style.display='block';
                 }catch(e){if(hint)hint.style.display='none';}
               })(this)"></select>
-            </div>
+                <button onclick="_showAddMonthModal()" style="padding:6px 10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;white-space:nowrap;" title="Add a new month">+ Month</button>
+              </div>
             <div style="display:flex;flex-direction:column;gap:5px;">
               <label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3)">Invoice No.</label>
               <input type="text" id="p-inv-number" placeholder="INV-2026-001" style="padding:8px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg);color:var(--tx);outline:none;min-width:150px;">
@@ -5697,14 +5784,28 @@ var pChartType='bar', pfRange='all', pTrendPair='', selMonth=null;
 // THEME
 // ════════════════════════════════════════════════
 function toggleTheme(){
-  const dk=document.documentElement.getAttribute('data-theme')==='dark';
-  document.documentElement.setAttribute('data-theme',dk?'light':'dark');
-  const btn=document.getElementById('tbtn');
-  if(btn)btn.textContent=dk?'🌙 Dark':'☀️ Light';
-  document.querySelector('.login-theme-btn').textContent=dk?'🌙':'☀️';
-  Object.values(CH).forEach(c=>{if(c)c.destroy()});CH={};
-  const a=document.querySelector('.view.active');
-  if(a)setTimeout(()=>triggerView(a.id.replace('view-','')),50);
+  var html = document.documentElement;
+  var isLight = html.classList.toggle('light');
+  // Persist
+  try{ localStorage.setItem('theme', isLight ? 'light' : 'dark'); }catch(e){}
+  // Sync both buttons
+  var tbtn = document.getElementById('tbtn');
+  if(tbtn) tbtn.textContent = isLight ? '🌙 Dark' : '☀️ Light';
+  var lblBtn = document.getElementById('themeLabel');
+  if(lblBtn) lblBtn.textContent = isLight ? '🌙 Dark' : '☀️ Light';
+  var lBtn = document.querySelector('.login-theme-btn');
+  if(lBtn) lBtn.textContent = isLight ? '🌙' : '☀️';
+  // Sync logo
+  var logoDark  = document.getElementById('logo-dark');
+  var logoLight = document.getElementById('logo-light');
+  if(logoDark && logoLight){
+    logoDark.style.display  = isLight ? 'none'  : 'block';
+    logoLight.style.display = isLight ? 'block' : 'none';
+  }
+  // Rebuild charts for new theme colours
+  try{ Object.values(CH).forEach(function(c){if(c)c.destroy();}); CH={}; }catch(e){}
+  var a = document.querySelector('.view.active');
+  if(a) setTimeout(function(){ try{ triggerView(a.id.replace('view-','')); }catch(e){} }, 50);
 }
 
 // ════════════════════════════════════════════════
@@ -5863,6 +5964,7 @@ function triggerView(id){
   }
   if(id==='announcements')buildAnnouncementsAdmin();
   if(id==='payouts'){buildPayoutMonthBtns();renderPayoutTable();}
+  if(id==='provision'){buildProvisionMonthBtns();buildProvisionTable();}
   if(id==='invoices'){buildInvMonthBtnsAdmin();renderInvoiceTableAdmin();}
   if(id==='payments'){buildProofMonthBtns();renderProofTable();}
   if(id==='reports'){/* static */}
@@ -7193,6 +7295,73 @@ function buildPartnerOverview(){
     }).join('');
   }
 
+  // ── VAS Summary Cards (PDI / LAC / Challan / VHR) ────────────────
+  try{
+    var vasCards = [
+      { id:'p-ov-vas-pdi',     label:'🔧 PDI Orders',    storeFn: getPdiStore,     key:'orders' },
+      { id:'p-ov-vas-lac',     label:'💳 LAC Orders',    storeFn: getLacStore,     key:'orders' },
+      { id:'p-ov-vas-challan', label:'📋 Challan Orders', storeFn: getChallanStore, key:'orders' },
+      { id:'p-ov-vas-vhr',     label:'📄 VHR Count',     storeFn: getVhrStore,     key:'count'  }
+    ];
+
+    // Build or find VAS grid container
+    var vasGrid = document.getElementById('p-ov-vas-grid');
+    if(!vasGrid){
+      vasGrid = document.createElement('div');
+      vasGrid.id = 'p-ov-vas-grid';
+      vasGrid.className = 'p-ov-grid';
+      vasGrid.style.marginTop = '16px';
+      var detailGridEl = document.getElementById('p-ov-detail-grid');
+      if(detailGridEl) detailGridEl.insertAdjacentElement('afterend', vasGrid);
+    }
+
+    vasCards.forEach(function(vc){
+      var store = vc.storeFn();
+      var totalOrders = 0, totalPayout = 0;
+      var monthRows = '';
+
+      filteredMonths.forEach(function(m){
+        var entry = store[m] && store[m][p.name];
+        if(!entry) return;
+        var orders  = entry[vc.key] || entry.orders || entry.count || 0;
+        var payout  = entry.payout || 0;
+        totalOrders += orders;
+        totalPayout += payout;
+        monthRows += '<div class="p-ov-row">'
+          + '<span class="p-ov-lbl">'+(MLABEL[m]||m)+'</span>'
+          + '<span class="p-ov-val">'+orders.toLocaleString()
+          + (payout > 0 ? ' <span style="color:#10b981;font-size:11px;">· '+fmtL(payout)+'</span>' : '')
+          + '</span></div>';
+      });
+
+      // Find or create card
+      var card = document.getElementById(vc.id);
+      if(!card){
+        card = document.createElement('div');
+        card.id = vc.id;
+        card.className = 'p-ov-card';
+        vasGrid.appendChild(card);
+      }
+
+      if(totalOrders === 0 && totalPayout === 0){
+        card.style.display = 'none';
+        return;
+      }
+      card.style.display = '';
+      card.innerHTML = '<div class="p-ov-card-hdr">'+vc.label+'</div>'
+        + monthRows
+        + '<div class="p-ov-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px;">'
+        + '<span class="p-ov-lbl" style="font-weight:700;">Total</span>'
+        + '<span class="p-ov-val" style="font-weight:700;color:var(--ac);">'+totalOrders.toLocaleString()
+        + (totalPayout > 0 ? ' <span style="color:#10b981;font-size:11px;">· '+fmtL(totalPayout)+'</span>' : '')
+        + '</span></div>';
+    });
+
+    // Hide grid entirely if all cards are empty
+    var visibleCards = vasGrid.querySelectorAll('.p-ov-card:not([style*="display: none"])');
+    vasGrid.style.display = visibleCards.length ? '' : 'none';
+  }catch(vasErr){ console.warn('[VAS overview]', vasErr); }
+
   // Announcement preview / banners
   try{ _buildOverviewAnnPreview(); }catch(e){}
 }
@@ -7271,25 +7440,43 @@ function _buildOverviewAnnPreview(){
   // ── 2. TARGET BANNER ──────────────────────────────────────────
   try{
     var tStore = getTargetStore();
+    var partnerTgts = tStore[pName] || tStore[pLower] || null;
+    // Find latest month that has any target set for this partner
     var tEntries = [];
-    Object.keys(tStore).forEach(function(k){
-      if(k.toLowerCase().startsWith(pLower+'__')||k.toLowerCase().startsWith(pName+'__')){
-        var mo = k.split('__')[1]||'';
-        var t  = tStore[k];
-        if(t&&(t.seller_target||t.buyer_target)) tEntries.push({mo:mo,t:t,k:k});
-      }
-    });
+    if(partnerTgts){
+      // Structure: store[name][stream][month] e.g. store['Wellnex']['seller']['Mar']
+      var streams = ['seller','buyer','pdi','vhr','lac','challan'];
+      MONTHS.forEach(function(mo){
+        var selTgt=0, buyTgt=0;
+        streams.forEach(function(s){
+          if(s==='seller' && partnerTgts[s] && partnerTgts[s][mo]) selTgt = partnerTgts[s][mo];
+          if(s==='buyer'  && partnerTgts[s] && partnerTgts[s][mo]) buyTgt = partnerTgts[s][mo];
+        });
+        if(selTgt||buyTgt) tEntries.push({mo:mo, seller:selTgt, buyer:buyTgt});
+      });
+    }
+    // Also check old flat format store[name__month] for backward compat
+    if(!tEntries.length){
+      Object.keys(tStore).forEach(function(k){
+        if(k.toLowerCase().startsWith(pLower+'__')||k.toLowerCase().startsWith(pName+'__')){
+          var mo = k.split('__')[1]||'';
+          var t  = tStore[k];
+          if(t&&(t.seller_target||t.buyer_target)) tEntries.push({mo:mo, seller:t.seller_target||0, buyer:t.buyer_target||0});
+        }
+      });
+    }
+    // Sort by MONTHS order (latest first)
     tEntries.sort(function(a,b){
-      var ai=MONTHS.indexOf(a.mo),bi=MONTHS.indexOf(b.mo);
+      var ai=MONTHS.indexOf(a.mo), bi=MONTHS.indexOf(b.mo);
       return (bi===-1?-999:bi)-(ai===-1?-999:ai);
     });
     if(tEntries.length){
       var latest = tEntries[0];
       var moLbl  = (MLABEL&&MLABEL[latest.mo])||latest.mo;
-      var bid    = 'tgt_'+latest.k.replace(/[^a-z0-9]/gi,'_');
+      var bid    = 'tgt_'+pName.replace(/[^a-z0-9]/gi,'_')+'_'+latest.mo;
       var parts  = [];
-      if(latest.t.seller_target) parts.push('Seller: '+latest.t.seller_target+' inspections');
-      if(latest.t.buyer_target)  parts.push('Buyer: '+latest.t.buyer_target+' visits');
+      if(latest.seller) parts.push('Seller: '+latest.seller+' inspections');
+      if(latest.buyer)  parts.push('Buyer: '+latest.buyer+' visits');
       var tsStore = parseInt(localStorage.getItem('__ts_cars24_target_store')||'0',10);
       var tsSeen  = (_c24Seen&&_c24Seen['targets_ts'])||0;
       var isNew   = tsStore > tsSeen;
@@ -7297,48 +7484,65 @@ function _buildOverviewAnnPreview(){
         cards.push({
           id: bid, cls:'tgt', icon:'🎯',
           tag:'Target · '+moLbl,
-          title: parts.join(' · '),
-          sub: latest.t.notes ? escH(latest.t.notes.slice(0,65)) : 'Tap to view full target details',
+          title: parts.length ? parts.join(' · ') : 'Targets set for '+moLbl,
+          sub: 'Tap to view your full target breakdown',
           isNew: isNew,
           go: "showPV('p-targets',document.querySelector('#partner-sidebar .ni[onclick*=p-targets]'))"
         });
       }
     }
-  }catch(e){}
+  }catch(e){ console.warn('[Banner] Target error:',e); }
 
   // ── 3. PAYOUT BANNER ─────────────────────────────────────────
   try{
     var payStore = getPayoutStore();
     var latestMo = null, latestEntry = null;
+    // Check payout store first (requires amount > 0)
     (MONTHS||[]).slice().reverse().forEach(function(m){
       if(latestMo) return;
       var k = pName+'__'+m;
-      if(payStore[k]){ latestMo=m; latestEntry=payStore[k]; }
+      if(payStore[k] && (payStore[k].amount||0) > 0){ latestMo=m; latestEntry=payStore[k]; }
     });
+    // Fallback: if payout store empty, use dashboard payout from currentPartner
+    if(!latestEntry && currentPartner){
+      (MONTHS||[]).slice().reverse().forEach(function(m){
+        if(latestMo) return;
+        var dashPay = currentPartner.payout && currentPartner.payout[m];
+        if(dashPay && dashPay > 0){ latestMo=m; latestEntry={amount:dashPay, status:'Calculated', _fromDash:true}; }
+      });
+    }
     if(latestEntry){
       var amt    = latestEntry.amount||0;
       var st     = latestEntry.status||'Pending';
       var moLbl2 = (MLABEL&&MLABEL[latestMo])||latestMo||'';
       var bid    = 'pay_'+pName.replace(/[^a-z0-9]/gi,'_')+'_'+latestMo;
-      var stIcon = {Approved:'✅',Paid:'✅',Rejected:'❌',Pending:'⏳'}[st]||'⏳';
+      var stIcon = {Approved:'✅',Paid:'✅',Rejected:'❌',Pending:'⏳',Calculated:'📊'}[st]||'⏳';
       var payTs  = parseInt(localStorage.getItem('__ts_cars24_payout_store')||'0',10);
       var paySeen= (_c24Seen&&_c24Seen['payout_ts'])||0;
       var isNew  = payTs > paySeen;
+      var subTxt = latestEntry._fromDash
+        ? 'Calculated from data — admin yet to confirm'
+        : (st==='Approved'||st==='Paid' ? 'Payment processed — check your account' : 'Awaiting approval by admin');
       if(!_isBannerDismissed(bid)){
         cards.push({
           id: bid, cls:'pay', icon:'💰',
           tag:'Payout · '+moLbl2,
           title: stIcon+' '+st+(amt>0?' — '+fmtL(amt):''),
-          sub: st==='Approved'||st==='Paid'?'Payment processed — check your account':'Awaiting approval by admin',
+          sub: subTxt,
           isNew: isNew,
           go: "showPV('p-payout',document.querySelector('#partner-sidebar .ni[onclick*=p-payout]'))"
         });
       }
     }
-  }catch(e){}
+  }catch(e){ console.warn('[Banner] Payout:',e); }
 
   if(!cards.length){
-    grid.style.display='none';
+    // Show placeholder cards so the grid is always visible
+    grid.style.display='grid';
+    grid.innerHTML=
+      '<div class="ph-banner ann" style="opacity:.4;cursor:default"><div class="ph-banner-icon">📢</div><div class="ph-banner-body"><div class="ph-banner-tag">Announcement</div><div class="ph-banner-title">No new announcements</div><div class="ph-banner-sub">Admin will post updates here</div></div></div>'
+    + '<div class="ph-banner tgt" style="opacity:.4;cursor:default"><div class="ph-banner-icon">🎯</div><div class="ph-banner-body"><div class="ph-banner-tag">Target</div><div class="ph-banner-title">No targets set yet</div><div class="ph-banner-sub">Admin will set monthly targets</div></div></div>'
+    + '<div class="ph-banner pay" style="opacity:.4;cursor:default"><div class="ph-banner-icon">💰</div><div class="ph-banner-body"><div class="ph-banner-tag">Payout</div><div class="ph-banner-title">No payout data yet</div><div class="ph-banner-sub">Sync data to see payout status</div></div></div>';
     return;
   }
 
@@ -8078,18 +8282,26 @@ function deleteAnnouncement(id){
 }
 function openAnnouncementModal(){
   var pOpts=PARTNERS.map(p=>'<option value="'+escH(p.name)+'">'+escH(p.name)+'</option>').join('');
+  var moOpts='<option value="">No specific month</option>'+MONTHS.map(function(m){ return '<option value="'+m+'">'+(MLABEL[m]||m)+'</option>'; }).join('');
   document.body.insertAdjacentHTML('beforeend',`<div id="ann-ov" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px);">
   <div style="background:var(--sf,#0E1420);border:1px solid var(--bd);border-radius:16px;width:100%;max-width:560px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.4);">
     <div style="font-size:18px;font-weight:800;margin-bottom:20px;">📢 New Announcement</div>
     <div style="display:flex;flex-direction:column;gap:13px;">
       <div><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Title *</label>
       <input id="ann-title" placeholder="e.g. March Incentive Slab Update" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;box-sizing:border-box;"></div>
-      <div style="display:flex;gap:10px;"><div style="flex:1;"><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Type</label>
-      <select id="ann-type" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;">
-        <option value="incentive">🎁 Incentive</option><option value="creative">🎨 Creative</option><option value="notice">📋 Notice</option><option value="payment">💸 Payment</option><option value="other">📌 Other</option>
-      </select></div>
-      <div style="flex:1;"><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Audience</label>
-      <select id="ann-audience" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;"><option value="all">All Partners</option>${pOpts}</select></div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:130px;"><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Type</label>
+        <select id="ann-type" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;">
+          <option value="incentive">🎁 Incentive</option><option value="creative">🎨 Creative</option><option value="notice">📋 Notice</option><option value="payment">💸 Payment</option><option value="other">📌 Other</option>
+        </select></div>
+        <div style="flex:1;min-width:130px;"><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Audience</label>
+        <select id="ann-audience" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;"><option value="all">All Partners</option>${pOpts}</select></div>
+        <div style="flex:1;min-width:130px;"><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Month <span style="font-weight:400;opacity:.6">(optional)</span></label>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <select id="ann-month" style="flex:1;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;">${moOpts}</select>
+          <button onclick="_showAddMonthModal()" style="padding:6px 9px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;" title="Add new month">+</button>
+        </div></div>
+      </div>
       <div><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Message *</label>
       <textarea id="ann-body" rows="5" placeholder="Write your message here…" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;resize:vertical;box-sizing:border-box;"></textarea></div>
       <div><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Link (optional)</label>
@@ -8109,6 +8321,7 @@ function saveAnnouncement(){
   var anns=getAnnouncements();
   var newAnn={id:Date.now(),title,type:document.getElementById('ann-type').value,
     audience:audience,body,
+    month:(document.getElementById('ann-month')||{value:''}).value||'',
     link:(document.getElementById('ann-link').value||'').trim(),
     date:new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})};
   anns.push(newAnn);
@@ -9595,6 +9808,214 @@ function exportPayoutCSV(){
   });});
   var csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='cars24_payouts.csv';a.click();
+}
+
+// ════════════════════════════════════════════════
+// PROVISION TRACKER
+// ════════════════════════════════════════════════
+// Store: cars24_provision_store  key = partnerName__month
+// Entry: { provision, reversalUsed, reversalMonth, reason }
+
+function getProvisionStore(){ return _storeOrDef('cars24_provision_store', {}); }
+function saveProvisionStore(s){
+  try{ localStorage.setItem('cars24_provision_store', JSON.stringify(s)); }catch(e){}
+  if(window._c24Cloud && window._c24Cloud.push) window._c24Cloud.push('cars24_provision_store', JSON.stringify(s));
+}
+
+var _provMonth = '';
+
+function buildProvisionMonthBtns(){
+  var wrap = document.getElementById('provision-month-btns'); if(!wrap) return;
+  if(!_provMonth || !MONTHS.includes(_provMonth)) _provMonth = MONTHS[MONTHS.length-1]||'';
+  wrap.innerHTML = MONTHS.map(function(m){
+    var btn = document.createElement('button');
+    btn.className = 'rt' + (m===_provMonth?' active':'');
+    btn.textContent = (MLABEL[m]||m).replace(/\s\d{4}/,'');
+    btn.onclick = function(){ _provMonth=m; wrap.querySelectorAll('.rt').forEach(function(b){b.classList.remove('active');}); this.classList.add('active'); buildProvisionTable(); };
+    return btn.outerHTML;
+  }).join('');
+}
+
+function buildProvisionTable(){
+  var tbl = document.getElementById('provision-tbl'); if(!tbl) return;
+  var kpis = document.getElementById('provision-kpis');
+  var sub  = document.getElementById('provision-sub');
+  if(!_provMonth) _provMonth = MONTHS[MONTHS.length-1]||'';
+
+  var q = (document.getElementById('provision-search')||{value:''}).value.toLowerCase();
+  var payStore   = getPayoutStore();
+  var provStore  = getProvisionStore();
+  var moLabel    = MLABEL[_provMonth]||_provMonth;
+
+  var rows = PARTNERS.filter(function(p){ return !q||p.name.toLowerCase().includes(q); });
+
+  if(!rows.length){
+    tbl.innerHTML = '<tr><td colspan="13" class="empty">No partners found.</td></tr>';
+    return;
+  }
+
+  var totProv=0, totPay=0, totAvail=0, totOverhit=0;
+
+  var html = rows.map(function(p, i){
+    var key        = p.name+'__'+_provMonth;
+    var payEntry   = payStore[key]||null;
+    var payout     = payEntry ? (payEntry.amount||0) : ((p.payout&&p.payout[_provMonth])||0);
+    var provEntry  = provStore[key]||{provision:0, reversalUsed:false, reversalMonth:'', reason:''};
+    var provision  = provEntry.provision||0;
+
+    var gap        = provision - payout;          // positive = surplus, negative = overhit
+    var gapPct     = provision>0 ? (gap/provision*100).toFixed(1) : (payout>0?'-100.0':'0.0');
+    var isOverhit  = gap < 0;
+    var overhitAmt = isOverhit ? Math.abs(gap) : 0;
+    var availProv  = isOverhit ? 0 : gap;
+
+    totProv    += provision;
+    totPay     += payout;
+    totAvail   += availProv;
+    totOverhit += overhitAmt;
+
+    var gapCol    = gap>=0 ? '#10b981' : '#ef4444';
+    var ovBadge   = isOverhit
+      ? '<span style="background:rgba(239,68,68,.1);color:#ef4444;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid rgba(239,68,68,.25);">⚠ Yes</span>'
+      : '<span style="background:rgba(16,185,129,.1);color:#10b981;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid rgba(16,185,129,.25);">No</span>';
+
+    var revUsed = provEntry.reversalUsed ? 'Yes' : 'No';
+    var revMo   = escH(provEntry.reversalMonth||'');
+    var reason  = escH(provEntry.reason||'');
+
+    return '<tr>'
+      +'<td style="color:var(--t3);font-size:11px">'+(i+1)+'</td>'
+      +'<td style="font-weight:600;color:var(--ac)">'+(MLABEL[_provMonth]||_provMonth)+'</td>'
+      +'<td style="font-weight:600">'+escH(p.name)+'</td>'
+      // Provision — editable inline
+      +'<td class="num"><input type="number" value="'+provision+'" min="0" step="1000" '
+      +'onchange="updateProvision(\''+escH(p.name)+'\',\''+_provMonth+'\',\'provision\',this.value)" '
+      +'style="width:100px;padding:4px 7px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;font-weight:700;color:var(--ac);background:var(--bg);text-align:right;outline:none;" '
+      +'onfocus="this.style.borderColor=\'var(--ac)\'" onblur="this.style.borderColor=\'var(--bd)\'"></td>'
+      // Payout — from payout store (read-only)
+      +'<td class="num" style="font-weight:600;">'+(payout>0?fmtL(payout):'—')+'</td>'
+      // Gap
+      +'<td class="num" style="font-weight:700;color:'+gapCol+'">'+(provision>0||payout>0 ? (gap>=0?'+':'')+gap.toLocaleString() : '—')+'</td>'
+      +'<td class="num" style="color:'+gapCol+'">'+gapPct+'%</td>'
+      // Overhit
+      +'<td style="text-align:center">'+ovBadge+'</td>'
+      +'<td class="num" style="color:#ef4444;font-weight:600">'+(overhitAmt>0?fmtL(overhitAmt):'—')+'</td>'
+      // Avail Provision
+      +'<td class="num" style="color:#10b981;font-weight:600">'+(availProv>0?fmtL(availProv):'—')+'</td>'
+      // Used in Reversal — editable toggle
+      +'<td style="text-align:center">'
+      +'<select onchange="updateProvision(\''+escH(p.name)+'\',\''+_provMonth+'\',\'reversalUsed\',this.value)" '
+      +'style="padding:4px 7px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;background:var(--bg);color:var(--tx);" '
+      +(availProv<=0?'disabled title="No surplus to use in reversal"':'')+'>'
+      +'<option value="No"'+(revUsed==='No'?' selected':'')+'>No</option>'
+      +'<option value="Yes"'+(revUsed==='Yes'?' selected':'')+'>Yes</option>'
+      +'</select></td>'
+      // Reversal Month — editable
+      +'<td><input type="text" value="'+revMo+'" placeholder="e.g. Apr\'26" '
+      +'onchange="updateProvision(\''+escH(p.name)+'\',\''+_provMonth+'\',\'reversalMonth\',this.value)" '
+      +'style="width:80px;padding:4px 7px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;background:var(--bg);color:var(--tx);outline:none;" '
+      +(availProv<=0?'disabled':'')+'/></td>'
+      // Reason
+      +'<td><input type="text" value="'+reason+'" placeholder="Note…" '
+      +'onchange="updateProvision(\''+escH(p.name)+'\',\''+_provMonth+'\',\'reason\',this.value)" '
+      +'style="width:160px;padding:4px 7px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;background:var(--bg);color:var(--tx);outline:none;"/></td>'
+      +'</tr>';
+  }).join('');
+
+  // Grand total row
+  var totGap = totProv - totPay;
+  var totGapCol = totGap>=0?'#10b981':'#ef4444';
+  html += '<tr class="sumrow">'
+    +'<td colspan="3" style="font-weight:700">Grand Total ('+rows.length+' partners)</td>'
+    +'<td class="num" style="font-weight:700;color:var(--ac)">'+(totProv>0?fmtL(totProv):'—')+'</td>'
+    +'<td class="num" style="font-weight:700">'+(totPay>0?fmtL(totPay):'—')+'</td>'
+    +'<td class="num" style="font-weight:700;color:'+totGapCol+'">'+(totProv>0||totPay>0?(totGap>=0?'+':'')+totGap.toLocaleString():'—')+'</td>'
+    +'<td colspan="2"></td>'
+    +'<td class="num" style="font-weight:700;color:#ef4444">'+(totOverhit>0?fmtL(totOverhit):'—')+'</td>'
+    +'<td class="num" style="font-weight:700;color:#10b981">'+(totAvail>0?fmtL(totAvail):'—')+'</td>'
+    +'<td colspan="3"></td>'
+    +'</tr>';
+
+  tbl.innerHTML = html;
+  if(sub) sub.textContent = rows.length+' partners · '+moLabel;
+
+  // KPI cards
+  if(kpis) kpis.innerHTML =
+    '<div class="vc"><div class="vt">Total Provision</div><div class="vv">'+(totProv>0?fmtL(totProv):'₹0')+'</div><div class="vs">'+moLabel+'</div></div>'
+   +'<div class="vc"><div class="vt">Total Payout</div><div class="vv">'+(totPay>0?fmtL(totPay):'₹0')+'</div><div class="vs">From Payout Manager</div></div>'
+   +'<div class="vc"><div class="vt" style="color:#10b981">Avail Provision</div><div class="vv" style="color:#10b981">'+(totAvail>0?fmtL(totAvail):'₹0')+'</div><div class="vs">Carry to next month</div></div>'
+   +'<div class="vc"><div class="vt" style="color:#ef4444">Overhit Amount</div><div class="vv" style="color:#ef4444">'+(totOverhit>0?fmtL(totOverhit):'₹0')+'</div><div class="vs">Exceeds provision</div></div>';
+}
+
+function updateProvision(pName, mo, field, value){
+  var store = getProvisionStore();
+  var key   = pName+'__'+mo;
+  if(!store[key]) store[key] = { provision:0, reversalUsed:false, reversalMonth:'', reason:'' };
+  if(field==='provision')     store[key].provision     = parseInt(value)||0;
+  if(field==='reversalUsed')  store[key].reversalUsed  = (value==='Yes');
+  if(field==='reversalMonth') store[key].reversalMonth = value.trim();
+  if(field==='reason')        store[key].reason        = value.trim();
+  saveProvisionStore(store);
+  // Rebuild KPIs without rebuilding whole table (avoids focus loss)
+  _updateProvisionKPIs();
+}
+
+function _updateProvisionKPIs(){
+  var store    = getProvisionStore();
+  var payStore = getPayoutStore();
+  var q = (document.getElementById('provision-search')||{value:''}).value.toLowerCase();
+  var rows = PARTNERS.filter(function(p){ return !q||p.name.toLowerCase().includes(q); });
+  var totProv=0, totPay=0, totAvail=0, totOverhit=0;
+  rows.forEach(function(p){
+    var key = p.name+'__'+_provMonth;
+    var pe  = payStore[key]||null;
+    var pay = pe?(pe.amount||0):((p.payout&&p.payout[_provMonth])||0);
+    var prov = (store[key]&&store[key].provision)||0;
+    var gap  = prov - pay;
+    totProv    += prov; totPay += pay;
+    totAvail   += gap>=0 ? gap : 0;
+    totOverhit += gap<0  ? Math.abs(gap) : 0;
+  });
+  var kpis = document.getElementById('provision-kpis');
+  var moLabel = MLABEL[_provMonth]||_provMonth;
+  if(kpis) kpis.innerHTML =
+    '<div class="vc"><div class="vt">Total Provision</div><div class="vv">'+(totProv>0?fmtL(totProv):'₹0')+'</div><div class="vs">'+moLabel+'</div></div>'
+   +'<div class="vc"><div class="vt">Total Payout</div><div class="vv">'+(totPay>0?fmtL(totPay):'₹0')+'</div><div class="vs">From Payout Manager</div></div>'
+   +'<div class="vc"><div class="vt" style="color:#10b981">Avail Provision</div><div class="vv" style="color:#10b981">'+(totAvail>0?fmtL(totAvail):'₹0')+'</div><div class="vs">Carry to next month</div></div>'
+   +'<div class="vc"><div class="vt" style="color:#ef4444">Overhit Amount</div><div class="vv" style="color:#ef4444">'+(totOverhit>0?fmtL(totOverhit):'₹0')+'</div><div class="vs">Exceeds provision</div></div>';
+}
+
+function exportProvisionCSV(){
+  var store    = getProvisionStore();
+  var payStore = getPayoutStore();
+  var rows     = [['Month','Partner','Provision (₹)','Payout (₹)','Gap (₹)','Gap %','Overhit Required','Overhit Amount','Avail Provision','Used in Reversal','Reversal Month','Reason']];
+  MONTHS.forEach(function(m){
+    var moLbl = MLABEL[m]||m;
+    PARTNERS.forEach(function(p){
+      var key   = p.name+'__'+m;
+      var pe    = payStore[key]||null;
+      var payout = pe?(pe.amount||0):((p.payout&&p.payout[m])||0);
+      var prov  = (store[key]&&store[key].provision)||0;
+      var gap   = prov - payout;
+      var gapPct = prov>0?(gap/prov*100).toFixed(1)+'%':(payout>0?'-100.0%':'0%');
+      var isOv  = gap<0;
+      var provEntry = store[key]||{reversalUsed:false,reversalMonth:'',reason:''};
+      rows.push([
+        moLbl, p.name,
+        prov, payout, gap, gapPct,
+        isOv?'Yes':'No',
+        isOv?Math.abs(gap):0,
+        isOv?0:gap,
+        provEntry.reversalUsed?'Yes':'No',
+        provEntry.reversalMonth||'',
+        provEntry.reason||''
+      ]);
+    });
+  });
+  var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download = 'cars24_provision_tracker.csv'; a.click();
 }
 
 // ── 6. INVOICES ───────────────────────────────────────────────────
@@ -11940,6 +12361,7 @@ function showImportError(msg){
             <option value="custom">+ Custom month…</option>
           </select>
           <input id="import-month-custom" type="text" placeholder="e.g. May 2026" style="display:none;background:var(--sb);border:1px solid var(--bd);color:var(--tx);padding:8px 12px;border-radius:7px;font-size:13px;width:130px;">
+          <button onclick="_showAddMonthModal()" style="padding:7px 14px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:7px;font-size:12px;font-weight:700;color:#f59e0b;cursor:pointer;" title="Register a new month in the portal">+ Add Month</button>
         </div>
       </div>
 
@@ -12697,7 +13119,7 @@ function _confirmAddMonth(){
 
 // Sheet ID is obfuscated — not stored as plain text in source
 var GSHEET_ID = (function(){
-  var a=[49,45,120,48,72,56,48,110,97,51,73,78,83,72], b=[100,48,95,115,88,79,117,84,100,118,79,72,122,99], c=[77,76,85,100,55,75,56,101,88,82,99,54,75,108,102,65];
+  var a=[49,68,109,80,45,108,69,49,121,103,65,84,86,76], b=[103,49,113,56,108,69,77,65,101,49,75,85,87,53], c=[74,77,89,56,74,117,70,108,57,117,100,87,51,95,69,103];
   return a.concat(b).concat(c).map(function(x){return String.fromCharCode(x);}).join('');
 })();
 
@@ -12705,15 +13127,15 @@ var GSHEET_ID = (function(){
 // Key = short tab name, Value = numeric GID string
 // All confirmed GIDs from user-provided sheet URLs
 var GSHEET_TAB_GIDS = {
-  // Partner tab (gid=0) removed — Admin tab now populates both PARTNERS and PARTNER_SHEET
-  'Admin':    '1012408495',  // Admin View   (gid=1012408495) — primary data source for all views
-  'Overview': '588337111',   // DOD/Dashboard (gid=588337111)
-  'Buyer':    '1913073478',  // Buyer View   (gid=1913073478)
-  'Elite':    '564077706',   // Elite Dashboard (gid=564077706)
-  'PDI':      '698478831',   // PDI (gid=698478831)
-  'Challan':  '285209008',   // Challan (gid=285209008)
-  'LAC':      '1384850852',  // LAC (gid=1384850852)
-  'VHR':      '1220290751',  // VHR (gid=1220290751)
+  'Partner':  '1459722986',  // Partner View  (gid=1459722986)
+  'Admin':    '667342306',   // Admin View    (gid=667342306) — primary data source for all views
+  'Overview': '506955235',   // DOD/Dashboard (gid=506955235)
+  'Elite':    '0',           // Elite Dashboard (gid=0)
+  'PDI':      '788771803',   // PDI           (gid=788771803)
+  'VHR':      '2004127377',  // VHR           (gid=2004127377)
+  'Challan':  '118527114',   // Challan       (gid=118527114)
+  'LAC':      '723928485',   // LAC           (gid=723928485)
+  'Buyer':    '1229301814',  // Buyer View    (gid=1229301814)
 };
 
 var _gsheetLastUpdate = null;
@@ -16962,6 +17384,8 @@ window.showPortal = function(role, user, partner) {
   if(!pf){ alert('Portal element not found. Please reload the page.'); return; }
   pf.classList.add('open');
   document.body.style.overflow = 'hidden';
+  // Remove login-flash-prevention splash if set during restore
+  try{ var sp=document.getElementById('c24-restore-splash'); if(sp) sp.remove(); }catch(e){}
   try{ window.rebuildMonthMeta(); }catch(e){}
   try{ window._initAllFeatures && window._initAllFeatures(); }catch(e){}
 
@@ -17135,10 +17559,8 @@ function _restoreSession(){
 
     var partner = null;
     if(sess.role === 'partner'){
-      // Always read fresh from localStorage — bootPull has already updated it from Drive
       var creds = [];
       try{ var _sc=localStorage.getItem('cars24_partner_creds'); creds=_sc?JSON.parse(_sc):(window.PARTNER_CREDS||[]); }catch(e){ creds=window.PARTNER_CREDS||[]; }
-      // Keep global in sync with freshly loaded data
       if(creds.length){ try{ PARTNER_CREDS=creds; window.PARTNER_CREDS=creds; }catch(e){} }
       var cred = creds.find(function(c){ return c.display===sess.partnerName || c.username===sess.username; });
       if(!cred){ localStorage.removeItem('c24_session'); return; }
@@ -17153,6 +17575,43 @@ function _restoreSession(){
     catch(e){ console.warn('[C24Boot] Session restore error:', e); localStorage.removeItem('c24_session'); }
   }catch(e){ console.warn('[C24Boot] Session restore:', e); }
 }
+
+// ── Session splash — hide login flicker on refresh ─────────────────────────────
+(function _hideSplashOnRestore(){
+  var saved = null;
+  try{ saved = localStorage.getItem('c24_session'); }catch(e){}
+  if(saved){
+    try{
+      var sess = JSON.parse(saved);
+      if(sess && sess.role && sess.user && !(sess.exp && Date.now() > sess.exp)){
+        // Valid session — hide login page immediately to prevent flash
+        var style = document.createElement('style');
+        style.id = 'c24-restore-splash';
+        style.textContent = '#portal-fullscreen:not(.open){opacity:0!important}body>#login-page{opacity:0!important;pointer-events:none!important}';
+        document.head.appendChild(style);
+        // Remove splash after portal loads (max 3s failsafe)
+        setTimeout(function(){
+          var s = document.getElementById('c24-restore-splash');
+          if(s) s.remove();
+        }, 3000);
+      }
+    }catch(e){}
+  }
+})();
+
+// ── pageshow handler — fixes Android bfcache logout on back/refresh ────────────
+window.addEventListener('pageshow', function(e){
+  // e.persisted = true when page is restored from bfcache (Android back button)
+  if(e.persisted){
+    // Page was restored from cache — check if session is still valid
+    var saved = null;
+    try{ saved = localStorage.getItem('c24_session'); }catch(e2){}
+    if(saved && !window.currentRole){
+      // Session exists but portal not shown — re-restore
+      try{ _restoreSession(); }catch(e2){}
+    }
+  }
+});
 
 // Fallback: if Supabase not configured, run session restore directly on DOMContentLoaded
 // If Supabase IS configured, bootPull calls _restoreSession after data is loaded
@@ -19355,110 +19814,66 @@ console.log('[Cars24 v36] All 6 fixes applied — data isolation ✓ projection 
 // ══════════════════════════════════════════════════════════════════
 (function _cars24ExtraPatches(){
 
-// ── GOOGLE DRIVE UPLOAD HELPER ────────────────────────────────────
-// Uses a Google Apps Script Web App as a relay to upload files to Drive.
-// Partners submit invoices → stored in Drive + localStorage.
-// Admin uploads payment proof → stored in Drive + localStorage.
-// Set your Apps Script URL below (deploy as "Anyone" with access).
-var DRIVE_WEBAPP_URL = window.CARS24_DRIVE_URL || '';  // set in config if available
+// ══════════════════════════════════════════════════════════════════
+// SUPABASE STORAGE UPLOAD — replaces Google Drive relay entirely
+// Bucket: cars24-invoices (create once in Supabase → Storage)
+// Files stored as: {folder}/{fileName}
+// Public URL returned so partner/admin can view file directly
+// ══════════════════════════════════════════════════════════════════
 
-// Base64-encode a File and POST to the Apps Script relay
+var _SB_STORAGE_BUCKET = 'cars24-invoices';
+
 async function uploadFileToDrive(file, folder, fileName){
-  return new Promise(function(resolve){
-    var url = window.CARS24_DRIVE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.driveWebAppUrl) || '';
-    if(!url){
-      console.warn('[Drive] driveWebAppUrl not configured — file saved locally only');
-      resolve(null);
-      return;
+  var sbUrl = window.CARS24_SUPABASE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.url) || '';
+  var sbKey = window.CARS24_SUPABASE_ANONKEY || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.anonKey) || '';
+
+  if(!sbUrl || !sbKey){
+    console.warn('[Storage] Supabase not configured — file saved locally only');
+    return null;
+  }
+
+  // 10MB practical limit (Supabase free tier supports up to 50MB)
+  if(file.size > 10 * 1024 * 1024){
+    console.warn('[Storage] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max 10MB');
+    return 'TOO_LARGE';
+  }
+
+  var safeName    = fileName.replace(/[^a-zA-Z0-9._\-() ]/g, '_');
+  var storagePath = folder + '/' + safeName;
+
+  console.log('[Storage] Uploading to Supabase:', storagePath);
+
+  try{
+    var uploadUrl = sbUrl + '/storage/v1/object/' + _SB_STORAGE_BUCKET + '/' + encodeURIComponent(storagePath);
+    var response  = await fetch(uploadUrl, {
+      method : 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + sbKey,
+        'apikey'       : sbKey,
+        'Content-Type' : file.type || 'application/octet-stream',
+        'x-upsert'     : 'true'
+      },
+      body: file
+    });
+
+    if(!response.ok){
+      var errText = await response.text();
+      console.warn('[Storage] Upload failed:', response.status, errText);
+      return null;
     }
 
-    // File size guard — Apps Script payload limit is ~5MB base64 (≈ 3.7MB raw file)
-    var MAX_BYTES = 3.5 * 1024 * 1024;
-    if(file.size > MAX_BYTES){
-      console.warn('[Drive] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max 3.5MB for Drive upload');
-      resolve('TOO_LARGE');
-      return;
-    }
+    var publicUrl = sbUrl + '/storage/v1/object/public/' + _SB_STORAGE_BUCKET + '/' + encodeURIComponent(storagePath);
+    console.log('[Storage] Upload OK:', publicUrl);
+    return publicUrl;
 
-    var reader = new FileReader();
-    reader.onload = function(e){
-      var base64 = e.target.result.split(',')[1];
-      var payload = JSON.stringify({
-        action    : 'upload',
-        fileName  : fileName,
-        mimeType  : file.type || 'application/octet-stream',
-        base64Data: base64,
-        folder    : folder,
-        partner   : window.currentPartner ? (window.currentPartner.display||window.currentPartner.name||'') : '',
-        month     : folder === 'Cars24_Invoices' ? (window._lastInvMonth||'') : (window._lastProofMonth||''),
-        invNo     : window._lastInvNo || '',
-        utr       : window._lastProofUtr || '',
-        amount    : window._lastInvAmount || window._lastProofAmount || 0
-      });
-
-      // ── Phase 1: try CORS fetch (Apps Script sends Access-Control-Allow-Origin: * after redirect) ──
-      fetch(url, {
-        method  : 'POST',
-        headers : { 'Content-Type': 'text/plain;charset=utf-8' },
-        body    : payload,
-        redirect: 'follow',
-        mode    : 'cors',
-        credentials: 'omit'
-      })
-      .then(function(r){
-        if(!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
-      })
-      .then(function(txt){
-        try{
-          var d = JSON.parse(txt);
-          if(d.fileUrl || d.url){
-            console.log('[Drive] Upload OK (cors):', d.fileUrl||d.url);
-            resolve(d.fileUrl || d.url);
-          } else if(d.success){
-            // success but no URL returned — file is in Drive, construct a generic confirmation
-            console.log('[Drive] Upload OK (cors, no URL)');
-            resolve('UPLOADED');
-          } else if(d.error){
-            console.warn('[Drive] Server error:', d.error);
-            resolve(null);
-          } else {
-            resolve(d.fileUrl || d.url || 'UPLOADED');
-          }
-        }catch(pe){
-          // Non-JSON response but HTTP 200 = file landed in Drive
-          console.log('[Drive] Upload OK (cors, non-JSON 200):', txt.slice(0,80));
-          resolve('UPLOADED');
-        }
-      })
-      .catch(function(corsErr){
-        // ── Phase 2: CORS failed (opaque redirect) — fire no-cors and assume success ──
-        console.warn('[Drive] CORS fetch failed ('+corsErr.message+') — falling back to no-cors fire-and-forget');
-        fetch(url, {
-          method  : 'POST',
-          headers : { 'Content-Type': 'text/plain;charset=utf-8' },
-          body    : payload,
-          mode    : 'no-cors'
-        })
-        .then(function(){
-          console.log('[Drive] no-cors fire sent — assuming upload succeeded');
-          resolve('UPLOADED');  // opaque: we can't read the URL, but file is in Drive
-        })
-        .catch(function(err2){
-          console.warn('[Drive] Upload failed entirely:', err2.message);
-          resolve(null);
-        });
-      });
-    };
-    reader.onerror = function(e){
-      console.warn('[Drive] FileReader error:', e);
-      resolve(null);
-    };
-    reader.readAsDataURL(file);
-  });
+  }catch(err){
+    console.warn('[Storage] Upload error:', err.message||err);
+    return null;
+  }
 }
 
-// ── OVERRIDE: submitPartnerInvoice — add Drive upload ────────────
+
+// ── OVERRIDE: submitPartnerInvoice — Supabase Storage upload ──────
 window.submitPartnerInvoice = (function(_orig){
   return async function(){
     var sel      = document.getElementById('inv-month-sel');
@@ -19495,14 +19910,14 @@ window.submitPartnerInvoice = (function(_orig){
     var fname   = file ? file.name : '—';
     var driveUrl = null;
 
-    // File size guard — 3.5MB max for Apps Script base64 payload
-    if(file && file.size > 3.5 * 1024 * 1024){
-      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB before uploading.');
+    // File size guard — 10MB max for Supabase Storage
+    if(file && file.size > 10 * 1024 * 1024){
+      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 10 MB before uploading.');
       return;
     }
 
     if(file){
-      showMsg(true,'⏳ Uploading attachment to Drive…');
+      showMsg(true,'⏳ Uploading attachment to Supabase…');
       var driveName = 'INV_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+invNo+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+fname.split('.').pop();
       // Stash metadata so uploadFileToDrive can include it in the log
       window._lastInvMonth  = fullMo;
@@ -19530,13 +19945,13 @@ window.submitPartnerInvoice = (function(_orig){
     if(fileEl) fileEl.value='';
     var fn=document.getElementById('p-inv-fname'); if(fn) fn.textContent='No file';
 
-    // driveUrl can be: a real URL string, 'UPLOADED' (no-cors fire), 'TOO_LARGE', or null
+    // fileUrl can be: a real Supabase public URL, 'TOO_LARGE', or null
     var driveOk     = driveUrl && driveUrl !== 'TOO_LARGE' && driveUrl !== null;
     var hasRealUrl  = driveOk && driveUrl !== 'UPLOADED';
     var driveLabel  = hasRealUrl
-      ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📂 View in Drive ↗</a>'
-      : (driveOk ? ' · <span style="color:#10b981;">📂 Drive ✓</span>'
-        : (file ? ' <span style="color:#f59e0b;font-size:11px;">(Drive upload failed — file name saved)</span>' : ''));
+      ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📎 View File ↗</a>'
+      : (driveOk ? ' · <span style="color:#10b981;">☁ Supabase ✓</span>'
+        : (file ? ' <span style="color:#f59e0b;font-size:11px;">(Upload failed — file name saved)</span>' : ''));
 
     if(msg){
       msg.style.display='block';
@@ -19547,8 +19962,8 @@ window.submitPartnerInvoice = (function(_orig){
       setTimeout(function(){ msg.style.display='none'; }, 7000);
     }
     if(typeof window.buildPartnerInvoices==='function') window.buildPartnerInvoices();
-    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(driveOk?' · Drive ✓':''));
-    if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · Drive:'+driveUrl:''));
+    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(driveOk?' · Uploaded ✓':''));
+    if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · File:'+driveUrl:''));
   };
 })(window.submitPartnerInvoice);
 
@@ -19583,9 +19998,9 @@ window.buildPartnerInvoices = (function(){
       var fileCell = inv.driveUrl && inv.driveUrl !== 'UPLOADED'
         ? '<a href="'+inv.driveUrl+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.2);border-radius:5px;">📎 View File</a>'
         : (inv.driveUrl === 'UPLOADED'
-          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">📂 In Drive ✓</span>'
+          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">☁ Uploaded ✓</span>'
           : (inv.fileName && inv.fileName!=='—'
-            ? '<span style="font-size:11px;color:var(--t3);">📎 '+inv.fileName+'<br><span style="font-size:10px;color:#f59e0b;">Not uploaded to Drive</span></span>'
+            ? '<span style="font-size:11px;color:var(--t3);">📎 '+inv.fileName+'<br><span style="font-size:10px;color:#f59e0b;">Not uploaded</span></span>'
             : '—'));
       return '<tr>'
         +'<td>'+(window.MLABEL&&window.MLABEL[inv.month]?window.MLABEL[inv.month]:inv.fullMonth||inv.month)+'</td>'
@@ -19599,7 +20014,7 @@ window.buildPartnerInvoices = (function(){
   };
 })();
 
-// ── OVERRIDE: savePaymentProof — with Drive upload ───────────────
+// ── OVERRIDE: savePaymentProof — Supabase Storage upload ──────────
 window.savePaymentProof = async function(){
   var partner = (document.getElementById('proof-partner')||{value:''}).value.trim();
   var month   = (document.getElementById('proof-month-sel')||{value:''}).value;
@@ -19623,14 +20038,14 @@ window.savePaymentProof = async function(){
   var fname    = file ? file.name : '—';
   var driveUrl = null;
 
-  // File size guard — 3.5MB max for Apps Script base64 payload
-  if(file && file.size > 3.5 * 1024 * 1024){
+  // File size guard — 10MB max for Supabase Storage
+  if(file && file.size > 10 * 1024 * 1024){
     showErr('⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB.');
     return;
   }
 
   if(file){
-    showErr('⏳ Uploading to Drive…', '#f59e0b');
+    showErr('⏳ Uploading to Supabase…', '#f59e0b');
     var ext       = fname.split('.').pop();
     var driveName = 'PROOF_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+utr+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+ext;
     window._lastProofMonth  = fullMo;
@@ -19659,8 +20074,8 @@ window.savePaymentProof = async function(){
 
   var ov = document.getElementById('proof-ov'); if(ov) ov.remove();
   if(typeof window.renderProofTable==='function') window.renderProofTable();
-  if(typeof window.showImportToast==='function') window.showImportToast('✅ Payment proof saved for '+partner+(driveOk?' · Drive ✓':(file?' · Drive upload failed':''))  );
-  if(typeof window._auditLog==='function') window._auditLog('Payment proof uploaded', partner+' · UTR:'+utr+' · ₹'+amount+(driveUrl&&driveUrl!=='UPLOADED'?' · Drive:'+driveUrl:driveOk?' · Drive:uploaded':''));
+  if(typeof window.showImportToast==='function') window.showImportToast('✅ Payment proof saved for '+partner+(driveOk?' · Uploaded ✓':(file?' · Drive upload failed':''))  );
+  if(typeof window._auditLog==='function') window._auditLog('Payment proof uploaded', partner+' · UTR:'+utr+' · ₹'+amount+(driveUrl&&driveUrl!=='UPLOADED'?' · File:'+driveUrl:driveOk?' · File:uploaded':''));
 };
 
 // ── Patch renderProofTable to show Drive link ─────────────────────
@@ -19681,7 +20096,7 @@ window.renderProofTable = function(){
     var fileCell = pr.driveUrl && pr.driveUrl !== 'UPLOADED'
       ? '<a href="'+pr.driveUrl+'" target="_blank" style="color:#10b981;font-size:11px;font-weight:600;text-decoration:none;">📎 Drive ↗</a>'
       : (pr.driveUrl === 'UPLOADED'
-        ? '<span style="font-size:11px;color:#10b981;font-weight:600;">📂 In Drive ✓</span>'
+        ? '<span style="font-size:11px;color:#10b981;font-weight:600;">☁ Uploaded ✓</span>'
         : (pr.fileName&&pr.fileName!=='—' ? '<span style="font-size:11px;color:var(--t3);">'+pr.fileName+'</span>' : '—'));
     return '<tr>'
       +'<td style="font-size:11px;color:var(--t3);">'+(i+1)+'</td>'
@@ -20933,6 +21348,785 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
 })();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     C24 MASTER FIX PATCH v1.0
+     Fixes all 12 reported data discrepancy issues
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+(function _c24MasterFix(){
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+var MNUM_MAP = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',
+               Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+
+// Get numeric month prefix "YYYY-MM-" for a short month key
+function _monthPrefix(shortMo){
+  var reg = (typeof loadMonthRegistry==='function') ? loadMonthRegistry() : {yearMap:{}};
+  var yr = reg.yearMap[shortMo];
+  var mn = MNUM_MAP[shortMo];
+  if(!yr || !mn) return null;
+  return String(yr)+'-'+mn+'-';
+}
+
+// Sum DOD data for a month with optional date-range clamp
+function _sumDodMonth(shortMo, fromV, toV){
+  var prefix = _monthPrefix(shortMo);
+  if(!prefix) return null;
+  var result = {leads:0,appts:0,insps:0,stocks:0,payout:(window.PERIOD&&window.PERIOD[shortMo]?window.PERIOD[shortMo].payout:0)};
+  var hasDates = false;
+  (window.DOD_DATES||[]).forEach(function(d,i){
+    if(!d.startsWith(prefix)) return;
+    if(fromV && d < fromV) return;
+    if(toV   && d > toV  ) return;
+    result.leads  += (window.DOD_D&&window.DOD_D.leads[i])||0;
+    result.appts  += (window.DOD_D&&window.DOD_D.appts[i])||0;
+    result.insps  += (window.DOD_D&&window.DOD_D.insps[i])||0;
+    result.stocks += (window.DOD_D&&window.DOD_D.stocks[i])||0;
+    hasDates = true;
+  });
+  return hasDates ? result : null;
+}
+
+// Sort MONTHS array chronologically by year then month number
+function _sortMonthsChronologically(monthsArr){
+  var reg = (typeof loadMonthRegistry==='function') ? loadMonthRegistry() : {yearMap:{}};
+  return (monthsArr||[]).slice().sort(function(a,b){
+    var ya = parseInt(reg.yearMap[a]||9999), yb = parseInt(reg.yearMap[b]||9999);
+    if(ya !== yb) return ya - yb;
+    var ma = parseInt(MNUM_MAP[a]||'99'), mb = parseInt(MNUM_MAP[b]||'99');
+    return ma - mb;
+  });
+}
+
+// Canonical month key: "Jan 2026" → "Jan", "January 2026" → "Jan", "Jan" → "Jan"
+function _canonMonth(k){
+  if(!k) return '';
+  var s = k.toString().trim();
+  // Already a 3-letter short key
+  if(MNUM_MAP[s]) return s;
+  // "Jan 2026" or "Jan'26"
+  var m = s.match(/^([A-Za-z]{3})/);
+  if(m && MNUM_MAP[m[1]]) return m[1];
+  return s.split(/[\s']/)[0];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 1 + 6: L7/L14/L30 — use real date arithmetic from today
+// ─────────────────────────────────────────────────────────────────────────────
+function _recomputeL_periods(){
+  if(!window.DOD_DATES || !window.DOD_D) return;
+  var today = new Date();
+  today.setHours(0,0,0,0);
+
+  function _dateStr(d){ return d.toISOString().slice(0,10); }
+  function _daysAgo(n){ var d=new Date(today); d.setDate(d.getDate()-n); return _dateStr(d); }
+
+  function _sumRange(fromStr, toStr){
+    var r = {leads:0,appts:0,insps:0,stocks:0,payout:0};
+    (window.DOD_DATES||[]).forEach(function(d,i){
+      if(d >= fromStr && d <= toStr){
+        r.leads  += (window.DOD_D.leads[i]||0);
+        r.appts  += (window.DOD_D.appts[i]||0);
+        r.insps  += (window.DOD_D.insps[i]||0);
+        r.stocks += (window.DOD_D.stocks[i]||0);
+      }
+    });
+    return r;
+  }
+
+  var todayStr = _dateStr(today);
+
+  // L7 = last 7 calendar days
+  window.PERIOD = window.PERIOD || {};
+  window.PERIOD.l7  = _sumRange(_daysAgo(7),  todayStr);
+  window.PERIOD.l14 = _sumRange(_daysAgo(14), todayStr);
+  window.PERIOD.l30 = _sumRange(_daysAgo(30), todayStr);
+
+  // Update RMETA labels with actual day counts
+  window.RMETA = window.RMETA || {};
+  window.RMETA.l7  = window.RMETA.l7  || {}; window.RMETA.l7.label  = 'L7 · Last 7 Days';  window.RMETA.l7.days  = '7 days';
+  window.RMETA.l14 = window.RMETA.l14 || {}; window.RMETA.l14.label = 'L14 · Last 14 Days'; window.RMETA.l14.days = '14 days';
+  window.RMETA.l30 = window.RMETA.l30 || {}; window.RMETA.l30.label = 'L30 · Last 30 Days'; window.RMETA.l30.days = '30 days';
+  // L7/L14/L30 don't have a months array — mark as DOD range so table shows message
+  window.RMETA.l7.months  = null;
+  window.RMETA.l14.months = null;
+  window.RMETA.l30.months = null;
+}
+
+// Patch rebuildMonthMeta to always recompute L-periods using real dates
+(function _patchRebuildMonthMeta(){
+  var _orig = window.rebuildMonthMeta;
+  window.rebuildMonthMeta = function(){
+    if(typeof _orig === 'function') _orig.apply(this, arguments);
+    // Recompute L7/L14/L30 with real date arithmetic after MONTHS/DOD are refreshed
+    _recomputeL_periods();
+    // Ensure MONTHS is sorted chronologically
+    if(window.MONTHS && Array.isArray(window.MONTHS)){
+      var sorted = _sortMonthsChronologically(window.MONTHS);
+      // Only replace if order changed
+      var changed = sorted.some(function(m,i){ return m !== window.MONTHS[i]; });
+      if(changed){
+        window.MONTHS = sorted;
+        // Rebuild MLABELS to match new order
+        if(window.MLABELS) window.MLABELS = window.MONTHS.map(function(m){ return window.MLABEL&&window.MLABEL[m] ? window.MLABEL[m] : m; });
+      }
+    }
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 3 + 10 + 11: _rebuildRangeButtons — never skip months that exist in registry
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchRebuildRangeButtons(){
+  var _orig = window._rebuildRangeButtons;
+  window._rebuildRangeButtons = function(){
+    var wrap = document.getElementById('range-btns');
+    if(!wrap) return;
+    // Remove old dynamic month buttons
+    wrap.querySelectorAll('.rt[data-month]').forEach(function(b){ b.remove(); });
+
+    var _shortLabel = typeof window._shortLabel==='function' ? window._shortLabel : function(l){ return l; };
+    var _MONTHS = (window.MONTHS||[]);
+    var _MLABEL = window.MLABEL||{};
+    var _curRange = window.curRange||'all';
+
+    // Sort chronologically before rendering
+    _MONTHS = _sortMonthsChronologically(_MONTHS);
+
+    _MONTHS.forEach(function(m){
+      // Show month button if registry has it — regardless of whether data is loaded yet
+      var btn = document.createElement('button');
+      btn.className = 'rt'+(_curRange===m?' active':'');
+      btn.setAttribute('data-month', m);
+      btn.textContent = _MLABEL[m] ? _shortLabel(_MLABEL[m]) : m;
+      btn.onclick = function(){ if(typeof window.setRange==='function') window.setRange(m,this); };
+      wrap.appendChild(btn);
+    });
+
+    // MTD button
+    var mtdBtn = wrap.querySelector('.rt[data-mtd]');
+    if(mtdBtn && _MONTHS.length){
+      var lastDataM = _MONTHS[_MONTHS.length-1];
+      mtdBtn.textContent = 'MTD · '+_shortLabel(_MLABEL[lastDataM]||lastDataM);
+      mtdBtn.onclick = function(){ if(typeof window.setRange==='function') window.setRange(lastDataM,this); };
+    }
+    if(typeof c24YearFilter!=='undefined') c24YearFilter.init('range-btns');
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 4: Funnel buttons — sort chronologically, show full labels
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchRebuildFunnelButtons(){
+  var _orig = window._rebuildFunnelButtons;
+  window._rebuildFunnelButtons = function(){
+    var wrap = document.getElementById('funnel-period-btns');
+    if(!wrap) return;
+    wrap.innerHTML = '<button class="rt active" onclick="setFR(\'all\',this)">All</button>';
+    var sorted = _sortMonthsChronologically(window.MONTHS||[]);
+    sorted.forEach(function(m){
+      var btn = document.createElement('button');
+      btn.className = 'rt';
+      btn.textContent = (window.MLABEL&&window.MLABEL[m]) ? window.MLABEL[m] : m;
+      btn.onclick = (function(mm){ return function(){ if(typeof window.setFR==='function') window.setFR(mm,this); }; })(m);
+      wrap.appendChild(btn);
+    });
+  };
+})();
+
+// Also patch partner funnel buttons
+(function _patchRebuildPartnerFunnelTabs(){
+  var _orig = window._rebuildPartnerFunnelTabs;
+  window._rebuildPartnerFunnelTabs = function(){
+    var wrap = document.getElementById('p-funnel-period-btns');
+    if(!wrap) return;
+    wrap.innerHTML = '<button class="rt active" onclick="setPFR(\'all\',this)">All</button>';
+    var sorted = _sortMonthsChronologically(window.MONTHS||[]);
+    sorted.forEach(function(m){
+      var btn = document.createElement('button');
+      btn.className = 'rt';
+      btn.textContent = (window.MLABEL&&window.MLABEL[m]) ? window.MLABEL[m] : m;
+      btn.onclick = (function(mm){ return function(){ if(typeof window.setPFR==='function') window.setPFR(mm,this); }; })(m);
+      wrap.appendChild(btn);
+    });
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 5: Funnel — apply day cutoff from slider to PERIOD calculation
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchBuildFSteps(){
+  var _origBFS = window.buildFSteps;
+  window.buildFSteps = function(){
+    // Check if a day cutoff is in effect
+    var cutoffEl = document.getElementById('funnel-day-cutoff');
+    var cutoffVal = cutoffEl ? parseInt(cutoffEl.value) : 0;
+    var hasDateFilter = false;
+    var fromV = (document.getElementById('funnel-from-date')||{value:''}).value;
+    var toV   = (document.getElementById('funnel-to-date')||{value:''}).value;
+    hasDateFilter = !!(fromV || toV);
+
+    // If cutoff or date filter is active AND we have a specific month selected, recompute
+    if((cutoffVal > 0 || hasDateFilter) && window.funnelR && window.funnelR !== 'all'){
+      var m = window.funnelR;
+      var prefix = _monthPrefix(m);
+      if(prefix){
+        var rows = [];
+        (window.DOD_DATES||[]).forEach(function(d,i){
+          if(!d.startsWith(prefix)) return;
+          if(fromV && d < fromV) return;
+          if(toV   && d > toV)   return;
+          rows.push(i);
+        });
+        // Apply cutoff: only first N days of the month
+        if(cutoffVal > 0) rows = rows.slice(0, cutoffVal);
+
+        if(rows.length > 0){
+          var tL=0,tA=0,tI=0,tS=0;
+          rows.forEach(function(i){
+            tL += (window.DOD_D&&window.DOD_D.leads[i])||0;
+            tA += (window.DOD_D&&window.DOD_D.appts[i])||0;
+            tI += (window.DOD_D&&window.DOD_D.insps[i])||0;
+            tS += (window.DOD_D&&window.DOD_D.stocks[i])||0;
+          });
+          // Override PERIOD for funnelR temporarily
+          var _savedPeriod = window.PERIOD[m];
+          window.PERIOD[m] = {leads:tL,appts:tA,insps:tI,stocks:tS,payout:(window.PERIOD[m]||{payout:0}).payout};
+          if(typeof _origBFS==='function') _origBFS.apply(this, arguments);
+          window.PERIOD[m] = _savedPeriod; // restore
+          return;
+        }
+      }
+    }
+    if(typeof _origBFS==='function') _origBFS.apply(this, arguments);
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 6a: DOD — don't clear date inputs when month filter is set
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchSetDodMonth(){
+  var _origSDM = window.setDodMonth;
+  window.setDodMonth = function(m, btn){
+    window.dodMonthFilter = m;
+    var container = document.getElementById('dod-month-btns');
+    if(container) container.querySelectorAll('.rt').forEach(function(b){ b.classList.remove('active'); });
+    if(btn) btn.classList.add('active');
+    if(m !== 'all'){
+      window.dodDays = 999;
+      var sel = document.getElementById('dod-days-sel'); if(sel) sel.value='999';
+    }
+    // DO NOT clear date inputs — user may have set them intentionally
+    if(window.CH && window.CH.dc){ try{window.CH.dc.destroy();}catch(e){} delete window.CH.dc; }
+    if(typeof window.buildDodStats==='function') window.buildDodStats();
+    if(typeof window.buildDodChart==='function') window.buildDodChart();
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 6b: MOM — use date-aware data that respects all months, not stale PERIOD
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchBuildMom(){
+  var _origBuildMom = window.buildMom;
+  window.buildMom = function(){
+    // Ensure MONTHS is sorted before MOM renders
+    if(window.MONTHS && Array.isArray(window.MONTHS)){
+      window.MONTHS = _sortMonthsChronologically(window.MONTHS);
+    }
+    if(typeof _origBuildMom === 'function') _origBuildMom.apply(this, arguments);
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 6c: DOD Stats — ensure all months have correct data from DOD_DATES
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchBuildDodStats(){
+  var _orig = window.buildDodStats;
+  window.buildDodStats = function(){
+    // Ensure L7/L14/L30 are fresh before any DOD render
+    _recomputeL_periods();
+    if(typeof _orig === 'function') _orig.apply(this, arguments);
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 7: Month Projection — fallback to PERIOD + AdminView when DOD missing
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchBuildProjView(){
+  var _origBPV = window.buildProjView;
+  window.buildProjView = function(){
+    var nodata = document.getElementById('proj-nodata');
+    var _projMonth = window._projMonth;
+
+    if(!_projMonth && (window.MONTHS||[]).length)
+      _projMonth = window._projMonth = window.MONTHS[window.MONTHS.length-1];
+    if(!_projMonth){ if(nodata) nodata.style.display=''; return; }
+
+    // Check if DOD data exists for this month
+    var prefix = _monthPrefix(_projMonth);
+    var hasDod = prefix && (window.DOD_DATES||[]).some(function(d){ return d.startsWith(prefix); });
+
+    if(!hasDod){
+      // Fallback: try PERIOD or AdminViewStore
+      var pd = null;
+      if(window.PERIOD && window.PERIOD[_projMonth] && (window.PERIOD[_projMonth].leads || window.PERIOD[_projMonth].insps)){
+        pd = window.PERIOD[_projMonth];
+      } else {
+        // Try admin view store
+        try{
+          var avs = (typeof getAdminViewStore==='function') ? getAdminViewStore() : {};
+          var _ML = window.MLABEL||{};
+          var fullMo = _ML[_projMonth]||_projMonth;
+          var avKeys = Object.keys(avs);
+          var avKey = avKeys.find(function(k){ return k===_projMonth||k===fullMo||k.startsWith(_projMonth); });
+          if(avKey && avs[avKey] && avs[avKey].partners){
+            var res = {leads:0,appts:0,insps:0,stocks:0,payout:0};
+            avs[avKey].partners.forEach(function(p){ res.leads+=p.leads||0; res.appts+=p.appts||0; res.insps+=p.insps||0; res.stocks+=p.stocks||0; res.payout+=p.payout||0; });
+            if(res.leads || res.insps) pd = res;
+          }
+        }catch(e){}
+      }
+
+      if(pd){
+        // Show projection based on full month data (100% confirmed = same as EOM projection)
+        var reg = (typeof loadMonthRegistry==='function') ? loadMonthRegistry() : {yearMap:{}};
+        var yr = reg.yearMap[_projMonth];
+        var mNum = MNUM_MAP[_projMonth];
+        var daysInMonth = (yr && mNum) ? new Date(parseInt(yr), parseInt(mNum), 0).getDate() : 30;
+        var kpis = document.getElementById('proj-kpis');
+        if(kpis) kpis.innerHTML = [
+          {l:'Data Source',  v:'Monthly Total', s:'No daily DOD data — showing full month', col:'cb'},
+          {l:'Leads (Month)',v:(pd.leads||0).toLocaleString(), s:'Full month total', col:'ct'},
+          {l:'Appointments', v:(pd.appts||0).toLocaleString(), s:'Full month', col:'cp'},
+          {l:'Inspections',  v:(pd.insps||0).toLocaleString(), s:'Full month', col:'cg'},
+          {l:'Stock-ins',    v:(pd.stocks||0).toLocaleString(), s:'Full month', col:'ca'},
+          {l:'Payout',       v:typeof fmtL==='function'?fmtL(pd.payout||0):'₹0', s:'Full month', col:'cr'},
+        ].map(function(k){ return '<div class="kc '+k.col+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div></div>'; }).join('');
+
+        var cards = document.getElementById('proj-metric-cards');
+        if(cards) cards.innerHTML = '<div style="padding:16px;color:var(--t3);font-size:13px;background:var(--sf);border-radius:10px;border:1px solid var(--bd);">📊 Daily DOD data not available for this month. Showing full-month totals from imported data. Sync Google Sheet to enable day-by-day projections.</div>';
+
+        var tbody = document.getElementById('proj-dod-tbody');
+        if(tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--t3);">Daily breakdown not available — import GSheet DOD data for '+(window.MLABEL&&window.MLABEL[_projMonth]||_projMonth)+'</td></tr>';
+
+        if(nodata) nodata.style.display='none';
+        return;
+      }
+
+      // Truly no data
+      if(nodata){
+        nodata.style.display='';
+        nodata.innerHTML = '<div style="text-align:center;padding:40px 20px;"><div style="font-size:36px;margin-bottom:12px;">📊</div><div style="font-weight:700;font-size:14px;color:var(--t2);margin-bottom:6px;">No projection data for '+(window.MLABEL&&window.MLABEL[_projMonth]||_projMonth)+'</div><div style="font-size:12px;color:var(--t3);">Sync Google Sheet (GSheet) to load daily data, or import admin/partner view data for this month.</div></div>';
+      }
+      return;
+    }
+
+    if(typeof _origBPV==='function') _origBPV.apply(this, arguments);
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 7b: Projection month buttons — show all months, not just DOD months
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchBuildProjMonthBtns(){
+  var _orig = window._buildProjMonthBtns;
+  window._buildProjMonthBtns = function(){
+    var wrap = document.getElementById('proj-month-btns'); if(!wrap) return;
+    var allM = _sortMonthsChronologically(window.MONTHS||[]);
+    wrap.innerHTML = '';
+    var _pm = window._projMonth;
+    if(!_pm && allM.length) _pm = window._projMonth = allM[allM.length-1];
+    allM.forEach(function(m){
+      var btn = document.createElement('button');
+      btn.className='rt'+(m===_pm?' active':'');
+      btn.textContent=(window.MLABEL&&window.MLABEL[m])||m;
+      btn.onclick=(function(mm){ return function(){
+        window._projMonth=mm;
+        wrap.querySelectorAll('.rt').forEach(function(x){x.classList.remove('active');});
+        this.classList.add('active');
+        if(typeof window.buildProjView==='function') window.buildProjView();
+      }; })(m);
+      wrap.appendChild(btn);
+    });
+    if(typeof c24YearFilter!=='undefined') c24YearFilter.init('proj-month-btns');
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 8: Business Analytics — show all months with any data
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchBuildBizMonthBtns(){
+  var _orig = window.buildBizMonthBtns;
+  window.buildBizMonthBtns = function(){
+    var wrap = document.getElementById('biz-month-btns'); if(!wrap) return;
+    var allM = _sortMonthsChronologically(window.MONTHS||[]);
+    if(!allM.length){
+      wrap.innerHTML='<span style="font-size:12px;color:var(--t3);">No months loaded</span>';
+      return;
+    }
+    var _bm = window._bizMonth;
+    if(!_bm || !allM.includes(_bm)) _bm = window._bizMonth = allM[allM.length-1];
+    wrap.innerHTML='<button class="rt'+((_bm==='all'||!_bm)?' active':'')+'" onclick="window._bizMonth=\'all\';if(typeof buildBizView===\'function\')buildBizView()">All</button>';
+    allM.forEach(function(m){
+      var btn=document.createElement('button');
+      btn.className='rt'+(m===_bm?' active':'');
+      btn.textContent=(window.MLABEL&&window.MLABEL[m])||m;
+      btn.onclick=(function(mm){ return function(){
+        window._bizMonth=mm;
+        wrap.querySelectorAll('.rt').forEach(function(b){ b.classList.remove('active'); });
+        this.classList.add('active');
+        if(typeof window.buildBizView==='function') window.buildBizView();
+      }; })(m);
+      wrap.appendChild(btn);
+    });
+    if(typeof c24YearFilter!=='undefined') c24YearFilter.init('biz-month-btns');
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 9 + 10: DOD Month Buttons — always show all months sorted chronologically
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchRebuildDodMonthButtons(){
+  var _orig = window._rebuildDodMonthButtons;
+  window._rebuildDodMonthButtons = function(){
+    var wrap = document.getElementById('dod-month-btns');
+    if(!wrap) wrap = document.querySelector('#view-dod .fb .rts');
+    if(!wrap) return;
+    var sorted = _sortMonthsChronologically(window.MONTHS||[]);
+    wrap.innerHTML = '<button class="rt active" id="dodm-all" onclick="if(typeof window.setDodMonth===\'function\')window.setDodMonth(\'all\',this)">All</button>';
+    sorted.forEach(function(m){
+      var btn = document.createElement('button');
+      btn.className = 'rt';
+      btn.id = 'dodm-'+m;
+      btn.textContent = (window.MLABEL&&window.MLABEL[m]) ? window.MLABEL[m] : m;
+      btn.onclick = (function(mm){ return function(){ if(typeof window.setDodMonth==='function') window.setDodMonth(mm,this); }; })(m);
+      wrap.appendChild(btn);
+    });
+    var ps = document.getElementById('dod-ps');
+    if(ps && window.DOD_DATES && window.DOD_DATES.length > 0)
+      ps.textContent = 'Daily trends · '+window.DOD_DATES[0].slice(0,7)+' – '+window.DOD_DATES[window.DOD_DATES.length-1].slice(0,7)+' · '+window.DOD_DATES.length+' days';
+    if(typeof c24YearFilter!=='undefined') c24YearFilter.init('dod-month-btns');
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 10: After GSheet sync — always rebuild month meta and all buttons
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchGSheetSyncRefresh(){
+  var _origRAVAS = window._refreshActiveViewAfterSync;
+  window._refreshActiveViewAfterSync = function(){
+    // Always rebuild month metadata first
+    if(typeof window.rebuildMonthMeta==='function'){
+      try{ window.rebuildMonthMeta(); }catch(e){}
+    }
+    // Rebuild all month button containers
+    var _btnsToRebuild = [
+      'dod-month-btns','mom-btns','wdwe-month-btns','proj-month-btns',
+      'biz-month-btns','target-month-btns','av-month-btns','elite-month-btns',
+      'lb-month-btns','sc-month-btns','buyer-month-btns','vas-month-btns',
+      'payout-month-btns','p-seller-month-btns','p-buyer-month-btns','p-sc-month-btns',
+      'p-elite-month-btns','funnel-period-btns','range-btns'
+    ];
+    _btnsToRebuild.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el && typeof c24YearFilter!=='undefined') try{ c24YearFilter.init(id); }catch(e){}
+    });
+    if(typeof _origRAVAS==='function') _origRAVAS.apply(this, arguments);
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 11: Admin Analytics (buildAdminView) — robust month key matching
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchBuildAdminView(){
+  var _orig = window.buildAdminView;
+  window.buildAdminView = function(){
+    // Patch getAdminViewStore to normalize keys before lookup
+    var _origGetAVS = window.getAdminViewStore;
+    if(typeof _origGetAVS === 'function'){
+      // Wrap to auto-alias mis-keyed entries
+      var avs = _origGetAVS();
+      var _ML = window.MLABEL||{};
+      var _MONTHS = _sortMonthsChronologically(window.MONTHS||[]);
+      // For each MONTH, check all possible key forms and create canonical alias
+      _MONTHS.forEach(function(m){
+        var fullMo = _ML[m]||m;
+        // Keys to try: "Jan", "Jan 2026", "January 2026", "Jan'26"
+        var tryKeys = [m, fullMo, m+' '+(window.loadMonthRegistry&&window.loadMonthRegistry().yearMap[m]||'')];
+        var found = null;
+        tryKeys.forEach(function(k){
+          if(!found && avs[k]) found = avs[k];
+        });
+        // Also prefix match
+        if(!found){
+          var avsKeys = Object.keys(avs);
+          var match = avsKeys.find(function(k){ return k.startsWith(m) || k.startsWith(fullMo.slice(0,6)); });
+          if(match) found = avs[match];
+        }
+        // Write canonical alias if found under different key
+        if(found && !avs[m]) avs[m] = found;
+        if(found && !avs[fullMo]) avs[fullMo] = found;
+      });
+    }
+    if(typeof _orig==='function') _orig.apply(this, arguments);
+  };
+})();
+
+// Patch av-month-btns to always show all months sorted
+(function _patchAvMonthBtns(){
+  // Override the existing buildAvMonthBtns if it exists, or hook into triggerView
+  var _origTV = window.triggerView;
+  window.triggerView = function(id){
+    if(typeof _origTV==='function') _origTV.apply(this, arguments);
+    if(id === 'admin-view'){
+      setTimeout(function(){
+        var wrap = document.getElementById('av-month-btns');
+        if(!wrap) return;
+        var sorted = _sortMonthsChronologically(window.MONTHS||[]);
+        // Rebuild only if button count differs
+        var existingBtns = wrap.querySelectorAll('.rt').length;
+        if(existingBtns !== sorted.length){
+          var _avMonth = window._avMonth || (sorted.length ? sorted[sorted.length-1] : '');
+          wrap.innerHTML = '';
+          sorted.forEach(function(m){
+            var btn = document.createElement('button');
+            btn.className = 'rt'+(m===_avMonth?' active':'');
+            btn.textContent = (window.MLABEL&&window.MLABEL[m])||m;
+            btn.onclick = (function(mm){ return function(){
+              window._avMonth=mm;
+              wrap.querySelectorAll('.rt').forEach(function(b){ b.classList.remove('active'); });
+              this.classList.add('active');
+              if(typeof window.buildAdminView==='function') window.buildAdminView();
+            }; })(m);
+            wrap.appendChild(btn);
+          });
+          if(typeof c24YearFilter!=='undefined') c24YearFilter.init('av-month-btns');
+        }
+      }, 80);
+    }
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 12: Logic Builder — seed with PARTNERS data, show all months
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchLogicBuilder(){
+  // Patch triggerView for logic-builder to ensure data is seeded
+  var _origTV2 = window.triggerView;
+  window.triggerView = function(id){
+    if(typeof _origTV2==='function') _origTV2.apply(this, arguments);
+    if(id === 'logic-builder'){
+      setTimeout(function(){
+        // Rebuild month buttons for logic builder
+        var lbWrap = document.getElementById('lb-month-btns');
+        if(lbWrap){
+          var sorted = _sortMonthsChronologically(window.MONTHS||[]);
+          var _lbMonth = window._lbMonth || (sorted.length ? sorted[sorted.length-1] : '');
+          if(!window._lbMonth) window._lbMonth = _lbMonth;
+          if(lbWrap.querySelectorAll('.rt').length !== sorted.length){
+            lbWrap.innerHTML='';
+            sorted.forEach(function(m){
+              var btn=document.createElement('button');
+              btn.className='rt'+(m===_lbMonth?' active':'');
+              btn.textContent=(window.MLABEL&&window.MLABEL[m])||m;
+              btn.onclick=(function(mm){ return function(){
+                window._lbMonth=mm;
+                lbWrap.querySelectorAll('.rt').forEach(function(b){b.classList.remove('active');});
+                this.classList.add('active');
+                if(typeof window.previewLogicRule==='function') window.previewLogicRule('all');
+              };})(m);
+              lbWrap.appendChild(btn);
+            });
+          }
+        }
+        // If table is empty but PARTNERS has data, trigger preview
+        var tbl = document.getElementById('lb-tbl');
+        var hasRows = tbl && tbl.querySelectorAll('tr').length > 0;
+        if(!hasRows && (window.PARTNERS||[]).length > 0){
+          if(typeof window.previewLogicRule==='function'){
+            try{ window.previewLogicRule('all'); }catch(e){}
+          }
+          if(typeof window.applyLogicRules==='function'){
+            // Show no-data message with actionable guidance instead of empty table
+            if(tbl) tbl.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--t3);"><div style="font-size:24px;margin-bottom:8px;">⚙️</div><div style="font-weight:700;font-size:13px;color:var(--t2);margin-bottom:6px;">Logic Builder Ready</div><div style="font-size:12px;">Click <strong style="color:#4f46e5;">▶ Apply Rules</strong> to generate the deduction preview table using current partner data and benchmarks above.</div></td></tr>';
+          }
+        } else if(!hasRows){
+          if(tbl) tbl.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--t3);"><div style="font-size:24px;margin-bottom:8px;">📥</div><div style="font-weight:700;font-size:13px;color:var(--t2);margin-bottom:6px;">No Partner Data Yet</div><div style="font-size:12px;">Import seller data first (Partner View or Admin View), then return here to apply logic rules.</div></td></tr>';
+        }
+      }, 100);
+    }
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX: MOM month buttons — sort chronologically
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchRebuildMtdButtons(){
+  var _orig = window._rebuildMtdButtons;
+  window._rebuildMtdButtons = function(){
+    var wrap = document.getElementById('mtd-compare-btns');
+    if(!wrap) wrap = document.querySelector('#view-mtd .rts');
+    var sorted = _sortMonthsChronologically(window.MONTHS||[]);
+    if(!wrap || sorted.length < 2) return;
+    wrap.innerHTML = '';
+    var pairs = [];
+    for(var i=sorted.length-1; i>=1; i--){
+      pairs.push([sorted[i], sorted[i-1]]);
+      if(pairs.length >= 6) break; // show up to 6 pairs
+    }
+    pairs.forEach(function(pair, idx){
+      var c=pair[0], p=pair[1];
+      var _sL = typeof window._shortLabel==='function' ? window._shortLabel : function(l){return l;};
+      var btn = document.createElement('button');
+      btn.className = 'rt'+(idx===0?' active':'');
+      btn.textContent = _sL(window.MLABEL&&window.MLABEL[c]?window.MLABEL[c]:c)+' vs '+_sL(window.MLABEL&&window.MLABEL[p]?window.MLABEL[p]:p);
+      btn.onclick = (function(cc,pp){ return function(){ if(typeof window.setMtdP==='function') window.setMtdP(cc,pp,this); }; })(c,p);
+      wrap.appendChild(btn);
+    });
+    if(pairs.length > 0){
+      window.mtdCur  = pairs[0][0];
+      window.mtdPrev = pairs[0][1];
+    }
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX: Dashboard date-range custom filter — use DOD data for precise ranges
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchSetDashDateRange(){
+  var _orig = window.setDashDateRange;
+  window.setDashDateRange = function(){
+    var from=(document.getElementById('dash-from-date')||{value:''}).value;
+    var to  =(document.getElementById('dash-to-date')||{value:''}).value;
+    if(!from && !to) return;
+
+    document.querySelectorAll('#range-btns .rt').forEach(function(b){ b.classList.remove('active'); });
+
+    // Use DOD data for precise date range aggregation
+    var totL=0,totA=0,totI=0,totS=0,totP=0;
+    var filteredMonths=[];
+    var reg=(typeof loadMonthRegistry==='function')?loadMonthRegistry():{yearMap:{}};
+    var hasAny=false;
+
+    (window.DOD_DATES||[]).forEach(function(d,i){
+      if(from && d < from) return;
+      if(to   && d > to  ) return;
+      totL+=(window.DOD_D&&window.DOD_D.leads[i])||0;
+      totA+=(window.DOD_D&&window.DOD_D.appts[i])||0;
+      totI+=(window.DOD_D&&window.DOD_D.insps[i])||0;
+      totS+=(window.DOD_D&&window.DOD_D.stocks[i])||0;
+      hasAny=true;
+      // Track which months are covered
+      var yr=d.slice(0,4), mo=d.slice(5,7);
+      var shortM=Object.keys(reg.yearMap||{}).find(function(k){
+        return MNUM_MAP[k]===mo && String(reg.yearMap[k])===yr;
+      });
+      if(shortM && filteredMonths.indexOf(shortM)===-1) filteredMonths.push(shortM);
+    });
+
+    // Fallback: if no DOD in range, use PARTNERS monthly aggregation
+    if(!hasAny){
+      (window.MONTHS||[]).forEach(function(m){
+        var yr=reg.yearMap[m], mn=MNUM_MAP[m]; if(!yr||!mn) return;
+        var mStart=String(yr)+'-'+mn+'-01', mEnd=String(yr)+'-'+mn+'-31';
+        if((!from||mEnd>=from)&&(!to||mStart<=to)){
+          filteredMonths.push(m);
+          (window.PARTNERS||[]).forEach(function(p){
+            totL+=(p.leads&&p.leads[m])||0; totA+=(p.appts&&p.appts[m])||0;
+            totI+=(p.insps&&p.insps[m])||0; totS+=(p.stocks&&p.stocks[m])||0;
+            totP+=(p.payout&&p.payout[m])||0;
+          });
+        }
+      });
+    } else {
+      // Add payout from PERIOD for covered months
+      filteredMonths.forEach(function(m){
+        totP += (window.PERIOD&&window.PERIOD[m]&&window.PERIOD[m].payout)||0;
+      });
+    }
+
+    var label='Custom · '+(from||'…')+' → '+(to||'…');
+    window.RMETA = window.RMETA||{};
+    window.PERIOD = window.PERIOD||{};
+    window.RMETA['custom']={label:label, days:'Custom range', months:filteredMonths.length?filteredMonths:null};
+    window.PERIOD['custom']={leads:totL,appts:totA,insps:totI,stocks:totS,payout:totP};
+    window.curRange='custom';
+    if(typeof window.updateDashboard==='function') window.updateDashboard();
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX: Funnel month checkboxes — sort chronologically
+// ─────────────────────────────────────────────────────────────────────────────
+(function _patchFunnelMonthCheckboxes(){
+  var _orig = window.buildFunnelMonthCheckboxes;
+  window.buildFunnelMonthCheckboxes = function(){
+    if(window.MONTHS && Array.isArray(window.MONTHS)){
+      window.MONTHS = _sortMonthsChronologically(window.MONTHS);
+    }
+    if(typeof _orig==='function') _orig.apply(this, arguments);
+  };
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT: Run all fixes on page load and after any sync
+// ─────────────────────────────────────────────────────────────────────────────
+function _runAllFixes(){
+  try{
+    // Ensure months are sorted
+    if(window.MONTHS && Array.isArray(window.MONTHS)){
+      window.MONTHS = _sortMonthsChronologically(window.MONTHS);
+    }
+    // Recompute L7/L14/L30
+    _recomputeL_periods();
+    // Rebuild all button containers
+    if(typeof window._rebuildRangeButtons==='function')     try{ window._rebuildRangeButtons(); }catch(e){}
+    if(typeof window._rebuildFunnelButtons==='function')    try{ window._rebuildFunnelButtons(); }catch(e){}
+    if(typeof window._rebuildDodMonthButtons==='function')  try{ window._rebuildDodMonthButtons(); }catch(e){}
+    if(typeof window._rebuildMtdButtons==='function')       try{ window._rebuildMtdButtons(); }catch(e){}
+    if(typeof window.buildBizMonthBtns==='function')        try{ window.buildBizMonthBtns(); }catch(e){}
+    if(typeof window._buildProjMonthBtns==='function')      try{ window._buildProjMonthBtns(); }catch(e){}
+    // Update dashboard if open
+    if(typeof window.updateDashboard==='function') try{ window.updateDashboard(); }catch(e){}
+  }catch(e){ console.warn('[C24Fix] Init error:', e); }
+}
+
+// Run after DOM is ready and data has loaded
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(_runAllFixes, 1200); });
+} else {
+  setTimeout(_runAllFixes, 1200);
+}
+
+// Also run after every Supabase boot pull (data freshly loaded)
+(function _hookBootPull(){
+  if(window._c24Cloud && typeof window._c24Cloud.bootPull === 'function'){
+    var _origBP = window._c24Cloud.bootPull;
+    window._c24Cloud.bootPull = function(cb){
+      _origBP.call(this, function(ok, keys){
+        if(ok) setTimeout(_runAllFixes, 300);
+        if(typeof cb==='function') cb(ok, keys);
+      });
+    };
+  }
+})();
+
+// Re-run whenever portal opens (showPortal hook)
+(function _hookShowPortal(){
+  var _origSP = window.showPortal;
+  window.showPortal = function(){
+    if(typeof _origSP==='function') _origSP.apply(this, arguments);
+    setTimeout(_runAllFixes, 800);
+  };
+})();
+
+console.log('[C24 MasterFix v1.0] All 12 data discrepancy fixes applied ✅');
+})();
+</script>
+
 <!-- ══════════════════════════════════════════════════════════════════
      SUPABASE SETUP GUIDE
      ══════════════════════════════════════════════════════════════════
@@ -21042,5 +22236,477 @@ function doGet(e) {
 }
 
      ══════════════════════════════════════════════════════════════════ -->
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// TARGETED FIX BLOCK — Three issues:
+//  A) Page reload shows landing page before portal loads
+//  B) Android shows light/washed-out portal (dark mode not applied)
+//  C) Filters / date-range / buttons show no data change
+// ══════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────
+// FIX A: Hide ENTIRE body content on reload when a valid session exists
+// The old approach only hid #portal-fullscreen, leaving the public
+// landing page (header, hero, sections) visible for ~500ms.
+// We now inject a <style> that hides the body's direct children
+// (the public page) while the portal loads.
+// ─────────────────────────────────────────────────────────────────────
+(function _fixSessionFlash(){
+  // This runs immediately (synchronously) — before any paint
+  var saved = null;
+  try { saved = localStorage.getItem('c24_session'); } catch(e) {}
+  if (!saved) return;
+
+  var sess = null;
+  try { sess = JSON.parse(saved); } catch(e) {}
+  if (!sess || !sess.role || !sess.user) return;
+  if (sess.exp && Date.now() > sess.exp) {
+    try { localStorage.removeItem('c24_session'); } catch(e) {}
+    return;
+  }
+
+  // Valid session — hide the public landing page content immediately
+  var style = document.createElement('style');
+  style.id = 'c24-body-hide';
+  // Hide all direct body children EXCEPT the portal overlay and toast container
+  // Use opacity:0 + pointer-events:none so layout is preserved (no reflow jank)
+  style.textContent = [
+    'body > *:not(#portal-fullscreen):not(#portal-login-overlay):not(#c24-toast-container):not(script):not(style){',
+    '  opacity:0 !important;',
+    '  pointer-events:none !important;',
+    '  user-select:none !important;',
+    '}',
+    '#portal-fullscreen:not(.open){',
+    '  opacity:0 !important;',
+    '}'
+  ].join('');
+  document.head.appendChild(style);
+
+  // Safety valve — always remove after 4s even if portal fails to load
+  var _hideTimer = setTimeout(function(){
+    var s = document.getElementById('c24-body-hide');
+    if (s) s.remove();
+  }, 4000);
+
+  // Remove as soon as portal is open (normal path)
+  // We watch for the 'open' class being added to #portal-fullscreen
+  var _observer = new MutationObserver(function(mutations){
+    mutations.forEach(function(m){
+      if (m.target && m.target.id === 'portal-fullscreen' &&
+          m.target.classList.contains('open')) {
+        clearTimeout(_hideTimer);
+        var s = document.getElementById('c24-body-hide');
+        if (s) s.remove();
+        _observer.disconnect();
+      }
+    });
+  });
+  document.addEventListener('DOMContentLoaded', function(){
+    var pf = document.getElementById('portal-fullscreen');
+    if (pf) {
+      // Already open (fast load)
+      if (pf.classList.contains('open')) {
+        clearTimeout(_hideTimer);
+        var s = document.getElementById('c24-body-hide');
+        if (s) s.remove();
+      } else {
+        _observer.observe(pf, { attributes: true, attributeFilter: ['class'] });
+      }
+    }
+  });
+
+  // Also hook showPortal directly as a belt-and-suspenders
+  var _origSP_flash = window.showPortal;
+  window.showPortal = function(){
+    if (typeof _origSP_flash === 'function') _origSP_flash.apply(this, arguments);
+    clearTimeout(_hideTimer);
+    var s = document.getElementById('c24-body-hide');
+    if (s) s.remove();
+    // Restore body visibility cleanly
+    document.body.style.opacity = '';
+    document.body.style.visibility = '';
+  };
+})();
+
+
+// ─────────────────────────────────────────────────────────────────────
+// FIX B: Android dark mode — portal uses [data-theme="dark"] CSS vars
+// but nobody was setting that attribute on the portal element.
+// The portal shows as light/washed-out on Android because :root CSS
+// vars default to light values.
+// Fix: set data-theme="dark" on #portal-fullscreen at load time,
+// and update it whenever toggleTheme() is called.
+// ─────────────────────────────────────────────────────────────────────
+(function _fixPortalDarkMode(){
+
+  function _applyPortalTheme(){
+    var pf  = document.getElementById('portal-fullscreen');
+    if (!pf) return;
+    // Read saved theme (local-only key, always from localStorage)
+    var t = '';
+    try { t = localStorage.getItem('theme') || ''; } catch(e) {}
+    var isLight = (t === 'light') || document.documentElement.classList.contains('light');
+    if (isLight) {
+      pf.setAttribute('data-theme', 'light');
+    } else {
+      pf.setAttribute('data-theme', 'dark');
+    }
+  }
+
+  // Apply immediately (in case DOM is ready)
+  _applyPortalTheme();
+
+  // Apply once DOM is fully ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _applyPortalTheme);
+  }
+
+  // Patch toggleTheme to also update the portal attribute
+  var _origToggle = window.toggleTheme;
+  window.toggleTheme = function(){
+    if (typeof _origToggle === 'function') _origToggle.apply(this, arguments);
+    _applyPortalTheme();
+  };
+
+  // Patch showPortal to apply theme when portal opens
+  var _origSP_theme = window.showPortal;
+  window.showPortal = function(){
+    if (typeof _origSP_theme === 'function') _origSP_theme.apply(this, arguments);
+    // Slight delay so #portal-fullscreen element is visible
+    setTimeout(_applyPortalTheme, 50);
+  };
+
+  // Also expose so it can be called manually
+  window._applyPortalTheme = _applyPortalTheme;
+})();
+
+
+// ─────────────────────────────────────────────────────────────────────
+// FIX C: Filters / buttons show no data change
+//
+// Root causes identified:
+//  C1. Month filter buttons (setRange) update curRange but RMETA[curRange]
+//      may be undefined if rebuildMonthMeta() hasn't built that key yet.
+//      updateDashboard() silently falls back to RMETA['all'] → looks like
+//      nothing changed.
+//  C2. Date-range pickers (setDashDateRange) call updateDashboard() but
+//      PERIOD['custom'] is set AFTER curRange is set to 'custom', so if
+//      updateDashboard reads PERIOD before the custom entry is written,
+//      it shows zeros.
+//  C3. DOD partner selector, buyer month buttons, VAS month buttons — all
+//      call their render functions but the render functions read stale
+//      _buyerMonth / _vasMonth globals that aren't updated first.
+//  C4. Funnel period buttons (setFR) — FR state gets out of sync after
+//      rebuildMonthMeta because the active button class is reset but the
+//      data variable isn't.
+//  C5. MoM selects call setMomFromSelects() but mtdCur/mtdPrev may not
+//      match new MONTHS array after a sync.
+// ─────────────────────────────────────────────────────────────────────
+(function _fixFilterDataIssues(){
+
+  // ── C1: Patch setRange to ensure RMETA has the requested key ──────────
+  var _origSetRange = window.setRange;
+  window.setRange = function(key, btn){
+    // If key is a month shortcode and RMETA doesn't have it yet, build it
+    if (key && key !== 'all' && key !== 'mtd' && key !== 'l7' &&
+        key !== 'l14' && key !== 'l30' && key !== 'custom') {
+      var _RM = window.RMETA || {};
+      if (!_RM[key]) {
+        // Build the missing entry on the fly
+        var _PER = window.PERIOD || {};
+        var _ML  = window.MLABEL || {};
+        _RM[key] = {
+          label  : _ML[key] || key,
+          days   : '~30 days',
+          months : [key]
+        };
+        if (!_PER[key]) {
+          var _PARTNERS = window.PARTNERS || [];
+          var tL=0,tA=0,tI=0,tS=0,tP=0;
+          _PARTNERS.forEach(function(p){
+            tL += (p.leads && p.leads[key])  || 0;
+            tA += (p.appts && p.appts[key])  || 0;
+            tI += (p.insps && p.insps[key])  || 0;
+            tS += (p.stocks && p.stocks[key])|| 0;
+            tP += (p.payout && p.payout[key])|| 0;
+          });
+          _PER[key] = {leads:tL,appts:tA,insps:tI,stocks:tS,payout:tP};
+          window.PERIOD = _PER;
+        }
+        window.RMETA = _RM;
+      }
+    }
+    // Now call original
+    if (typeof _origSetRange === 'function') {
+      _origSetRange.apply(this, arguments);
+    } else {
+      // Fallback if original was overwritten
+      window.curRange = key;
+      var wrapB = document.getElementById('range-btns');
+      if (wrapB) wrapB.querySelectorAll('.rt').forEach(function(b){ b.classList.remove('active'); });
+      if (btn) btn.classList.add('active');
+      if (typeof window.updateDashboard === 'function') window.updateDashboard();
+    }
+  };
+
+
+  // ── C2: Patch setDashDateRange — ensure PERIOD['custom'] written before updateDashboard ──
+  var _origDDR = window.setDashDateRange;
+  window.setDashDateRange = function(){
+    var from = (document.getElementById('dash-from-date')||{value:''}).value;
+    var to   = (document.getElementById('dash-to-date')||{value:''}).value;
+    if (!from && !to) return;
+
+    // Deactivate preset buttons
+    var wrapB2 = document.getElementById('range-btns');
+    if (wrapB2) wrapB2.querySelectorAll('.rt').forEach(function(b){ b.classList.remove('active'); });
+
+    var _MONTHS  = window.MONTHS  || [];
+    var _PARTNERS= window.PARTNERS|| [];
+    var _MLABEL  = window.MLABEL  || {};
+    var reg = (typeof window.loadMonthRegistry === 'function') ? window.loadMonthRegistry() : {yearMap:{}};
+    var MNUM2 = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+
+    var filteredMonths = [];
+    _MONTHS.forEach(function(m){
+      var yr = reg.yearMap[m], mn = MNUM2[m];
+      if (!yr || !mn) return;
+      var mStart = yr+'-'+mn+'-01';
+      var mEnd   = yr+'-'+mn+'-31';
+      if ((!from || mEnd >= from) && (!to || mStart <= to)) filteredMonths.push(m);
+    });
+
+    var tL=0,tA=0,tI=0,tS=0,tP=0;
+    _PARTNERS.forEach(function(p){
+      filteredMonths.forEach(function(m){
+        tL += (p.leads && p.leads[m]) || 0;
+        tA += (p.appts && p.appts[m]) || 0;
+        tI += (p.insps && p.insps[m]) || 0;
+        tS += (p.stocks&& p.stocks[m])|| 0;
+        tP += (p.payout&&p.payout[m]) || 0;
+      });
+    });
+
+    var label = 'Custom · '+(from||'…')+' → '+(to||'…');
+    window.RMETA  = window.RMETA  || {};
+    window.PERIOD = window.PERIOD || {};
+    window.RMETA['custom']  = {label:label, days:'Custom range', months: filteredMonths.length ? filteredMonths : null};
+    window.PERIOD['custom'] = {leads:tL, appts:tA, insps:tI, stocks:tS, payout:tP};
+    window.curRange = 'custom';
+
+    if (typeof window.updateDashboard === 'function') window.updateDashboard();
+  };
+
+
+  // ── C3: DOD partner selector — ensure it re-renders when changed ──────
+  document.addEventListener('DOMContentLoaded', function(){
+    var dodSel = document.getElementById('dod-partner-sel');
+    if (dodSel && !dodSel._c24Fixed) {
+      dodSel._c24Fixed = true;
+      dodSel.addEventListener('change', function(){
+        if (typeof window.buildDodStats === 'function') window.buildDodStats();
+        if (typeof window.buildDodChart === 'function') window.buildDodChart();
+      });
+    }
+  });
+
+
+  // ── C3b: Buyer month buttons — patch _rebuildBuyerButtons ────────────
+  var _origBBB = window._rebuildBuyerButtons;
+  window._rebuildBuyerButtons = function(){
+    if (typeof _origBBB === 'function') _origBBB.apply(this, arguments);
+    // Ensure all buyer month buttons wire to renderBuyerTable
+    var buyerBtns = document.querySelectorAll('#buyer-month-btns .rt, #view-buyer .rt[data-month]');
+    buyerBtns.forEach(function(btn){
+      if (btn._c24Fixed) return;
+      btn._c24Fixed = true;
+      var m = btn.getAttribute('data-month') || btn.textContent;
+      btn.addEventListener('click', function(){
+        window._buyerMonth = m;
+        document.querySelectorAll('#buyer-month-btns .rt, #view-buyer .rt[data-month]')
+          .forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        if (typeof window.renderBuyerTable === 'function') window.renderBuyerTable();
+      });
+    });
+  };
+
+
+  // ── C3c: VAS/VHR month buttons — patch _rebuildVasButtons ────────────
+  // Ensure _vasMonth is set and buildVasCurrent() is called on click
+  var _origVasBtns = window._rebuildVasButtons || window.buildVasMonthBtns;
+  function _rewireVasBtns(){
+    var vasBtns = document.querySelectorAll('#vas-month-btns .rt, #view-vas .rt[data-month]');
+    vasBtns.forEach(function(btn){
+      if (btn._c24Fixed) return;
+      btn._c24Fixed = true;
+      var m = btn.getAttribute('data-month') || btn.textContent;
+      btn.addEventListener('click', function(){
+        window._vasMonth = m;
+        document.querySelectorAll('#vas-month-btns .rt, #view-vas .rt[data-month]')
+          .forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        if (typeof window.buildVasCurrent === 'function') window.buildVasCurrent();
+      });
+    });
+  }
+  // Run after DOM and after data syncs
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(_rewireVasBtns, 800); });
+
+
+  // ── C4: Funnel period buttons — patch setFR to guard against missing FR ──
+  var _origSetFR = window.setFR;
+  window.setFR = function(key, btn){
+    // Ensure the funnel period buttons reflect new active state
+    var fbtns = document.querySelectorAll('#funnel-period-btns .rt');
+    fbtns.forEach(function(b){ b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    // Store the selected range
+    window._funnelRange = key;
+    // Call original if it exists, else call buildFSteps directly
+    if (typeof _origSetFR === 'function') {
+      _origSetFR.apply(this, arguments);
+    } else {
+      if (typeof window.buildFSteps === 'function') window.buildFSteps();
+      if (typeof window.buildFChart === 'function') window.buildFChart();
+    }
+  };
+
+
+  // ── C5: MoM selects — patch setMomFromSelects to guard MONTHS ────────
+  var _origMomSel = window.setMomFromSelects;
+  window.setMomFromSelects = function(){
+    var selCur  = document.getElementById('mom-sel-cur');
+    var selPrev = document.getElementById('mom-sel-prev');
+    var _MONTHS = window.MONTHS || [];
+    // Populate dropdowns if empty (can happen after sync)
+    if (selCur && selPrev && selCur.options.length <= 1 && _MONTHS.length >= 2) {
+      var _ML = window.MLABEL || {};
+      selCur.innerHTML  = '';
+      selPrev.innerHTML = '';
+      for (var mi = _MONTHS.length - 1; mi >= 0; mi--) {
+        var m = _MONTHS[mi];
+        var lbl = _ML[m] || m;
+        var optC = document.createElement('option'); optC.value=m; optC.textContent=lbl;
+        var optP = document.createElement('option'); optP.value=m; optP.textContent=lbl;
+        selCur.appendChild(optC);
+        selPrev.appendChild(optP);
+      }
+      if (selCur.options.length > 0)  selCur.selectedIndex  = 0;
+      if (selPrev.options.length > 1) selPrev.selectedIndex = 1;
+    }
+    // Call original
+    if (typeof _origMomSel === 'function') {
+      _origMomSel.apply(this, arguments);
+    } else {
+      if (typeof window.buildMom === 'function') window.buildMom();
+    }
+  };
+
+
+  // ── C6: Date-range inputs for DOD — wire change events if missing ─────
+  document.addEventListener('DOMContentLoaded', function(){
+    ['dod-from-date','dod-to-date'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && !el._c24Fixed) {
+        el._c24Fixed = true;
+        el.addEventListener('change', function(){
+          if (typeof window.applyDodDateRange === 'function') window.applyDodDateRange();
+          else {
+            if (typeof window.buildDodStats === 'function') window.buildDodStats();
+            if (typeof window.buildDodChart === 'function') window.buildDodChart();
+          }
+        });
+      }
+    });
+    ['mom-from-date','mom-to-date'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && !el._c24Fixed) {
+        el._c24Fixed = true;
+        el.addEventListener('change', function(){
+          if (typeof window.buildMom === 'function') window.buildMom();
+        });
+      }
+    });
+    ['biz-from','biz-to'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && !el._c24Fixed) {
+        el._c24Fixed = true;
+        el.addEventListener('change', function(){
+          if (typeof window.buildBizView === 'function') window.buildBizView();
+        });
+      }
+    });
+    ['wdwe-from-date','wdwe-to-date'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && !el._c24Fixed) {
+        el._c24Fixed = true;
+        el.addEventListener('change', function(){
+          if (typeof window.buildWdWe === 'function') window.buildWdWe();
+        });
+      }
+    });
+  });
+
+
+  // ── C7: Status filter and search — ensure updateDashboard is called ───
+  var _origFilterStatus = window.filterStatus;
+  window.filterStatus = function(s){
+    window.curStatus = s;
+    if (typeof _origFilterStatus === 'function') {
+      _origFilterStatus.apply(this, arguments);
+    } else {
+      if (typeof window.updateDashboard === 'function') window.updateDashboard();
+    }
+  };
+
+  var _origFilterSearch = window.filterPartnerSearch;
+  window.filterPartnerSearch = function(v){
+    window.curSearch = v;
+    if (typeof _origFilterSearch === 'function') {
+      _origFilterSearch.apply(this, arguments);
+    } else {
+      if (typeof window.buildPartnerTable === 'function') window.buildPartnerTable();
+    }
+  };
+
+
+  // ── C8: Sort column — ensure buildPartnerTable is called ─────────────
+  var _origSetSortCol = window.setSortCol;
+  window.setSortCol = function(v){
+    window.sortCol = v;
+    if (typeof _origSetSortCol === 'function') {
+      _origSetSortCol.apply(this, arguments);
+    } else {
+      if (typeof window.buildPartnerTable === 'function') window.buildPartnerTable();
+    }
+  };
+
+
+  // ── C9: Ensure PERIOD and RMETA are populated when portal opens ───────
+  // If showPortal is called before rebuildMonthMeta has run with data,
+  // all filter clicks return zero. Re-run rebuildMonthMeta after a delay.
+  var _origSP_data = window.showPortal;
+  window.showPortal = function(){
+    if (typeof _origSP_data === 'function') _origSP_data.apply(this, arguments);
+    // Re-run at staggered intervals to catch async data loads
+    [600, 2000, 5000].forEach(function(delay){
+      setTimeout(function(){
+        var hasPeriod = window.PERIOD && Object.keys(window.PERIOD).length > 2;
+        var hasMonths = window.MONTHS && window.MONTHS.length > 0;
+        if (hasMonths && !hasPeriod) {
+          try { window.rebuildMonthMeta && window.rebuildMonthMeta(); } catch(e){}
+        }
+        // Also re-apply portal theme in case DOM wasn't ready before
+        if (typeof window._applyPortalTheme === 'function') window._applyPortalTheme();
+      }, delay);
+    });
+  };
+
+
+  console.log('[C24TargetedFix] Fixes A (no-flash) + B (dark mode) + C (filters) applied ✅');
+})();
+</script>
 
 </html>

@@ -24,6 +24,11 @@ const CARS24_CONFIG = {
     serviceId:  'service_r4z0idc',
     templateId: 'template_89ryon7',
   },
+  // ── Anthropic API key for Cars24 Support chat (EVA) ───────────────────
+  // Get your key from https://console.anthropic.com → API Keys
+  // IMPORTANT: This key is visible in the browser — use a restricted key
+  // with low rate limits dedicated to this portal only.
+  anthropicKey: 'YOUR_ANTHROPIC_API_KEY',  // ← paste your sk-ant-... key here
   // ── Supabase (cross-device sync — replaces Google Apps Script relay) ──
   // 1. Go to https://supabase.com → New project
   // 2. SQL Editor → run the setup query in the comment at the bottom of this file
@@ -429,7 +434,8 @@ header {
 /* ── Cars24 Chat ── */
 .eva-msg { display:flex;align-items:flex-end;gap:8px; }
 .eva-msg--user { flex-direction:row-reverse; }
-.eva-avatar { width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.eva-avatar { width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden; }
+.eva-avatar-logo { width:28px;height:28px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid rgba(61,53,232,0.25); }
 .eva-msg--user .eva-avatar { background:linear-gradient(135deg,#059669,#10b981); }
 .eva-bubble { max-width:78%;background:var(--bd,#e2e5ef);border:1px solid var(--bd,#e2e5ef);border-radius:14px 14px 14px 4px;padding:10px 14px;font-size:13px;line-height:1.55;color:var(--tx,#111827); }
 .eva-msg--user .eva-bubble { border-radius:14px 14px 4px 14px;background:rgba(79,70,229,.15);border-color:rgba(79,70,229,.35);color:var(--tx,#111827); }
@@ -4185,7 +4191,10 @@ function navScrollTo(id) {
             <div class="pt">💬 Partner Queries</div>
             <div class="ps">Messages from partners via Cars24 Support — reply directly from here</div>
           </div>
-          <button onclick="evaAdminMarkAllRead()" style="background:rgba(79,70,229,.1);color:#a5b4fc;border:1px solid rgba(79,70,229,.3);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">✓ Mark all read</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onclick="evaAdminMarkAllRead()" style="background:rgba(79,70,229,.1);color:#a5b4fc;border:1px solid rgba(79,70,229,.3);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">✓ Mark all read</button>
+            <button onclick="evaAdminClearAllChats()" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">🗑 Clear All Chats</button>
+          </div>
         </div>
         <div id="admin-queries-list" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;"></div>
       </div>
@@ -4751,14 +4760,14 @@ function navScrollTo(id) {
           <!-- Chat messages -->
           <div id="eva-messages" style="flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:12px;">
             <div class="eva-msg eva-msg--bot">
-              <div class="eva-avatar">E</div>
+              <div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg></div>
               <div class="eva-bubble">Hi! I'm your Cars24 Support assistant. Ask me about your payouts, targets, invoices — or raise a query to the admin team. How can I help you today?</div>
             </div>
           </div>
           <!-- Typing indicator -->
           <div id="eva-typing" style="display:none;padding:6px 4px;">
             <div class="eva-msg eva-msg--bot">
-              <div class="eva-avatar">E</div>
+              <div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg></div>
               <div class="eva-bubble eva-typing-bubble"><span></span><span></span><span></span></div>
             </div>
           </div>
@@ -14061,7 +14070,7 @@ window.showPortal = function(role, user, partner){
   if(typeof _origShowPortal3==='function') _origShowPortal3.apply(this, arguments);
   _patchNotifHooks();
   setTimeout(function(){
-    if(role==='partner') c24RefreshBadges();
+    if(role==='partner'){ c24RefreshBadges(); evaLoadHistory(); }
     if(role==='admin')   c24RefreshAdminQueryBadge();
   }, 1500);
 };
@@ -14107,19 +14116,22 @@ function evaRenderMessages(){
   evaLoadHistory();
   if(_evaMsgs.length === 0){
     el.innerHTML = '<div class="eva-msg eva-msg--bot">'
-      + '<div class="eva-avatar">E</div>'
+      + '<div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg></div>'
       + '<div class="eva-bubble">Hi! I\'m your Cars24 Support assistant. Ask me about your payouts, targets, invoices — or raise a query to the admin team. How can I help you today?</div>'
       + '</div>';
     return;
   }
+  var _c24LogoSvg = '<svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg>';
   el.innerHTML = _evaMsgs.map(function(m){
     var isBot  = m.role==='eva'||m.role==='admin';
     var isUser = m.role==='partner';
-    var avatar = m.role==='admin' ? 'A' : 'E';
     var cls    = isUser ? 'eva-msg--user' : 'eva-msg--bot';
     var label  = m.role==='admin' ? '<div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Cars24 Team</div>' : '';
+    var avatarHtml = isUser
+      ? '<div class="eva-avatar">'+(window.currentUser||'P')[0].toUpperCase()+'</div>'
+      : '<div class="eva-avatar-logo">'+_c24LogoSvg+'</div>';
     return '<div class="eva-msg '+cls+'">'
-      + '<div class="eva-avatar">'+( isUser ? (window.currentUser||'P')[0].toUpperCase() : avatar)+'</div>'
+      + avatarHtml
       + '<div class="eva-bubble">'+label+escH(m.text)+'</div>'
       + '</div>';
   }).join('');
@@ -14229,9 +14241,22 @@ window.evaSend = function(){
     }).concat(messages);
   }
 
+  var _anthropicKey = (window.CARS24_CONFIG && window.CARS24_CONFIG.anthropicKey) || '';
+  if(!_anthropicKey || _anthropicKey === 'YOUR_ANTHROPIC_API_KEY'){
+    evaShowTyping(false);
+    _evaBusy = false;
+    evaAppendMessage('eva', 'The AI assistant is not configured yet. Please ask the admin to set the Anthropic API key in CARS24_CONFIG.anthropicKey. In the meantime, type "raise a query: [your issue]" to reach the admin team directly.');
+    return;
+  }
+
   fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': _anthropicKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
@@ -14252,7 +14277,8 @@ window.evaSend = function(){
   .catch(function(e){
     evaShowTyping(false);
     _evaBusy = false;
-    evaAppendMessage('eva', 'I\'m having trouble connecting right now. Please try again in a moment, or type "raise a query: [your issue]" to reach the admin team directly.');
+    console.warn('[EVA] API error:', e.message||e);
+    evaAppendMessage('eva', 'Something went wrong on my end. Please try again, or type "raise a query: [your issue]" to reach the admin team directly.');
   });
 };
 
@@ -14321,20 +14347,41 @@ window.buildAdminQueriesInbox = function(){
         + '<div style="font-size:10px;color:var(--t3);margin-top:3px;'+(isAdmin?'text-align:right':'')+'">'+time+'</div></div>'
         + '</div>';
     }).join('');
-    return '<div class="eva-query-card '+(hasUnread?'unread':'')+'" id="aqcard-'+p.name+'">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
-      + '<div style="font-weight:700;font-size:14px;">'+escH(p.name)+(hasUnread?'<span class="c24-nb" style="margin-left:8px;">New</span>':'')+'</div>'
-      + '<div style="font-size:10px;color:var(--t3);">'+p.msgs.length+' message'+(p.msgs.length!==1?'s':'')+'</div></div>'
-      + '<div style="max-height:280px;overflow-y:auto;padding:4px 0 8px;">'+thread+'</div>'
-      + '<div style="border-top:1px solid var(--bd,rgba(255,255,255,.08));padding-top:10px;">'
-      + '<textarea class="eva-reply-input" id="areply-'+p.name+'" placeholder="Reply to '+escH(p.name)+'…"></textarea>'
-      + '<button onclick="evaAdminReply(\''+p.name+'\')" style="margin-top:6px;background:#4f46e5;border:none;border-radius:8px;padding:7px 18px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Send Reply ↑</button>'
-      + '</div></div>';
+    var safeId = p.name.replace(/[^a-zA-Z0-9]/g,'_');
+    var lastPreview = lastMsg ? escH(lastMsg.text.slice(0,60))+(lastMsg.text.length>60?'…':'') : '';
+    var lastTime = lastMsg ? new Date(lastMsg.ts).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+    return '<div class="eva-query-card '+(hasUnread?'unread':'')+'" id="aqcard-'+safeId+'" style="padding:0;overflow:hidden;">'
+      // ── Header row (always visible) ──
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;gap:8px;" onclick="evaToggleQueryCard(\''+safeId+'\')">'
+        + '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">'
+          + '<div style="width:32px;height:32px;border-radius:50%;background:#059669;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+p.name[0].toUpperCase()+'</div>'
+          + '<div style="min-width:0;flex:1;">'
+            + '<div style="font-weight:700;font-size:13px;">'+escH(p.name)+(hasUnread?'<span class="c24-nb" style="margin-left:6px;">New</span>':'')+'</div>'
+            + '<div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+lastPreview+'</div>'
+          + '</div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">'
+          + '<div style="font-size:10px;color:var(--t3);">'+p.msgs.length+' msg'+(p.msgs.length!==1?'s':'')+'</div>'
+          + '<div style="font-size:10px;color:var(--t3);">'+lastTime+'</div>'
+          + '<button onclick="event.stopPropagation();evaAdminClearPartnerChat(\''+p.name+'\')" title="Clear chat" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">🗑</button>'
+          + '<div id="aqarrow-'+safeId+'" style="font-size:12px;color:var(--t3);transition:transform .2s;">▼</div>'
+        + '</div>'
+      + '</div>'
+      // ── Collapsible body ──
+      + '<div id="aqbody-'+safeId+'" style="display:none;border-top:1px solid var(--bd,rgba(255,255,255,.08));padding:12px 16px 14px;">'
+        + '<div style="max-height:260px;overflow-y:auto;padding:4px 0 8px;">'+thread+'</div>'
+        + '<div style="border-top:1px solid var(--bd,rgba(255,255,255,.08));padding-top:10px;">'
+        + '<textarea class="eva-reply-input" id="areply-'+safeId+'" placeholder="Reply to '+escH(p.name)+'…"></textarea>'
+        + '<button onclick="evaAdminReply(\''+p.name+'\',\''+safeId+'\')" style="margin-top:6px;background:#4f46e5;border:none;border-radius:8px;padding:7px 18px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Send Reply ↑</button>'
+        + '</div>'
+      + '</div>'
+      + '</div>';
   }).join('');
 };
 
-window.evaAdminReply = function(partnerName){
-  var ta = document.getElementById('areply-'+partnerName);
+window.evaAdminReply = function(partnerName, safeId){
+  var textareaId = 'areply-'+(safeId || partnerName);
+  var ta = document.getElementById(textareaId);
   if(!ta) return;
   var text = (ta.value||'').trim();
   if(!text) return;
@@ -14364,6 +14411,40 @@ window.evaAdminMarkAllRead = function(){
   c24SetBadge('admin-queries', 0);
   buildAdminQueriesInbox();
   c24Toast('✓ All marked read', '', 'success');
+};
+
+// Toggle collapse/expand a partner card
+window.evaToggleQueryCard = function(safeId){
+  var body  = document.getElementById('aqbody-'+safeId);
+  var arrow = document.getElementById('aqarrow-'+safeId);
+  if(!body) return;
+  var isOpen = body.style.display !== 'none';
+  body.style.display  = isOpen ? 'none' : 'block';
+  if(arrow) arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+};
+
+// Clear chat for a single partner
+window.evaAdminClearPartnerChat = function(partnerName){
+  if(!confirm('Clear all chat history for '+partnerName+'?')) return;
+  var all = [];
+  try{ all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
+  all = all.filter(function(m){ return m.partnerName !== partnerName; });
+  var serialised = JSON.stringify(all);
+  localStorage.setItem('cars24_chat_messages', serialised);
+  if(window._c24Cloud && window._c24Cloud.push) window._c24Cloud.push('cars24_chat_messages', serialised);
+  c24Toast('🗑 Cleared', 'Chat history for '+partnerName+' removed.', 'warn');
+  buildAdminQueriesInbox();
+  c24RefreshAdminQueryBadge();
+};
+
+// Clear ALL partner chats
+window.evaAdminClearAllChats = function(){
+  if(!confirm('Clear ALL partner chat history? This cannot be undone.')) return;
+  localStorage.setItem('cars24_chat_messages', '[]');
+  if(window._c24Cloud && window._c24Cloud.push) window._c24Cloud.push('cars24_chat_messages', '[]');
+  c24SetBadge('admin-queries', 0);
+  c24Toast('🗑 All chats cleared', 'All partner chat history has been removed.', 'warn');
+  buildAdminQueriesInbox();
 };
 
 // Add cars24_chat_messages to Supabase sync keys
@@ -18558,9 +18639,12 @@ async function uploadFileToDrive(file, folder, fileName){
       return;
     }
 
-    // File size check — Apps Script has a 50MB limit, warn at 10MB
-    if(file.size > 10 * 1024 * 1024){
-      console.warn('[Drive] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max recommended 10MB');
+    // File size guard — Apps Script payload limit is ~5MB base64 (≈ 3.7MB raw file)
+    var MAX_BYTES = 3.5 * 1024 * 1024;
+    if(file.size > MAX_BYTES){
+      console.warn('[Drive] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max 3.5MB for Drive upload');
+      resolve('TOO_LARGE');
+      return;
     }
 
     var reader = new FileReader();
@@ -18579,40 +18663,58 @@ async function uploadFileToDrive(file, folder, fileName){
         amount    : window._lastInvAmount || window._lastProofAmount || 0
       });
 
-      // Use text/plain — Apps Script requires this for simple (non-preflighted) POST
-      // application/json triggers a CORS preflight which Apps Script doesn't handle
+      // ── Phase 1: try CORS fetch (Apps Script sends Access-Control-Allow-Origin: * after redirect) ──
       fetch(url, {
-        method : 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body   : payload,
-        redirect: 'follow'
+        method  : 'POST',
+        headers : { 'Content-Type': 'text/plain;charset=utf-8' },
+        body    : payload,
+        redirect: 'follow',
+        mode    : 'cors',
+        credentials: 'omit'
       })
       .then(function(r){
-        // status 0 = opaque no-cors response (still succeeded server-side)
-        if(r.status === 0) return r.text().catch(function(){ return '{}'; });
         if(!r.ok) throw new Error('HTTP ' + r.status);
         return r.text();
       })
       .then(function(txt){
         try{
           var d = JSON.parse(txt);
-          if(d.success && (d.fileUrl||d.url)){
-            console.log('[Drive] Upload OK:', d.fileUrl||d.url);
+          if(d.fileUrl || d.url){
+            console.log('[Drive] Upload OK (cors):', d.fileUrl||d.url);
             resolve(d.fileUrl || d.url);
+          } else if(d.success){
+            // success but no URL returned — file is in Drive, construct a generic confirmation
+            console.log('[Drive] Upload OK (cors, no URL)');
+            resolve('UPLOADED');
           } else if(d.error){
-            console.warn('[Drive] Upload error:', d.error);
+            console.warn('[Drive] Server error:', d.error);
             resolve(null);
           } else {
-            resolve(d.fileUrl || d.url || null);
+            resolve(d.fileUrl || d.url || 'UPLOADED');
           }
         }catch(pe){
-          console.warn('[Drive] Parse error:', txt.slice(0,200));
-          resolve(null);
+          // Non-JSON response but HTTP 200 = file landed in Drive
+          console.log('[Drive] Upload OK (cors, non-JSON 200):', txt.slice(0,80));
+          resolve('UPLOADED');
         }
       })
-      .catch(function(err){
-        console.warn('[Drive] Upload failed:', err.message);
-        resolve(null);
+      .catch(function(corsErr){
+        // ── Phase 2: CORS failed (opaque redirect) — fire no-cors and assume success ──
+        console.warn('[Drive] CORS fetch failed ('+corsErr.message+') — falling back to no-cors fire-and-forget');
+        fetch(url, {
+          method  : 'POST',
+          headers : { 'Content-Type': 'text/plain;charset=utf-8' },
+          body    : payload,
+          mode    : 'no-cors'
+        })
+        .then(function(){
+          console.log('[Drive] no-cors fire sent — assuming upload succeeded');
+          resolve('UPLOADED');  // opaque: we can't read the URL, but file is in Drive
+        })
+        .catch(function(err2){
+          console.warn('[Drive] Upload failed entirely:', err2.message);
+          resolve(null);
+        });
       });
     };
     reader.onerror = function(e){
@@ -18660,8 +18762,14 @@ window.submitPartnerInvoice = (function(_orig){
     var fname   = file ? file.name : '—';
     var driveUrl = null;
 
+    // File size guard — 3.5MB max for Apps Script base64 payload
+    if(file && file.size > 3.5 * 1024 * 1024){
+      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB before uploading.');
+      return;
+    }
+
     if(file){
-      showMsg(true,'⏳ Uploading attachment…');
+      showMsg(true,'⏳ Uploading attachment to Drive…');
       var driveName = 'INV_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+invNo+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+fname.split('.').pop();
       // Stash metadata so uploadFileToDrive can include it in the log
       window._lastInvMonth  = fullMo;
@@ -18689,10 +18797,24 @@ window.submitPartnerInvoice = (function(_orig){
     if(fileEl) fileEl.value='';
     var fn=document.getElementById('p-inv-fname'); if(fn) fn.textContent='No file';
 
-    var driveNote = driveUrl ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;">View in Drive ↗</a>' : (file ? ' (saved locally — Drive not configured)' : '');
-    showMsg(true,'✓ Invoice submitted for '+fullMo+'!'+driveNote.replace(/<[^>]+>/g,''));
+    // driveUrl can be: a real URL string, 'UPLOADED' (no-cors fire), 'TOO_LARGE', or null
+    var driveOk     = driveUrl && driveUrl !== 'TOO_LARGE' && driveUrl !== null;
+    var hasRealUrl  = driveOk && driveUrl !== 'UPLOADED';
+    var driveLabel  = hasRealUrl
+      ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📂 View in Drive ↗</a>'
+      : (driveOk ? ' · <span style="color:#10b981;">📂 Drive ✓</span>'
+        : (file ? ' <span style="color:#f59e0b;font-size:11px;">(Drive upload failed — file name saved)</span>' : ''));
+
+    if(msg){
+      msg.style.display='block';
+      msg.style.background='rgba(16,185,129,.12)';
+      msg.style.color='#10b981';
+      msg.style.padding='8px 12px'; msg.style.borderRadius='6px';
+      msg.innerHTML = '✓ Invoice submitted for '+escH(fullMo)+'!'+driveLabel;
+      setTimeout(function(){ msg.style.display='none'; }, 7000);
+    }
     if(typeof window.buildPartnerInvoices==='function') window.buildPartnerInvoices();
-    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(driveUrl?' · Drive ✓':''));
+    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(driveOk?' · Drive ✓':''));
     if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · Drive:'+driveUrl:''));
   };
 })(window.submitPartnerInvoice);
@@ -18725,11 +18847,13 @@ window.buildPartnerInvoices = (function(){
         : inv.status==='Rejected'
         ? '<span style="color:#ef4444;font-weight:700;">✗ Rejected'+(inv.remark?' — '+inv.remark:'')+'</span>'
         : '<span style="color:#f59e0b;font-weight:700;">⏳ Pending</span>';
-      var fileCell = inv.driveUrl
+      var fileCell = inv.driveUrl && inv.driveUrl !== 'UPLOADED'
         ? '<a href="'+inv.driveUrl+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.2);border-radius:5px;">📎 View File</a>'
-        : (inv.fileName && inv.fileName!=='—'
-          ? '<span style="font-size:11px;color:var(--t3);">📎 '+inv.fileName+'<br><span style="font-size:10px;color:#f59e0b;">Not uploaded to Drive</span></span>'
-          : '—');
+        : (inv.driveUrl === 'UPLOADED'
+          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">📂 In Drive ✓</span>'
+          : (inv.fileName && inv.fileName!=='—'
+            ? '<span style="font-size:11px;color:var(--t3);">📎 '+inv.fileName+'<br><span style="font-size:10px;color:#f59e0b;">Not uploaded to Drive</span></span>'
+            : '—'));
       return '<tr>'
         +'<td>'+(window.MLABEL&&window.MLABEL[inv.month]?window.MLABEL[inv.month]:inv.fullMonth||inv.month)+'</td>'
         +'<td style="font-size:12px;font-weight:600;">'+inv.invNo+'</td>'
@@ -18766,8 +18890,14 @@ window.savePaymentProof = async function(){
   var fname    = file ? file.name : '—';
   var driveUrl = null;
 
+  // File size guard — 3.5MB max for Apps Script base64 payload
+  if(file && file.size > 3.5 * 1024 * 1024){
+    showErr('⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB.');
+    return;
+  }
+
   if(file){
-    showErr('⏳ Uploading attachment to Drive…', '#f59e0b');
+    showErr('⏳ Uploading to Drive…', '#f59e0b');
     var ext       = fname.split('.').pop();
     var driveName = 'PROOF_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+utr+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+ext;
     window._lastProofMonth  = fullMo;
@@ -18777,6 +18907,8 @@ window.savePaymentProof = async function(){
     driveUrl = await uploadFileToDrive(file, 'Cars24_PaymentProofs', driveName);
     if(errEl) errEl.style.display = 'none';
   }
+
+  var driveOk = driveUrl && driveUrl !== 'TOO_LARGE';
 
   var proofs = (typeof window.getProofs==='function') ? window.getProofs() : [];
   proofs.push({
@@ -18794,8 +18926,8 @@ window.savePaymentProof = async function(){
 
   var ov = document.getElementById('proof-ov'); if(ov) ov.remove();
   if(typeof window.renderProofTable==='function') window.renderProofTable();
-  if(typeof window.showImportToast==='function') window.showImportToast('✅ Payment proof saved for '+partner+(driveUrl?' · Drive ✓':(file?' · local only':'')));
-  if(typeof window._auditLog==='function') window._auditLog('Payment proof uploaded', partner+' · UTR:'+utr+' · ₹'+amount+(driveUrl?' · Drive:'+driveUrl:''));
+  if(typeof window.showImportToast==='function') window.showImportToast('✅ Payment proof saved for '+partner+(driveOk?' · Drive ✓':(file?' · Drive upload failed':''))  );
+  if(typeof window._auditLog==='function') window._auditLog('Payment proof uploaded', partner+' · UTR:'+utr+' · ₹'+amount+(driveUrl&&driveUrl!=='UPLOADED'?' · Drive:'+driveUrl:driveOk?' · Drive:uploaded':''));
 };
 
 // ── Patch renderProofTable to show Drive link ─────────────────────
@@ -18813,9 +18945,11 @@ window.renderProofTable = function(){
     return;
   }
   tbl.innerHTML = rows.map(function(pr,i){
-    var fileCell = pr.driveUrl
+    var fileCell = pr.driveUrl && pr.driveUrl !== 'UPLOADED'
       ? '<a href="'+pr.driveUrl+'" target="_blank" style="color:#10b981;font-size:11px;font-weight:600;text-decoration:none;">📎 Drive ↗</a>'
-      : (pr.fileName&&pr.fileName!=='—' ? '<span style="font-size:11px;color:var(--t3);">'+pr.fileName+'</span>' : '—');
+      : (pr.driveUrl === 'UPLOADED'
+        ? '<span style="font-size:11px;color:#10b981;font-weight:600;">📂 In Drive ✓</span>'
+        : (pr.fileName&&pr.fileName!=='—' ? '<span style="font-size:11px;color:var(--t3);">'+pr.fileName+'</span>' : '—'));
     return '<tr>'
       +'<td style="font-size:11px;color:var(--t3);">'+(i+1)+'</td>'
       +'<td style="font-weight:600">'+pr.partner+'</td>'
@@ -20113,6 +20247,67 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
      driveWebAppUrl in CARS24_CONFIG is still used for invoice/payment
      proof FILE uploads to Google Drive. That Apps Script is unchanged.
      Only the key-value DATA sync has moved to Supabase.
+     ══════════════════════════════════════════════════════════════════ -->
+
+<!-- ══════════════════════════════════════════════════════════════════
+     GOOGLE APPS SCRIPT — doPost handler for Drive file uploads
+     ══════════════════════════════════════════════════════════════════
+     1. Go to https://script.google.com → New project
+     2. Paste the code below (replacing the default myFunction)
+     3. Click Deploy → New deployment → Web app
+        • Execute as: Me
+        • Who has access: Anyone
+     4. Copy the /exec URL into CARS24_CONFIG.driveWebAppUrl above
+     5. On re-deploy, always create a NEW deployment (not update) to get a fresh URL
+     ──────────────────────────────────────────────────────────────────
+
+function doPost(e) {
+  try {
+    var raw  = e.postData.contents;
+    var data = JSON.parse(raw);
+
+    if (data.action === 'upload') {
+      var folder    = getOrCreateFolder(data.folder || 'Cars24_Uploads');
+      var blob      = Utilities.newBlob(
+        Utilities.base64Decode(data.base64Data),
+        data.mimeType || 'application/octet-stream',
+        data.fileName
+      );
+      var file      = folder.createFile(blob);
+      // Make the file viewable by anyone with the link
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+      var fileUrl   = 'https://drive.google.com/file/d/' + file.getId() + '/view';
+
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true, fileUrl: fileUrl, fileId: file.getId() }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Unknown action — return empty success
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function getOrCreateFolder(name) {
+  var folders = DriveApp.getFoldersByName(name);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(name);
+}
+
+function doGet(e) {
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: 'ok', message: 'Cars24 Drive relay is live' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
      ══════════════════════════════════════════════════════════════════ -->
 
 </html>

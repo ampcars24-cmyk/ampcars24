@@ -24,11 +24,11 @@ const CARS24_CONFIG = {
     serviceId:  'service_r4z0idc',
     templateId: 'template_89ryon7',
   },
-  // ── Anthropic API key for Cars24 Support chat (EVA) ───────────────────
-  // Get your key from https://console.anthropic.com → API Keys
-  // IMPORTANT: This key is visible in the browser — use a restricted key
-  // with low rate limits dedicated to this portal only.
-  anthropicKey: 'YOUR_ANTHROPIC_API_KEY',  // ← paste your sk-ant-... key here
+  // ── Groq API key for Cars24 Support chat (EVA) ───────────────────────────
+  // 100% FREE — no billing, no credit card needed
+  // Get your key in 2 mins: https://console.groq.com → API Keys → Create API Key
+  // Free tier: 14,400 requests/day on Llama 3 — plenty for 30 partners
+  groqKey: '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',
   // ── Supabase (cross-device sync — replaces Google Apps Script relay) ──
   // 1. Go to https://supabase.com → New project
   // 2. SQL Editor → run the setup query in the comment at the bottom of this file
@@ -49,6 +49,7 @@ if(CARS24_CONFIG.driveWebAppUrl){
 }
 
 // Wire Supabase config globally
+window.CARS24_CONFIG           = CARS24_CONFIG;
 window.CARS24_SUPABASE_URL     = CARS24_CONFIG.supabase.url;
 window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
 
@@ -82,7 +83,7 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
 //      for all using (true) with check (true);
 // ══════════════════════════════════════════════════════════════════
 (function _installCloudFirstEngine(){
-  var LOCAL_ONLY_KEYS = ['c24_session','theme','cars24_import_history','cars24_audit_log','cars24_logic_rules'];
+  var LOCAL_ONLY_KEYS = ['c24_session','theme','cars24_logic_rules'];
 
   function _sbUrl(){  return window.CARS24_SUPABASE_URL     || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.url)     || ''; }
   function _sbKey(){  return window.CARS24_SUPABASE_ANONKEY || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.anonKey) || ''; }
@@ -828,9 +829,56 @@ tbody tr:hover td{background:var(--al)}
 .ppct{font-size:10.5px;font-family:'DM Mono',monospace;color:var(--t3);min-width:28px;text-align:right}
 
 /* PARTNER DASHBOARD SPECIFIC */
-.partner-hero{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);border-radius:14px;padding:22px 24px;margin-bottom:16px;color:#fff;position:relative;overflow:hidden}
-.partner-hero::before{content:'';position:absolute;top:-30px;right:-30px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.06)}
-.partner-hero::after{content:'';position:absolute;bottom:-40px;right:60px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.04)}
+.partner-hero{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);border-radius:14px;padding:20px 24px;margin-bottom:12px;color:#fff;position:relative;overflow:hidden}
+.partner-hero::before{content:'';position:absolute;top:-30px;right:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none}
+.partner-hero::after{content:'';position:absolute;bottom:-30px;right:50px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none}
+.ph-left{position:relative;z-index:1}
+
+/* ── Update banner cards (below hero) ── */
+/* ── Partner Overview detail grid ── */
+.p-ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:700px){.p-ov-grid{grid-template-columns:1fr}}
+.p-ov-card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)}
+.p-ov-card-hdr{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.p-ov-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)}
+.p-ov-row:last-child{border-bottom:none}
+.p-ov-lbl{font-size:12px;color:var(--t3);font-weight:500}
+.p-ov-val{font-size:13px;font-weight:700;color:var(--tx)}
+.p-ov-bar-wrap{display:flex;align-items:center;gap:8px;margin-top:4px}
+.p-ov-bar{flex:1;height:6px;background:var(--bd);border-radius:3px;overflow:hidden}
+.p-ov-bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.p-ov-pct{font-size:11px;font-weight:700;min-width:36px;text-align:right}
+.p-utm-full{background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:12px;padding:14px 18px;color:#fff;margin-bottom:14px}
+.p-utm-full-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:10px}
+.p-utm-field{display:flex;flex-direction:column;gap:3px}
+.p-utm-field-lbl{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.6}
+.p-utm-field-val{font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:700;letter-spacing:1px}
+.p-utm-link-row{background:rgba(255,255,255,.12);border-radius:7px;padding:8px 12px;display:flex;align-items:center;gap:8px}
+.p-utm-link-text{font-size:10.5px;font-family:"JetBrains Mono",monospace;opacity:.9;word-break:break-all;flex:1}
+.ph-banners{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+@media(max-width:700px){.ph-banners{grid-template-columns:1fr}}
+.ph-banner{border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative}
+.ph-banner:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.1)}
+.ph-banner.ann{background:#fffbeb;border:1.5px solid #fde68a}
+.ph-banner.tgt{background:#ecfdf5;border:1.5px solid #6ee7b7}
+.ph-banner.pay{background:#eff6ff;border:1.5px solid #93c5fd}
+.ph-banner-icon{font-size:22px;margin-bottom:7px}
+.ph-banner-body{display:flex;flex-direction:column;gap:2px}
+.ph-banner-tag{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.55;margin-bottom:3px}
+.ph-banner.ann .ph-banner-tag{color:#92400e}
+.ph-banner.tgt .ph-banner-tag{color:#065f46}
+.ph-banner.pay .ph-banner-tag{color:#1e40af}
+.ph-banner-title{font-size:13.5px;font-weight:700;line-height:1.35}
+.ph-banner.ann .ph-banner-title{color:#78350f}
+.ph-banner.tgt .ph-banner-title{color:#064e3b}
+.ph-banner.pay .ph-banner-title{color:#1e3a8a}
+.ph-banner-sub{font-size:11.5px;margin-top:4px;line-height:1.4}
+.ph-banner.ann .ph-banner-sub{color:#92400e;opacity:.75}
+.ph-banner.tgt .ph-banner-sub{color:#065f46;opacity:.75}
+.ph-banner.pay .ph-banner-sub{color:#1e40af;opacity:.75}
+.ph-banner-new{position:absolute;top:10px;right:34px;width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 2px #fff}
+.ph-banner-close{position:absolute;top:8px;right:10px;background:none;border:none;cursor:pointer;font-size:12px;opacity:.3;padding:2px 4px;transition:opacity .15s}
+.ph-banner-close:hover{opacity:.7}
 .ph-name{font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
 .ph-sub{font-size:11.5px;opacity:.7;font-family:'DM Mono',monospace}
 .ph-stats{display:flex;gap:20px;margin-top:16px;flex-wrap:wrap}
@@ -3060,10 +3108,10 @@ function navScrollTo(id) {
       </div>
       <div class="ng">
         <div class="ngl">Finance</div>
-        <div class="ni" onclick="showV('payouts',this)"><span class="nic">💰</span>Payout Manager</div>
-        <div class="ni" onclick="showV('invoices',this)"><span class="nic">🧾</span>Invoice Manager</div>
-        <div class="ni" onclick="showV('payments',this)"><span class="nic">✅</span>Payment Proofs</div>
-        <div class="ni" onclick="showV('targets',this)"><span class="nic">🎯</span>Targets</div>
+        <div class="ni" onclick="showV('payouts',this)" id="nav-admin-payouts"><span class="nic">💰</span>Payout Manager<span class="c24-nb" id="nb-admin-payouts" style="display:none"></span></div>
+        <div class="ni" onclick="showV('invoices',this)" id="nav-admin-invoices"><span class="nic">🧾</span>Invoice Manager<span class="c24-nb" id="nb-admin-invoices" style="display:none"></span></div>
+        <div class="ni" onclick="showV('payments',this)" id="nav-admin-payments"><span class="nic">✅</span>Payment Proofs<span class="c24-nb" id="nb-admin-payments" style="display:none"></span></div>
+        <div class="ni" onclick="showV('targets',this)" id="nav-admin-targets"><span class="nic">🎯</span>Targets<span class="c24-nb" id="nb-admin-targets" style="display:none"></span></div>
       </div>
       <div class="ng">
         <div class="ngl">Channels</div>
@@ -3077,7 +3125,6 @@ function navScrollTo(id) {
       </div>
       <div class="ng">
         <div class="ngl">Reports & Access</div>
-        <div class="ni" onclick="showV('reports',this)"><span class="nic">📄</span>Reports</div>
         <div class="ni" onclick="showV('import-log',this)"><span class="nic">📜</span>Import Log</div>
         <div class="ni" onclick="showV('audit-log',this)"><span class="nic">🔍</span>Audit Log</div>
         <div class="ni" onclick="showV('credentials',this)"><span class="nic">🔑</span>Credentials & Email</div>
@@ -3105,9 +3152,9 @@ function navScrollTo(id) {
       </div>
       <div class="ng">
         <div class="ngl">Finance</div>
-        <div class="ni" onclick="showPV('p-payout',this)"><span class="nic">💰</span>Payout Summary</div>
+        <div class="ni" onclick="showPV('p-payout',this)" id="nav-p-payout"><span class="nic">💰</span>Payout Summary<span class="c24-nb" id="nb-payout" style="display:none"></span></div>
         <div class="ni" onclick="showPV('p-invoices',this)" id="nav-p-invoices"><span class="nic">🧾</span>My Invoices<span class="c24-nb" id="nb-invoices" style="display:none"></span></div>
-        <div class="ni" onclick="showPV('p-payments',this)"><span class="nic">✅</span>Payment Proofs</div>
+        <div class="ni" onclick="showPV('p-payments',this)" id="nav-p-payments"><span class="nic">✅</span>Payment Proofs<span class="c24-nb" id="nb-payments" style="display:none"></span></div>
       </div>
       <div class="ng">
         <div class="ngl">Channels</div>
@@ -4284,6 +4331,29 @@ function navScrollTo(id) {
           </div>
           <div id="bulk-add-body" style="display:none;">
             <div style="font-size:12px;color:var(--t3);margin-bottom:10px;">Paste CSV rows below — one partner per line.<br>Format: <code style="background:rgba(255,255,255,.07);padding:2px 7px;border-radius:4px;font-size:11px;">Display Name, Username, Password, Email, Status</code>&nbsp; (Status optional — defaults to Active)</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+              <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(139,92,246,.08);border:1.5px dashed rgba(139,92,246,.35);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#8b5cf6;">
+                📂 Upload CSV File
+                <input type="file" accept=".csv,.txt" style="display:none;" onchange="(function(f){
+                  if(!f.files||!f.files[0]) return;
+                  var reader=new FileReader();
+                  reader.onload=function(e){
+                    var txt=e.target.result.replace(/\r/g,'');
+                    document.getElementById('bulk-csv-input').value=txt.trim();
+                    if(typeof showImportToast==='function') showImportToast('📂 CSV loaded — '+txt.trim().split('\n').length+' rows');
+                  };
+                  reader.readAsText(f.files[0]);
+                  this.value='';
+                })(this)">
+              </label>
+              <span style="font-size:11px;color:var(--t3);">or paste manually below</span>
+              <button onclick="(function(){
+                var tmpl='Display Name,Username,Password,Email,Status\nTrack Back Media,trackback,pass123,tb@example.com,Active\nANR Digital,anrdigital,pass456,anr@example.com,Active';
+                var a=document.createElement(\'a\');
+                a.href=\'data:text/csv;charset=utf-8,\'+encodeURIComponent(tmpl);
+                a.download=\'partner_bulk_template.csv\'; a.click();
+              })()" style="padding:6px 12px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:7px;font-size:11px;font-weight:700;color:#10b981;cursor:pointer;">⬇ Download Template</button>
+            </div>
             <textarea id="bulk-csv-input" rows="6" placeholder="Track Back Media, trackback, pass123, tb@example.com, Active&#10;ANR Digital, anrdigital, pass456, anr@example.com&#10;Carinfo, carinfo, pass789, ci@example.com" style="width:100%;padding:10px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px;font-family:'DM Mono',monospace;background:var(--bg);color:var(--tx);outline:none;resize:vertical;box-sizing:border-box;"></textarea>
             <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;">
               <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;">
@@ -4379,48 +4449,23 @@ function navScrollTo(id) {
 
       <!-- P-OVERVIEW -->
       <div class="view" id="view-p-overview">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px;flex-wrap:wrap;">
-          <div id="partner-utm-card" style="flex:1;min-width:280px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:12px;padding:16px 20px;color:#fff;">
-            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.7;margin-bottom:6px;">🔗 Your Campaign Details</div>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
-              <div>
-                <div style="font-size:10px;opacity:.7;margin-bottom:2px;">Campaign ID</div>
-                <div id="p-campaign-id" style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;letter-spacing:2px;">—</div>
-              </div>
-              <div style="width:1px;height:36px;background:rgba(255,255,255,.2);"></div>
-              <div>
-                <div style="font-size:10px;opacity:.7;margin-bottom:2px;">UTM Medium</div>
-                <div id="p-utm-medium" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;">—</div>
-              </div>
-            </div>
-            <div style="background:rgba(255,255,255,.12);border-radius:7px;padding:8px 12px;display:flex;align-items:center;gap:8px;">
-              <div id="p-utm-link" style="font-size:10px;font-family:'JetBrains Mono',monospace;opacity:.9;word-break:break-all;flex:1;">—</div>
-              <button onclick="copyPartnerUTM()" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:5px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">📋 Copy</button>
-            </div>
-          </div>
-          <button onclick="exportPartnerCSV()" style="display:flex;align-items:center;gap:7px;background:#10b981;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:background .2s;align-self:flex-start;margin-top:4px;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-            <span style="font-size:15px;">📤</span> Export My Data
-          </button>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
+          <div class="fb" style="margin:0;"><div class="fbrow"><span class="rl" style="font-size:11px;">Period:</span><div class="rts" id="p-ov-month-btns"></div></div></div>
+          <button onclick="exportPartnerCSV()" style="display:flex;align-items:center;gap:7px;background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'"><span>📤</span> Export</button>
         </div>
         <div id="partner-hero-wrap"></div>
-        <div class="kg4" id="p-kpis"></div>
-        <div class="cc">
-          <div class="ch"><div><div class="cti">My Monthly Performance</div><div class="csu" id="p-monthly-csu">Dec 2025 – Mar 2026</div></div>
-          <div class="ctg"><button class="ctb active" id="pctbar" onclick="setPCT('bar')">Bar</button><button class="ctb" id="pctline" onclick="setPCT('line')">Line</button></div></div>
-          <div class="cw"><canvas id="partnerMonthlyChart"></canvas></div>
-        </div>
-        <div class="tc">
-          <div class="tch"><div class="tct">My Performance — Month by Month</div></div>
-          <div class="tw"><table><thead><tr><th>Month</th><th class="num">Leads</th><th class="num">Appointments</th><th class="num">Inspections</th><th class="num">Stock-ins</th><th class="num">Payout</th><th class="num">L→S Conv%</th></tr></thead><tbody id="p-month-tbl"></tbody></table></div>
-        </div>
-
-        <!-- Live Announcements Preview on Overview -->
-        <div id="p-overview-ann-wrap" style="margin-top:8px;display:none;">
-          <div class="tch" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <div class="tct">📢 Latest Announcements</div>
-            <button onclick="showPV('p-announcements',document.querySelector('#partner-sidebar .ni[onclick*=p-announcements]'))" style="padding:5px 14px;background:rgba(79,70,229,.1);border:1px solid rgba(79,70,229,.25);border-radius:7px;font-size:11px;font-weight:700;color:#4f46e5;cursor:pointer;">View All →</button>
-          </div>
-          <div id="p-overview-ann-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <!-- Update Banners -->
+        <div class="ph-banners" id="ph-banners-grid" style="margin-bottom:16px;"></div>
+        <!-- Detail cards grid -->
+        <div id="p-ov-detail-grid"></div>
+        <!-- KPI row (hidden - replaced by detail grid) -->
+        <div class="kg4" id="p-kpis" style="display:none;"></div>
+        <!-- Hidden canvas kept for other views that may reference it -->
+        <div style="display:none;"><canvas id="partnerMonthlyChart"></canvas></div>
+        <div id="p-month-tbl" style="display:none;"></div>
+        <!-- Live Announcements Preview — moved to hero right panel -->
+        <div id="p-overview-ann-wrap" style="display:none;">
+          <div id="p-overview-ann-list"></div>
         </div>
       </div>
 
@@ -4485,7 +4530,10 @@ function navScrollTo(id) {
 
       <div class="view" id="view-payouts">
         <div class="ph" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <div><div class="pt">💰 Payout Manager</div><div class="ps">Track payout amounts &amp; payment status per partner per month — protected from report imports</div></div>
+          <div><div class="pt">💰 Payout Manager</div><div class="ps">Track payout amounts &amp; payment status per partner per month — protected from report imports</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--t3);background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:6px 10px;max-width:600px;">
+            ℹ️ <strong style="color:#f59e0b;">Why payout here may differ from Dashboard:</strong> Dashboard payout comes from the imported sheet (CPI × inspections formula). Payout Manager is manually editable by admin — it reflects the <em>final agreed payout</em> after adjustments, deductions or bonuses. Use this as the source of truth for invoicing.
+          </div></div>
           <div style="display:flex;gap:8px;">
             <button onclick="exportPayoutCSV()" style="background:var(--sf);border:1px solid var(--bd);color:var(--t2);border-radius:8px;padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;">⬇ Export CSV</button>
           </div>
@@ -4546,7 +4594,12 @@ function navScrollTo(id) {
 
       <!-- ════ PARTNER: TARGETS ════ -->
       <div class="view" id="view-p-targets">
-        <div class="ph"><div class="pt">🎯 My Targets</div><div class="ps">Monthly inspection targets set by Cars24</div></div>
+        <div class="ph"><div class="pt">🎯 My Targets</div><div class="ps">Monthly inspection &amp; visit targets set by Cars24</div></div>
+        <div class="fb" style="margin-bottom:12px;">
+          <div class="fbrow"><span class="rl">Month:</span>
+            <div class="rts" id="p-tgt-month-btns"></div>
+          </div>
+        </div>
         <div class="tc">
           <div class="tch"><div class="tct">Target vs Achievement</div></div>
           <div class="tw"><table><thead><tr><th>Month</th><th>Stream</th><th class="num">Target</th><th class="num">Achieved</th><th class="num">Gap</th><th>Progress</th></tr></thead><tbody id="p-targets-tbl"></tbody></table></div>
@@ -4586,10 +4639,27 @@ function navScrollTo(id) {
         <div class="ph"><div class="pt">🧾 My Invoices</div><div class="ps">Submit invoices for each month · Admin will review and confirm</div></div>
         <div class="cc" style="margin-bottom:16px;">
           <div class="cti" style="margin-bottom:14px;">Submit New Invoice</div>
+          <div id="p-inv-payout-hint" style="display:none;background:rgba(79,70,229,.06);border:1px solid rgba(79,70,229,.15);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);">
+            💡 <strong>Dashboard payout for selected month:</strong> <span id="p-inv-dashboard-amt" style="color:var(--ac);font-weight:700;">—</span>
+            <span style="color:var(--t3);font-size:11px;margin-left:6px;">(This is what Cars24 has recorded. Your invoice amount should match.)</span>
+          </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
             <div style="display:flex;flex-direction:column;gap:5px;">
               <label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3)">Month</label>
-              <select id="inv-month-sel" style="padding:8px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg);color:var(--tx);outline:none;"></select>
+              <select id="inv-month-sel" style="padding:8px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg);color:var(--tx);outline:none;" onchange="(function(sel){
+                var m=sel.value; var hint=document.getElementById('p-inv-payout-hint'); var amtEl=document.getElementById('p-inv-dashboard-amt');
+                if(!m||!hint||!amtEl){if(hint)hint.style.display='none';return;}
+                try{
+                  var pn=(window.currentPartner&&window.currentPartner.name)||'';
+                  var pay=(window.currentPartner&&window.currentPartner.payout&&window.currentPartner.payout[m])||0;
+                  var payStore=typeof getPayoutStore==='function'?getPayoutStore():{};
+                  var entry=payStore[pn+'__'+m]||null;
+                  var amt=entry?entry.amount:pay;
+                  var st=entry?entry.status:'';
+                  amtEl.textContent=(amt>0?(typeof fmtL==='function'?fmtL(amt):'₹'+amt.toLocaleString()):'Not set')+(st?' ('+st+')':'');
+                  hint.style.display='block';
+                }catch(e){if(hint)hint.style.display='none';}
+              })(this)"></select>
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;">
               <label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3)">Invoice No.</label>
@@ -4761,7 +4831,7 @@ function navScrollTo(id) {
           <div id="eva-messages" style="flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:12px;">
             <div class="eva-msg eva-msg--bot">
               <div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg></div>
-              <div class="eva-bubble">Hi! I'm your Cars24 Support assistant. Ask me about your payouts, targets, invoices — or raise a query to the admin team. How can I help you today?</div>
+              <div class="eva-bubble">Hi! I'm EVA, your Cars24 AI assistant. Ask me about your payouts, targets, invoices, performance data — or raise a query to the admin team. How can I help you today?</div>
             </div>
           </div>
           <!-- Typing indicator -->
@@ -5113,9 +5183,33 @@ function saveMonthRegistry(reg){ reg = _dedupMonthReg(reg);
 // Register a new month (e.g. "Apr 2026") into the registry
 // Returns the shortKey ("Apr") and updates localStorage
 function registerMonth(fullLabel){
-  var parts = fullLabel.trim().split(' ');
-  var shortKey = parts[0]; // "Apr"
-  var year = parseInt(parts[1]) || 2026;
+  var parts = fullLabel.trim().split(/[\s\-\/]+/);
+  var shortKey = parts[0]; // "Apr" or "April"
+  // Normalise full month name to short key
+  var MMAP2 = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
+               july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec'};
+  var lk = shortKey.toLowerCase();
+  if(MMAP2[lk]) shortKey = MMAP2[lk];
+  else shortKey = shortKey.slice(0,1).toUpperCase() + shortKey.slice(1,3).toLowerCase(); // "apr" → "Apr"
+
+  // Year: from label, or smart inference
+  var year;
+  var yrRaw = parts[1] ? parseInt(parts[1]) : NaN;
+  if(!isNaN(yrRaw) && yrRaw > 2000){
+    year = yrRaw;
+  } else {
+    // Check registry first
+    var reg0 = loadMonthRegistry();
+    if(reg0.yearMap && reg0.yearMap[shortKey]){
+      year = reg0.yearMap[shortKey];
+    } else {
+      // Smart inference: if month hasn't occurred yet this calendar year → last year
+      var now2 = new Date(); var curYr2 = now2.getFullYear(); var curMo2 = now2.getMonth()+1;
+      var mNum2 = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortKey]||1;
+      year = (mNum2 > curMo2) ? curYr2 - 1 : curYr2;
+    }
+  }
+
   var reg = loadMonthRegistry();
   if(!reg.order.includes(shortKey)){
     reg.order.push(shortKey);
@@ -5956,12 +6050,9 @@ function buildPartnerTable(){
     rowsH=rows.map((p,i)=>{
       const cv=p._L>0?(p._S/p._L*100).toFixed(2):'—';
       const badge=p.status==='Active'?'<span class="ba bag"><span class="bdot"></span>Active</span>':'<span class="ba bar"><span class="bdot"></span>Inactive</span>';
-      // Check if partner has ext data for expand
+      // Build expand row with source breakdown (hidden, accessible via detail view)
       const hasExt = p.ext && Object.keys(p.ext).length > 0;
-      const expandBtn = hasExt
-        ? `<td style="padding:0 4px;"><button onclick="togglePartnerExpand('prow-${i}','pexp-${i}',this)" style="background:none;border:1px solid var(--bd);border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:11px;color:var(--t3);padding:0;display:flex;align-items:center;justify-content:center;">▶</button></td>`
-        : '<td></td>';
-      // Build expand row with source breakdown
+      const expandBtn = '<td></td>';
       let expandHtml = '';
       if(hasExt){
         const rm2=RMETA[curRange]||RMETA['all']||{months:MONTHS.slice()};
@@ -6763,10 +6854,71 @@ function setSdcMonths(v){sdcMonthSet=v;if(CH.sc){CH.sc.destroy();delete CH.sc;}b
 // VAS
 // ════════════════════════════════════════════════
 function buildVas(){
-  const tot=VAS_D.reduce((s,p)=>s+Object.values(p.pdi).reduce((a,b)=>a+b,0),0);
-  const pay=VAS_D.reduce((s,p)=>s+Object.values(p.pay).reduce((a,b)=>a+b,0),0);
-  document.getElementById('vaskpis').innerHTML=`<div class="vc"><div class="vt">Total PDI Units</div><div class="vv">${tot}</div><div class="vs">All partners · Oct–Mar</div></div><div class="vc"><div class="vt">VAS Partners</div><div class="vv">${VAS_D.length}</div><div class="vs">With PDI / Challan / VHR</div></div><div class="vc"><div class="vt">Total Payout</div><div class="vv">${fmtL(pay)}</div><div class="vs">All periods combined</div></div>`;
-  document.getElementById('vastbl').innerHTML=VAS_D.map((p,i)=>{const v=x=>x>0?`<b>${x}</b>`:'<span style="color:var(--t3)">—</span>';return`<tr><td style="color:var(--t3);font-size:11px">${i+1}</td><td style="font-weight:600">${p.name}</td><td class="num">${v(p.pdi.Oct)}</td><td class="num">${v(p.pdi.Nov)}</td><td class="num">${v(p.pdi.Dec)}</td><td class="num">${v(p.pdi.Jan)}</td><td class="num">${v(p.pdi.Feb)}</td><td class="num" style="color:var(--ac);font-weight:600">${p.pdi.Mar||'—'}</td><td class="num" style="color:var(--t3)">${p.mar_tgt||'—'}</td><td class="num">${fmtL(p.pay.Mar||0)}</td></tr>`;}).join('');
+  var tab = _vasTab || 'pdi';
+  var m   = _vasMonth || MONTHS[MONTHS.length-1] || '';
+  var q   = (document.getElementById('vas-search')||{value:''}).value.toLowerCase();
+
+  var store, storeLabel, tblId, subId;
+  if(tab==='challan'){
+    store = getChallanStore(); storeLabel='Challan'; tblId='challan-tbl'; subId='vas-challan-sub';
+  } else {
+    store = getPdiStore(); storeLabel='PDI'; tblId='vastbl'; subId='vas-pdi-sub';
+  }
+
+  var monthData = store[m] || {};
+  var names = PARTNERS.map(function(p){ return p.name; })
+    .concat(Object.keys(monthData))
+    .filter(function(n,i,a){ return a.indexOf(n)===i; }) // unique
+    .filter(function(n){ return !q||n.toLowerCase().includes(q); })
+    .sort();
+
+  var tbl = document.getElementById(tblId);
+  var sub = document.getElementById(subId);
+  if(!tbl) return;
+
+  if(!names.length || (!Object.keys(monthData).length && !PARTNERS.length)){
+    tbl.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--t3)">No '+storeLabel+' data for '+(MLABEL[m]||m)+'. Sync Google Sheet to load data.</td></tr>';
+    if(sub) sub.textContent='No data';
+    // Update KPIs
+    document.getElementById('vaskpis').innerHTML='<div class="vc"><div class="vt">Total '+storeLabel+' Units</div><div class="vv">0</div><div class="vs">'+(MLABEL[m]||m)+'</div></div>';
+    return;
+  }
+
+  var totOrders=0, totPayout=0;
+  var rows = names.map(function(name,i){
+    var d = monthData[name]||{};
+    var orders = d.orders||d.count||0;
+    var payout = d.payout||0;
+    var rate   = d.rate||0;
+    var tgt    = (function(){
+      var ts=getTargetStore(); var tk=tab==='challan'?'challan':'pdi';
+      return (ts[name]&&ts[name][tk]&&ts[name][tk][m])||0;
+    })();
+    var gap    = tgt>0 ? orders-tgt : 0;
+    var pct    = tgt>0 ? Math.min(100,Math.round(orders/tgt*100)) : (orders>0?100:0);
+    var col    = pct>=100?'#10b981':pct>=70?'#f59e0b':'#ef4444';
+    totOrders+=orders; totPayout+=payout;
+    return '<tr>'
+      +'<td style="font-size:11px;color:var(--t3)">'+(i+1)+'</td>'
+      +'<td style="font-weight:600">'+escH(name)+'</td>'
+      +'<td class="num">'+(orders||'—')+'</td>'
+      +'<td class="num" style="color:var(--ac)">'+(tgt||'—')+'</td>'
+      +'<td class="num" style="color:'+(gap>=0?'#10b981':'#ef4444')+'">'+(tgt>0?(gap>=0?'+':'')+gap:'—')+'</td>'
+      +'<td class="num" style="color:#10b981">'+(payout?fmtL(payout):'—')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  // Update thead
+  var thead = tbl.closest('table') ? tbl.closest('table').querySelector('thead') : null;
+  if(thead) thead.innerHTML='<tr><th>#</th><th>Partner</th><th class="num">'+storeLabel+' Orders</th><th class="num">Target</th><th class="num">Gap</th><th class="num">Payout</th></tr>';
+  tbl.innerHTML = rows;
+  if(sub) sub.textContent=names.length+' partners \u00b7 '+totOrders.toLocaleString()+' total · '+(MLABEL[m]||m);
+
+  // KPIs
+  document.getElementById('vaskpis').innerHTML=
+    '<div class="vc"><div class="vt">Total '+storeLabel+' Units</div><div class="vv">'+totOrders.toLocaleString()+'</div><div class="vs">'+(MLABEL[m]||m)+'</div></div>'+
+    '<div class="vc"><div class="vt">Active Partners</div><div class="vv">'+names.filter(function(n){return (monthData[n]&&(monthData[n].orders||monthData[n].count||0))>0;}).length+'</div><div class="vs">With '+storeLabel+' data</div></div>'+
+    '<div class="vc"><div class="vt">Total Payout</div><div class="vv">'+fmtL(totPayout)+'</div><div class="vs">'+(MLABEL[m]||m)+'</div></div>';
 }
 
 // ════════════════════════════════════════════════
@@ -6835,77 +6987,382 @@ function buildPartnerOverview(){
   const totP=MONTHS.reduce((s,m)=>s+(p.payout[m]||0),0);
   const cv=totL>0?(totS/totL*100).toFixed(2):0;
 
+  // Get campaign details for chip
+  var cred = null;
+  try{
+    var allCreds = window.PARTNER_CREDS||[];
+    cred = allCreds.find(function(c){ return (c.display||c.name||'').toLowerCase().trim() === (p.name||'').toLowerCase().trim(); });
+  }catch(e){}
+  var campId  = cred ? (cred.campaign_id||'—') : '—';
+  var utmMed  = cred ? (cred.utm_medium||'—')  : '—';
+  var utmLink = cred ? (typeof buildUTMLink==='function' ? buildUTMLink(campId, utmMed) : '') : '';
+
   document.getElementById('partner-hero-wrap').innerHTML=`
     <div class="partner-hero">
-      <div class="ph-badge"><span class="ph-dot"></span>${p.status}</div>
-      <div class="ph-name">${p.name}</div>
-      <div class="ph-sub">Partner Dashboard · ${(MLABEL&&MLABEL[MONTHS[0]])||MONTHS[0]||'—'} – ${(MLABEL&&MLABEL[MONTHS[MONTHS.length-1]])||MONTHS[MONTHS.length-1]||'—'}</div>
-      <div class="ph-stats">
-        <div class="ph-stat"><div class="ph-stat-v">${fmtN(totL)}</div><div class="ph-stat-l">Total Leads</div></div>
-        <div class="ph-stat"><div class="ph-stat-v">${fmtN(totI)}</div><div class="ph-stat-l">Inspections</div></div>
-        <div class="ph-stat"><div class="ph-stat-v">${totS}</div><div class="ph-stat-l">Stock-ins</div></div>
-        <div class="ph-stat"><div class="ph-stat-v">${totP>0?fmtL(totP):'—'}</div><div class="ph-stat-l">Total Payout</div></div>
-        <div class="ph-stat"><div class="ph-stat-v">${cv}%</div><div class="ph-stat-l">Conv Rate</div></div>
+      <div class="ph-left">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <div class="ph-badge"><span class="ph-dot"></span>${p.status}</div>
+        </div>
+        <div class="ph-name">${escH(p.name)}</div>
+        <div class="ph-sub">Partner Dashboard · ${(MLABEL&&MLABEL[MONTHS[0]])||MONTHS[0]||'—'} – ${(MLABEL&&MLABEL[MONTHS[MONTHS.length-1]])||MONTHS[MONTHS.length-1]||'—'}</div>
+        <div class="ph-stats">
+          <div class="ph-stat"><div class="ph-stat-v">${fmtN(totL)}</div><div class="ph-stat-l">Total Leads</div></div>
+          <div class="ph-stat"><div class="ph-stat-v">${fmtN(totI)}</div><div class="ph-stat-l">Inspections</div></div>
+          <div class="ph-stat"><div class="ph-stat-v">${totS}</div><div class="ph-stat-l">Stock-ins</div></div>
+          <div class="ph-stat"><div class="ph-stat-v">${totP>0?fmtL(totP):'—'}</div><div class="ph-stat-l">Total Payout</div></div>
+          <div class="ph-stat"><div class="ph-stat-v">${cv}%</div><div class="ph-stat-l">Conv Rate</div></div>
+        </div>
       </div>
     </div>`;
 
-  document.getElementById('p-kpis').innerHTML=[
-    {l:'Total Leads',v:totL,s:MONTHS.map(m=>(MLABEL[m]||m).slice(0,3)+': '+fmtN(p.leads[m]||0)).join(' · '),col:'cb'},
-    {l:'Appointments',v:totA,s:pct(totA,totL)+'% of leads',col:'ct'},
-    {l:'Inspections',v:totI,s:pct(totI,totL)+'% of leads',col:'cp'},
-    {l:'Stock-ins',v:totS,s:pct(totS,totI)+'% of inspections',col:'cg'},
-  ].map(k=>`<div class="kc ${k.col}"><div class="kl">${k.l}</div><div class="kv">${fmtN(k.v)}</div><div class="ks">${k.s}</div></div>`).join('');
+  // ── Full UTM block (restored) ──────────────────────────────────
+  var utmHtml = campId !== '—' ? `
+    <div class="p-utm-full">
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;opacity:.65;margin-bottom:10px;">🔗 Your Campaign Details</div>
+      <div class="p-utm-full-row">
+        <div class="p-utm-field">
+          <div class="p-utm-field-lbl">Campaign ID</div>
+          <div class="p-utm-field-val">${escH(campId)}</div>
+        </div>
+        <div style="width:1px;height:36px;background:rgba(255,255,255,.2);"></div>
+        <div class="p-utm-field">
+          <div class="p-utm-field-lbl">UTM Medium</div>
+          <div class="p-utm-field-val">${escH(utmMed)}</div>
+        </div>
+      </div>
+      ${utmLink ? `<div class="p-utm-link-row">
+        <div class="p-utm-link-text" id="p-utm-link">${escH(utmLink)}</div>
+        <button onclick="copyPartnerUTM()" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">📋 Copy</button>
+      </div>` : ''}
+    </div>` : '';
 
-  // Monthly chart
-  const ctx=document.getElementById('partnerMonthlyChart');if(!ctx)return;
-  if(CH.pmc)CH.pmc.destroy();
-  CH.pmc=new Chart(ctx,{type:pChartType,data:{labels:MLABELS,datasets:[
-    {label:'Leads',data:MONTHS.map(m=>p.leads[m]||0),backgroundColor:'rgba(79,70,229,.75)',borderColor:'#4f46e5',borderWidth:2,borderRadius:5,tension:.4,fill:false,pointRadius:4},
-    {label:'Appointments',data:MONTHS.map(m=>p.appts[m]||0),backgroundColor:'rgba(20,184,166,.7)',borderColor:'#14b8a6',borderWidth:2,borderRadius:5,tension:.4,fill:false,pointRadius:4},
-    {label:'Inspections',data:MONTHS.map(m=>p.insps[m]||0),backgroundColor:'rgba(139,92,246,.7)',borderColor:'#8b5cf6',borderWidth:2,borderRadius:5,tension:.4,fill:false,pointRadius:4},
-    {label:'Stock-ins',data:MONTHS.map(m=>p.stocks[m]||0),backgroundColor:'rgba(16,185,129,.75)',borderColor:'#10b981',borderWidth:2,borderRadius:5,tension:.4,fill:false,pointRadius:4},
-  ]},options:bO()});
+  // Insert UTM before banners
+  var heroWrap = document.getElementById('partner-hero-wrap');
+  heroWrap.insertAdjacentHTML('beforeend', utmHtml);
 
-  // Month table
-  const allM=[...MONTHS,'Total'];
-  document.getElementById('p-month-tbl').innerHTML=allM.map(m=>{
-    const L=m==='Total'?totL:(p.leads[m]||0);
-    const A=m==='Total'?totA:(p.appts[m]||0);
-    const I=m==='Total'?totI:(p.insps[m]||0);
-    const S=m==='Total'?totS:(p.stocks[m]||0);
-    const P=m==='Total'?totP:(p.payout[m]||0);
-    const cv=L>0?(S/L*100).toFixed(2):'—';
-    const isTotal=m==='Total';
-    return`<tr${isTotal?' class="sumrow"':''}><td style="font-weight:${isTotal?700:500}">${isTotal?'Total':(MLABEL[m]||m)}</td><td class="num">${L.toLocaleString()}</td><td class="num">${A.toLocaleString()}</td><td class="num">${I.toLocaleString()}</td><td class="num">${S}</td><td class="num">${P>0?fmtL(P):'—'}</td><td class="num">${cv}${cv!=='—'?'%':''}</td></tr>`;
-  }).join('');
+  // Build overview month filter buttons
+  var ovBtns = document.getElementById('p-ov-month-btns');
+  if(ovBtns && MONTHS.length){
+    window._pOvMonth = window._pOvMonth || 'all';
+    ovBtns.innerHTML = '<button class="rt'+(window._pOvMonth==='all'?' active':'')+'" onclick="window._pOvMonth=\'all\';buildPartnerOverview()">All</button>'
+      + MONTHS.map(function(m){
+          return '<button class="rt'+(window._pOvMonth===m?' active':'')+'" onclick="window._pOvMonth=\''+m+'\';buildPartnerOverview()">'+(MLABEL[m]||m)+'</button>';
+        }).join('');
+  }
 
-  // Announcement preview on overview
+  // Filter data by selected month
+  var selM = window._pOvMonth || 'all';
+  var filteredMonths = (selM==='all') ? MONTHS : [selM];
+  var fL=filteredMonths.reduce(function(s,m){return s+(p.leads&&p.leads[m]||0);},0);
+  var fA=filteredMonths.reduce(function(s,m){return s+(p.appts[m]||0);},0);
+  var fI=filteredMonths.reduce(function(s,m){return s+(p.insps[m]||0);},0);
+  var fS=filteredMonths.reduce(function(s,m){return s+(p.stocks[m]||0);},0);
+  var fP=filteredMonths.reduce(function(s,m){return s+(p.payout[m]||0);},0);
+
+  // ── Get CPI/KPI ext data for selected period ───────────────────
+  var extData = null;
+  try{
+    var extMo = filteredMonths[filteredMonths.length-1];
+    if(p.ext){
+      var extKey = Object.keys(p.ext).find(function(k){ return k.toLowerCase().startsWith(extMo.toLowerCase()); });
+      if(extKey) extData = p.ext[extKey];
+    }
+  }catch(e){}
+
+  // ── Get targets for selected period ───────────────────────────
+  var tStore = (typeof getTargetStore==='function') ? getTargetStore() : {};
+  var sellerTgt=0, buyerTgt=0, sellerAch=0;
+  filteredMonths.forEach(function(m){
+    sellerTgt += ((tStore[p.name]&&tStore[p.name].seller&&tStore[p.name].seller[m])||0);
+    buyerTgt  += ((tStore[p.name]&&tStore[p.name].buyer&&tStore[p.name].buyer[m])||0);
+    sellerAch += (p.insps&&p.insps[m]||0);
+  });
+
+  // ── Get payout status ─────────────────────────────────────────
+  var payStore = (typeof getPayoutStore==='function') ? getPayoutStore() : {};
+  var payStatus='—', payApproved=0;
+  filteredMonths.forEach(function(m){
+    var k=p.name+'__'+m; var e=payStore[k];
+    if(e){ payStatus=e.status||'Pending'; payApproved+=(e.amount||0); }
+  });
+
+  // ── Build detail grid ─────────────────────────────────────────
+  function bar(v,tot,col){ var pct2=tot>0?Math.min(100,Math.round(v/tot*100)):0; return '<div class="p-ov-bar-wrap"><div class="p-ov-bar"><div class="p-ov-bar-fill" style="width:'+pct2+'%;background:'+col+'"></div></div><div class="p-ov-pct" style="color:'+col+'">'+pct2+'%</div></div>'; }
+  var A2I  = fL>0?(fI/fL*100).toFixed(1):0;
+  var L2S  = fL>0?(fS/fL*100).toFixed(2):0;
+  var I2SI = fI>0?(fS/fI*100).toFixed(1):0;
+  var asp  = extData&&extData.asp ? '₹'+Math.round(extData.asp).toLocaleString() : '—';
+  var cpi  = extData&&extData.cpi ? '₹'+Math.round(extData.cpi).toLocaleString() : '—';
+  var kpiA2i  = extData&&extData.kpi_a2i ? (extData.kpi_a2i*100).toFixed(0)+'%' : '50%';
+  var kpiAsp  = extData&&extData.kpi_asp  ? '₹'+Math.round(extData.kpi_asp).toLocaleString() : '₹2,75,000';
+  var kpiI2si = extData&&extData.kpi_i2si ? (extData.kpi_i2si*100).toFixed(0)+'%' : '16%';
+  var tgtPct  = sellerTgt>0 ? Math.min(100,Math.round(sellerAch/sellerTgt*100)) : 0;
+  var tgtCol  = tgtPct>=100?'#10b981':tgtPct>=70?'#f59e0b':'#ef4444';
+  var stCol   = {Approved:'#10b981',Paid:'#10b981',Rejected:'#ef4444',Pending:'#f59e0b'}[payStatus]||'#6b7280';
+
+  var detailGrid = document.getElementById('p-ov-detail-grid');
+  if(detailGrid) detailGrid.innerHTML = `<div class="p-ov-grid">
+
+    <div class="p-ov-card">
+      <div class="p-ov-card-hdr">📊 Funnel Performance</div>
+      <div class="p-ov-row"><span class="p-ov-lbl">Leads</span><span class="p-ov-val">${fL.toLocaleString()}</span></div>
+      <div class="p-ov-row"><span class="p-ov-lbl">Appointments</span><span class="p-ov-val">${fA.toLocaleString()}</span></div>
+      <div class="p-ov-row">
+        <span class="p-ov-lbl">Inspections (A2I%)</span>
+        <span class="p-ov-val">${fI.toLocaleString()} <span style="color:#8b5cf6;font-size:11px;">(${A2I}%)</span></span>
+      </div>
+      ${bar(fI,fL,'#8b5cf6')}
+      <div class="p-ov-row" style="margin-top:6px">
+        <span class="p-ov-lbl">Stock-ins (L2S%)</span>
+        <span class="p-ov-val">${fS} <span style="color:#10b981;font-size:11px;">(${L2S}%)</span></span>
+      </div>
+      ${bar(fS,fL,'#10b981')}
+    </div>
+
+    <div class="p-ov-card">
+      <div class="p-ov-card-hdr">💰 CPI & Payout</div>
+      <div class="p-ov-row"><span class="p-ov-lbl">Earned CPI</span><span class="p-ov-val" style="color:#4f46e5">${cpi}</span></div>
+      <div class="p-ov-row"><span class="p-ov-lbl">ASP (Avg Selling Price)</span><span class="p-ov-val">${asp}</span></div>
+      <div class="p-ov-row"><span class="p-ov-lbl">I2SI%</span><span class="p-ov-val">${I2SI}%</span></div>
+      <div class="p-ov-row"><span class="p-ov-lbl">Dashboard Payout</span><span class="p-ov-val" style="color:#10b981">${fP>0?fmtL(fP):'—'}</span></div>
+      <div class="p-ov-row">
+        <span class="p-ov-lbl">Payout Status</span>
+        <span class="p-ov-val" style="color:${stCol}">${payStatus}${payApproved>0?' · '+fmtL(payApproved):''}</span>
+      </div>
+    </div>
+
+    <div class="p-ov-card">
+      <div class="p-ov-card-hdr">🎯 Targets vs Achievement</div>
+      <div class="p-ov-row"><span class="p-ov-lbl">Seller Target (Insps)</span><span class="p-ov-val">${sellerTgt||'Not set'}</span></div>
+      <div class="p-ov-row"><span class="p-ov-lbl">Achieved</span><span class="p-ov-val" style="color:${tgtCol}">${sellerAch}${sellerTgt>0?' / '+sellerTgt:''}</span></div>
+      ${sellerTgt>0?bar(sellerAch,sellerTgt,tgtCol):''}
+      <div class="p-ov-row" style="margin-top:6px"><span class="p-ov-lbl">Buyer Target (Visits)</span><span class="p-ov-val">${buyerTgt||'Not set'}</span></div>
+    </div>
+
+    <div class="p-ov-card">
+      <div class="p-ov-card-hdr">⚙ CPI Formula Thresholds</div>
+      <div style="font-size:10.5px;color:var(--t3);margin-bottom:8px;">Hit all 3 KPIs → earn full Base CPI</div>
+      <div class="p-ov-row">
+        <span class="p-ov-lbl">A2I% (need ≥${kpiA2i})</span>
+        <span class="p-ov-val" style="color:${parseFloat(A2I)>=parseFloat(kpiA2i)?'#10b981':'#ef4444'}">${A2I}%</span>
+      </div>
+      <div class="p-ov-row">
+        <span class="p-ov-lbl">ASP (need ≥${kpiAsp})</span>
+        <span class="p-ov-val" style="color:${asp!=='—'&&parseInt(asp.replace(/[₹,]/g,''))>=(extData&&extData.kpi_asp||275000)?'#10b981':'#ef4444'}">${asp}</span>
+      </div>
+      <div class="p-ov-row">
+        <span class="p-ov-lbl">I2SI% (need ≥${kpiI2si})</span>
+        <span class="p-ov-val" style="color:${parseFloat(I2SI)>=parseFloat(kpiI2si)?'#10b981':'#ef4444'}">${I2SI}%</span>
+      </div>
+      <div class="p-ov-row"><span class="p-ov-lbl">Conv Rate (L→S)</span><span class="p-ov-val">${L2S}%</span></div>
+    </div>
+
+  </div>
+
+  <div class="tc">
+    <div class="tch"><div class="tct">Month-by-Month Breakdown</div></div>
+    <div class="tw"><table><thead><tr><th>Month</th><th class="num">Leads</th><th class="num">Appts</th><th class="num">Insps</th><th class="num">A2I%</th><th class="num">Stocks</th><th class="num">CPI</th><th class="num">Payout</th><th class="num">Conv%</th></tr></thead><tbody id="p-ov-month-tbl"></tbody></table></div>
+  </div>`;
+
+  // ── Month-by-month table ──────────────────────────────────────
+  var ovMoTbl = document.getElementById('p-ov-month-tbl');
+  if(ovMoTbl){
+    var allMs = [...filteredMonths, 'Total'];
+    ovMoTbl.innerHTML = allMs.map(function(m){
+      var L=m==='Total'?fL:(p.leads&&p.leads[m]||0);
+      var A=m==='Total'?fA:(p.appts[m]||0);
+      var I=m==='Total'?fI:(p.insps[m]||0);
+      var S=m==='Total'?fS:(p.stocks[m]||0);
+      var P=m==='Total'?fP:(p.payout[m]||0);
+      var moExt=null; if(m!=='Total'&&p.ext){ var ek=Object.keys(p.ext).find(function(k){return k.toLowerCase().startsWith(m.toLowerCase());}); moExt=ek?p.ext[ek]:null; }
+      var cpiV=moExt&&moExt.cpi?'₹'+Math.round(moExt.cpi).toLocaleString():'—';
+      var a2iV=L>0?(I/L*100).toFixed(1)+'%':'—';
+      var convV=L>0?(S/L*100).toFixed(2)+'%':'—';
+      var isTot=m==='Total';
+      return '<tr'+(isTot?' class="sumrow"':'')+'>'
+        +'<td style="font-weight:'+(isTot?700:500)+'">'+(isTot?'Total':(MLABEL[m]||m))+'</td>'
+        +'<td class="num">'+L.toLocaleString()+'</td>'
+        +'<td class="num">'+A.toLocaleString()+'</td>'
+        +'<td class="num">'+I.toLocaleString()+'</td>'
+        +'<td class="num">'+a2iV+'</td>'
+        +'<td class="num">'+S+'</td>'
+        +'<td class="num">'+cpiV+'</td>'
+        +'<td class="num">'+(P>0?fmtL(P):'—')+'</td>'
+        +'<td class="num">'+convV+'</td>'
+        +'</tr>';
+    }).join('');
+  }
+
+  // Announcement preview / banners
   try{ _buildOverviewAnnPreview(); }catch(e){}
 }
 
+// ── Banner dismiss storage ─────────────────────────────────────
+var _BANNER_KEY = 'cars24_banner_dismissed';
+var _BANNER_TTL = 4 * 24 * 60 * 60 * 1000; // 4 days in ms
+
+function _getBannerDismissed(){
+  try{ return JSON.parse(localStorage.getItem(_BANNER_KEY)||'{}'); }catch(e){ return {}; }
+}
+function _dismissBanner(id, e){
+  if(e){ e.stopPropagation(); }
+  var d = _getBannerDismissed();
+  d[id] = Date.now();
+  localStorage.setItem(_BANNER_KEY, JSON.stringify(d));
+  var el = document.getElementById('ph-banner-'+id);
+  if(el){ el.style.opacity='0'; el.style.transform='scale(.95)'; setTimeout(function(){ el.remove(); _cleanBannersGrid(); },200); }
+}
+function _isBannerDismissed(id){
+  var d = _getBannerDismissed();
+  if(!d[id]) return false;
+  // Auto-expire after 4 days
+  if(Date.now() - d[id] > _BANNER_TTL){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
+  return true;
+}
+function _cleanBannersGrid(){
+  var g = document.getElementById('ph-banners-grid');
+  if(!g) return;
+  if(!g.children.length) g.style.display='none';
+}
+window._dismissBanner = _dismissBanner;
+
 function _buildOverviewAnnPreview(){
-  var wrap=document.getElementById('p-overview-ann-wrap');
-  var list=document.getElementById('p-overview-ann-list');
-  if(!wrap||!list) return;
-  var pName=(currentPartner?currentPartner.name:'').toLowerCase().trim();
-  var readIds=_store('cars24_ann_read_'+pName)||[];
-  var readSet=new Set(readIds);
-  var all=getAnnouncements();
-  var relevant=all.filter(function(a){
-    if(!a.audience||a.audience==='all') return true;
-    return a.audience.toLowerCase().trim()===pName;
-  }).slice().reverse().slice(0,3); // show latest 3
-  if(!relevant.length){ wrap.style.display='none'; return; }
-  wrap.style.display='';
-  list.innerHTML=relevant.map(function(a){
-    return _annCard(a, false, !readSet.has(a.id));
+  var wrap = document.getElementById('p-overview-ann-wrap');
+  if(wrap) wrap.style.display='none';
+
+  var grid = document.getElementById('ph-banners-grid');
+  if(!grid) return;
+
+  var pName   = (currentPartner ? currentPartner.name : '').trim();
+  var pLower  = pName.toLowerCase();
+  var cards   = [];
+  var now     = Date.now();
+
+  // ── 1. ANNOUNCEMENT BANNER ────────────────────────────────────
+  try{
+    var readIds = _store('cars24_ann_read_'+pLower)||[];
+    var readSet = new Set(readIds);
+    var allAnns = getAnnouncements();
+    var relevant = allAnns.filter(function(a){
+      if(!a.audience||a.audience==='all') return true;
+      return a.audience.toLowerCase().trim()===pLower;
+    }).slice().reverse();
+
+    var unread = relevant.filter(function(a){ return !readSet.has(a.id); }).length;
+    _updateAnnBadge(unread);
+
+    if(relevant.length){
+      var a = relevant[0];
+      var bid = 'ann_'+a.id;
+      if(!_isBannerDismissed(bid)){
+        var isNew = !readSet.has(a.id);
+        cards.push({
+          id: bid, cls:'ann', icon:'📢',
+          tag:'Announcement',
+          title: escH(a.title||'No title'),
+          sub: escH((a.body||'').slice(0,70))+((a.body||'').length>70?'…':''),
+          isNew: isNew,
+          go: "showPV('p-announcements',document.querySelector('#partner-sidebar .ni[onclick*=p-announcements]'))"
+        });
+      }
+    }
+  }catch(e){}
+
+  // ── 2. TARGET BANNER ──────────────────────────────────────────
+  try{
+    var tStore = getTargetStore();
+    var tEntries = [];
+    Object.keys(tStore).forEach(function(k){
+      if(k.toLowerCase().startsWith(pLower+'__')||k.toLowerCase().startsWith(pName+'__')){
+        var mo = k.split('__')[1]||'';
+        var t  = tStore[k];
+        if(t&&(t.seller_target||t.buyer_target)) tEntries.push({mo:mo,t:t,k:k});
+      }
+    });
+    tEntries.sort(function(a,b){
+      var ai=MONTHS.indexOf(a.mo),bi=MONTHS.indexOf(b.mo);
+      return (bi===-1?-999:bi)-(ai===-1?-999:ai);
+    });
+    if(tEntries.length){
+      var latest = tEntries[0];
+      var moLbl  = (MLABEL&&MLABEL[latest.mo])||latest.mo;
+      var bid    = 'tgt_'+latest.k.replace(/[^a-z0-9]/gi,'_');
+      var parts  = [];
+      if(latest.t.seller_target) parts.push('Seller: '+latest.t.seller_target+' inspections');
+      if(latest.t.buyer_target)  parts.push('Buyer: '+latest.t.buyer_target+' visits');
+      var tsStore = parseInt(localStorage.getItem('__ts_cars24_target_store')||'0',10);
+      var tsSeen  = (_c24Seen&&_c24Seen['targets_ts'])||0;
+      var isNew   = tsStore > tsSeen;
+      if(!_isBannerDismissed(bid)){
+        cards.push({
+          id: bid, cls:'tgt', icon:'🎯',
+          tag:'Target · '+moLbl,
+          title: parts.join(' · '),
+          sub: latest.t.notes ? escH(latest.t.notes.slice(0,65)) : 'Tap to view full target details',
+          isNew: isNew,
+          go: "showPV('p-targets',document.querySelector('#partner-sidebar .ni[onclick*=p-targets]'))"
+        });
+      }
+    }
+  }catch(e){}
+
+  // ── 3. PAYOUT BANNER ─────────────────────────────────────────
+  try{
+    var payStore = getPayoutStore();
+    var latestMo = null, latestEntry = null;
+    (MONTHS||[]).slice().reverse().forEach(function(m){
+      if(latestMo) return;
+      var k = pName+'__'+m;
+      if(payStore[k]){ latestMo=m; latestEntry=payStore[k]; }
+    });
+    if(latestEntry){
+      var amt    = latestEntry.amount||0;
+      var st     = latestEntry.status||'Pending';
+      var moLbl2 = (MLABEL&&MLABEL[latestMo])||latestMo||'';
+      var bid    = 'pay_'+pName.replace(/[^a-z0-9]/gi,'_')+'_'+latestMo;
+      var stIcon = {Approved:'✅',Paid:'✅',Rejected:'❌',Pending:'⏳'}[st]||'⏳';
+      var payTs  = parseInt(localStorage.getItem('__ts_cars24_payout_store')||'0',10);
+      var paySeen= (_c24Seen&&_c24Seen['payout_ts'])||0;
+      var isNew  = payTs > paySeen;
+      if(!_isBannerDismissed(bid)){
+        cards.push({
+          id: bid, cls:'pay', icon:'💰',
+          tag:'Payout · '+moLbl2,
+          title: stIcon+' '+st+(amt>0?' — '+fmtL(amt):''),
+          sub: st==='Approved'||st==='Paid'?'Payment processed — check your account':'Awaiting approval by admin',
+          isNew: isNew,
+          go: "showPV('p-payout',document.querySelector('#partner-sidebar .ni[onclick*=p-payout]'))"
+        });
+      }
+    }
+  }catch(e){}
+
+  if(!cards.length){
+    grid.style.display='none';
+    return;
+  }
+
+  grid.style.display='grid';
+  grid.innerHTML = cards.map(function(c){
+    return '<div class="ph-banner '+c.cls+'" id="ph-banner-'+c.id+'" onclick="'+c.go+'" style="transition:opacity .2s,transform .2s">'
+      + (c.isNew ? '<div class="ph-banner-new"></div>' : '')
+      + '<button class="ph-banner-close" onclick="_dismissBanner(\''+c.id+'\',event)" title="Dismiss">✕</button>'
+      + '<div class="ph-banner-icon">'+c.icon+'</div>'
+      + '<div class="ph-banner-body">'
+      +   '<div class="ph-banner-tag">'+c.tag+'</div>'
+      +   '<div class="ph-banner-title">'+c.title+'</div>'
+      +   '<div class="ph-banner-sub">'+c.sub+'</div>'
+      + '</div>'
+      + '</div>';
   }).join('');
-  // Update sidebar badge count
-  var unread=all.filter(function(a){
-    if(!a.audience||a.audience==='all') return !readSet.has(a.id);
-    return a.audience.toLowerCase().trim()===pName && !readSet.has(a.id);
-  }).length;
-  _updateAnnBadge(unread);
+
+  // ── Push notification to sidebar badges for new items ────────
+  cards.forEach(function(c){
+    if(!c.isNew) return;
+    if(c.cls==='ann')  c24SetBadge('announcements', 1);
+    if(c.cls==='tgt')  c24SetBadge('targets', 1);
+    if(c.cls==='pay')  c24SetBadge('payout', 1);
+  });
 }
 function setPCT(t){pChartType=t;document.getElementById('pctbar').classList.toggle('active',t==='bar');document.getElementById('pctline').classList.toggle('active',t==='line');buildPartnerOverview();}
 
@@ -7999,12 +8456,23 @@ function buildPartnerTargets(){
   var store = getTargetStore();
   var tbl   = document.getElementById('p-targets-tbl'); if(!tbl) return;
   var TABS  = ['seller','buyer','pdi','vhr','lac','challan'];
+
+  // Build month filter buttons
+  var tgtBtns = document.getElementById('p-tgt-month-btns');
+  if(tgtBtns){
+    if(!window._pTgtMonth || !MONTHS.includes(window._pTgtMonth)) window._pTgtMonth='all';
+    tgtBtns.innerHTML='<button class="rt'+(window._pTgtMonth==='all'?' active':'')+'" onclick="window._pTgtMonth=\'all\';buildPartnerTargets()">All</button>'
+      +MONTHS.map(function(m){return '<button class="rt'+(window._pTgtMonth===m?' active':'')+'" onclick="window._pTgtMonth=\''+m+'\';buildPartnerTargets()">'+(MLABEL[m]||m)+'</button>';}).join('');
+  }
+  var selM2 = window._pTgtMonth||'all';
+  var filtM2 = selM2==='all' ? MONTHS : [selM2];
+
   var rows  = [];
-  MONTHS.forEach(function(m){
+  filtM2.forEach(function(m){
     TABS.forEach(function(tab){
       var meta   = TGT_STREAM_META[tab];
       var tgt    = (store[p.name]&&store[p.name][tab]&&store[p.name][tab][m]) || 0;
-      if(!tgt) return; // only show months/streams where a target was actually set
+      if(!tgt) return;
       var ach    = meta.achFn(p,m);
       var gap    = ach-tgt;
       var pct    = tgt>0?Math.min(100,Math.round(ach/tgt*100)):0;
@@ -8020,10 +8488,9 @@ function buildPartnerTargets(){
     });
   });
   if(!rows.length){
-    // Update thead for multi-stream table
-    var th = tbl.closest('table').querySelector('thead');
-    if(th) th.innerHTML='<tr><th>Month</th><th>Stream</th><th class="num">Target</th><th class="num">Achieved</th><th class="num">Gap</th><th>Progress</th></tr>';
-    tbl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--t3);">No targets set yet. Your manager will set them soon.</td></tr>';
+    var th0 = tbl.closest('table').querySelector('thead');
+    if(th0) th0.innerHTML='<tr><th>Month</th><th>Stream</th><th class="num">Target</th><th class="num">Achieved</th><th class="num">Gap</th><th>Progress</th></tr>';
+    tbl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--t3);">No targets set for '+(selM2==='all'?'any month':(MLABEL[selM2]||selM2))+'. Your manager will set them soon.</td></tr>';
     return;
   }
   var th = tbl.closest('table').querySelector('thead');
@@ -11024,7 +11491,9 @@ function getImportHistory(){
   return [];
 }
 function saveImportHistory(arr){
-  try{ localStorage.setItem('cars24_import_history', JSON.stringify(arr.slice(-50))); }catch(e){}
+  var trimmed = arr.slice(-50);
+  try{ localStorage.setItem('cars24_import_history', JSON.stringify(trimmed)); }catch(e){}
+  try{ if(window._c24Cloud&&window._c24Cloud.push) window._c24Cloud.push('cars24_import_history', JSON.stringify(trimmed)); }catch(e){}
 }
 
 function renderImportLog(){
@@ -11631,8 +12100,12 @@ window.cars24_ls = {
 };
 
 // ── 2. IMPORT HISTORY (was accidentally deleted) ───────────────
-window.getImportHistory = function(){ return window.cars24_ls.get('cars24_import_history')||[]; };
-window.saveImportHistory = function(arr){ window.cars24_ls.set('cars24_import_history', arr.slice(-50)); };
+window.getImportHistory = function(){
+  try{ var s=localStorage.getItem('cars24_import_history'); return s?JSON.parse(s):[]; }catch(e){ return []; }
+};
+window.saveImportHistory = function(arr){
+  try{ localStorage.setItem('cars24_import_history', JSON.stringify((arr||[]).slice(-50))); }catch(e){}
+};
 
 // ── 3. ANNOUNCEMENTS (make globally accessible) ─────────────────
 window.getAnnouncements  = function(){ return window.cars24_ls.get('cars24_announcements')||[]; };
@@ -12754,10 +13227,32 @@ function _integrateGSheetPartner(rows, sheetName){
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim();
-      // "March" or "march 2026" or "Mar 2026"
-      var word = raw.toLowerCase().split(/[\s,'0-9]/)[0];
+      // "March" or "march 2026" or "Mar 2026" or "Feb-26" or "Feb-2026"
+      var word = raw.toLowerCase().split(/[\s,'\-\/0-9]/)[0];
       var shortM = MMAP[word]; if(!shortM) return null;
-      var yrMatch = raw.match(/20\d{2}/); var yr = yrMatch ? parseInt(yrMatch[0]) : 2026;
+      var yrMatch = raw.match(/20(\d{2})/);
+      var yr;
+      if(yrMatch){
+        yr = parseInt(yrMatch[0]);
+      } else {
+        // Check if month already registered — trust that year
+        var reg0 = loadMonthRegistry();
+        if(reg0.yearMap && reg0.yearMap[shortM]){
+          yr = reg0.yearMap[shortM];
+        } else {
+          // Infer year: use current fiscal year logic
+          // CARS24 fiscal year Apr-Mar. If month is Apr-Mar of previous period, assign last year.
+          var now = new Date(); var curYr = now.getFullYear(); var curMo = now.getMonth()+1;
+          var mNum = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
+          // If month hasn't happened yet this calendar year, it's last year
+          // Also: Apr-Dec of previous year if we're currently in Jan-Mar
+          if(mNum > curMo){
+            yr = curYr - 1; // e.g. we're in Mar 2026, sheet says "Oct" → Oct 2025
+          } else {
+            yr = curYr;
+          }
+        }
+      }
       var reg = loadMonthRegistry();
       if(!reg.order.includes(shortM)){ reg.order.push(shortM); reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
       else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
@@ -12777,27 +13272,41 @@ function _integrateGSheetPartner(rows, sheetName){
       if(!shortM) return;
 
       if(!partnerMap[pName]) partnerMap[pName] = {};
-      if(!partnerMap[pName][shortM]) partnerMap[pName][shortM] = {leads:0,appts:0,insps:0,stocks:0,payout:0,a2i_sum:0,i2si_sum:0,asp_sum:0,cpi_sum:0,base_cpi:0,kpi_a2i:0,kpi_asp:0,kpi_i2si:0,row_count:0,region:'',rows:[]};
+      if(!partnerMap[pName][shortM]) partnerMap[pName][shortM] = {leads:0,appts:0,insps:0,stocks:0,payout:0,
+        a2i_sum:0,i2si_sum:0,asp_sum:0,cpi_sum:0,base_cpi:0,kpi_a2i:0,kpi_asp:0,kpi_i2si:0,
+        row_count:0,insp_count:0,stock_count:0,region:'',rows:[]};
       var agg = partnerMap[pName][shortM];
 
-      agg.leads  += _gN(r, leadsKey  ||'LEADS');
-      agg.appts  += _gN(r, apptsKey  ||'Appointments_Total');
-      agg.insps  += _gN(r, inspsKey  ||'Inspections_Total');
-      agg.stocks += _gN(r, stocksKey ||'Stockins_Total');
-      // Payout_Total_000 is in thousands → convert to rupees
+      var rowLeads  = _gN(r, leadsKey  ||'LEADS');
+      var rowAppts  = _gN(r, apptsKey  ||'Appointments_Total');
+      var rowInsps  = _gN(r, inspsKey  ||'Inspections_Total');
+      var rowStocks = _gN(r, stocksKey ||'Stockins_Total');
+      agg.leads  += rowLeads;
+      agg.appts  += rowAppts;
+      agg.insps  += rowInsps;
+      agg.stocks += rowStocks;
+      // Payout_Total_000: if value >500 it's already in ₹; otherwise multiply by 1000
       var payRaw = _gN(r, payoutKey||'Payout_Total_000');
-      agg.payout += (payRaw > 500 ? payRaw : payRaw * 1000); // if >500 it's already ₹, else ×1000
+      agg.payout += (payRaw > 500 ? payRaw : payRaw * 1000);
 
-      agg.a2i_sum  += _gN(r, a2iKey  ||'A2I_Total');
-      agg.i2si_sum += _gN(r, i2siKey ||'I2SI_Total');
-      agg.asp_sum  += _gN(r, aspKey  ||'ASP_Total');
-      agg.cpi_sum  += _gN(r, cpiKey  ||'CPI_Total');
+      // Weighted sums — weight A2I% by appointments, ASP/I2SI/CPI by inspections
+      var rowA2i  = _gN(r, a2iKey  ||'A2I_Total');
+      var rowI2si = _gN(r, i2siKey ||'I2SI_Total');
+      var rowAsp  = _gN(r, aspKey  ||'ASP_Total');
+      var rowCpi  = _gN(r, cpiKey  ||'CPI_Total');
+      agg.a2i_sum  += rowA2i  * (rowAppts || 1);   // weighted by appts
+      agg.i2si_sum += rowI2si * (rowInsps || 1);   // weighted by insps
+      agg.asp_sum  += rowAsp  * (rowStocks || (rowInsps || 1)); // weighted by stocks (or insps)
+      agg.cpi_sum  += rowCpi  * (rowInsps || 1);
+      agg.insp_count  += (rowInsps  || 1);
+      agg.stock_count += (rowStocks || (rowInsps || 1));
+      agg.row_count++;
+
       if(!agg.base_cpi && baseCpiKey) agg.base_cpi = _gN(r, baseCpiKey);
       if(!agg.kpi_a2i  && kpiA2iKey)  agg.kpi_a2i  = _gN(r, kpiA2iKey);
       if(!agg.kpi_asp  && kpiAspKey)   agg.kpi_asp  = _gN(r, kpiAspKey);
       if(!agg.kpi_i2si && kpiI2siKey)  agg.kpi_i2si = _gN(r, kpiI2siKey);
       if(!agg.region && regionKey) agg.region = String(r[regionKey]||'').trim();
-      agg.row_count++;
 
       // Store row-level detail for Seller Channels view
       agg.rows.push({
@@ -12805,15 +13314,15 @@ function _integrateGSheetPartner(rows, sheetName){
         source_medium: srcMedKey ? String(r[srcMedKey]||'').trim()  : '',
         campaign: campKey   ? String(r[campKey]||'').trim()    : '',
         keyword:  kwKey     ? String(r[kwKey]||'').trim()      : '',
-        leads:   _gN(r, leadsKey  ||'LEADS'),
-        appts:   _gN(r, apptsKey  ||'Appointments_Total'),
-        insps:   _gN(r, inspsKey  ||'Inspections_Total'),
-        stocks:  _gN(r, stocksKey ||'Stockins_Total'),
-        a2i:     _gN(r, a2iKey   ||'A2I_Total'),
-        asp:     _gN(r, aspKey   ||'ASP_Total'),
-        i2si:    _gN(r, i2siKey  ||'I2SI_Total'),
-        cpi:     _gN(r, cpiKey   ||'CPI_Total'),
-        payout:  (function(){ var p=_gN(r, payoutKey||'Payout_Total_000'); return p>500?p:p*1000; })()
+        leads:   rowLeads,
+        appts:   rowAppts,
+        insps:   rowInsps,
+        stocks:  rowStocks,
+        a2i:     rowA2i,
+        asp:     rowAsp,
+        i2si:    rowI2si,
+        cpi:     rowCpi,
+        payout:  (payRaw > 500 ? payRaw : payRaw * 1000)
       });
     });
 
@@ -12831,14 +13340,14 @@ function _integrateGSheetPartner(rows, sheetName){
         ps.payout[shortM] = Math.round(agg.payout);
         if(!ps.region && agg.region) ps.region = agg.region;
         if(!ps.ext) ps.ext = {};
-        var fullMo = (window.MLABEL&&window.MLABEL[shortM]) || shortM+' 2026';
+        var fullMo = (window.MLABEL&&window.MLABEL[shortM]) || (function(){ var _r=loadMonthRegistry(); return shortM+' '+(_r.yearMap[shortM]||new Date().getFullYear()); })();
         ps.ext[fullMo] = {
           leads:agg.leads, appts:agg.appts, insps:agg.insps, stocks:agg.stocks,
           payout:Math.round(agg.payout),
-          a2i:  agg.row_count>0 ? +(agg.a2i_sum/agg.row_count).toFixed(2) : 0,
-          i2si: agg.row_count>0 ? +(agg.i2si_sum/agg.row_count).toFixed(2): 0,
-          asp:  agg.row_count>0 ? Math.round(agg.asp_sum/agg.row_count)   : 0,
-          cpi:  agg.row_count>0 ? Math.round(agg.cpi_sum/agg.row_count)   : 0,
+          a2i:  agg.appts>0  ? +(agg.a2i_sum /agg.appts).toFixed(2)       : 0,
+          i2si: agg.insps>0  ? +(agg.i2si_sum/agg.insps).toFixed(2)       : 0,
+          asp:  agg.stocks>0 ? Math.round(agg.asp_sum/agg.stocks)         : (agg.insps>0 ? Math.round(agg.asp_sum/agg.insps) : 0),
+          cpi:  agg.insps>0  ? Math.round(agg.cpi_sum /agg.insps)         : 0,
           base_cpi:agg.base_cpi, kpi_a2i:agg.kpi_a2i, kpi_asp:agg.kpi_asp, kpi_i2si:agg.kpi_i2si,
           region:agg.region, rows:agg.rows, view_type:'partner'
         };
@@ -12973,14 +13482,27 @@ function _integrateGSheetAdmin(rows){
       raw = String(raw).trim();
       var word = raw.toLowerCase().split(/[\s,'0-9]/)[0];
       var shortM = MMAP[word]; if(!shortM) return null;
-      var yrMatch = raw.match(/20\d{2}/); var yr = yrMatch ? parseInt(yrMatch[0]) : 2026;
+      var yrMatch = raw.match(/20\d{2}/);
+      var yr;
+      if(yrMatch){
+        yr = parseInt(yrMatch[0]);
+      } else {
+        // Check if month already registered — trust that year
+        var reg0 = loadMonthRegistry();
+        if(reg0.yearMap && reg0.yearMap[shortM]){
+          yr = reg0.yearMap[shortM];
+        } else {
+          // Infer: months May-Dec likely belong to previous year if current month is Jan-Apr
+          var now = new Date(); var curYr = now.getFullYear(); var curMo = now.getMonth()+1;
+          var mNum = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
+          yr = (curMo <= 4 && mNum >= 5) ? curYr - 1 : curYr;
+        }
+      }
       var reg = loadMonthRegistry();
       if(!reg.order.includes(shortM)){ reg.order.push(shortM); reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
       return shortM;
     }
-
-    var SKIP = new Set(['grand total','total','partner name','partner name1','null','']);
-    var store = getAdminViewStore();
 
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
@@ -12988,7 +13510,7 @@ function _integrateGSheetAdmin(rows){
       var rawMo = monthKey ? String(r[monthKey]||'').trim() : '';
       var shortM = resolveMonth(rawMo);
       if(!shortM) return;
-      var fullMo = (window.MLABEL&&window.MLABEL[shortM])||shortM+' 2026';
+      var fullMo = (window.MLABEL&&window.MLABEL[shortM])||(function(){ var _r=loadMonthRegistry(); return shortM+' '+(_r.yearMap[shortM]||new Date().getFullYear()); })();
 
       if(!store[fullMo]) store[fullMo] = {month:fullMo, importedAt:new Date().toISOString(), partners:[]};
       var existing = store[fullMo].partners.find(function(x){ return x.name===pName; });
@@ -13936,6 +14458,25 @@ function c24RefreshBadges(){
     });
     c24SetBadge('chat', myUnread.length);
   }catch(e){}
+
+  // Payments — badge if a new proof for this partner was added since last seen
+  try{
+    var proofs = JSON.parse(localStorage.getItem('cars24_payment_proofs')||'[]');
+    var proofSeen = _c24Seen['payments_ts'] || 0;
+    var myNewProofs = proofs.filter(function(pr){
+      return (pr.partner||'').toLowerCase() === partnerName.toLowerCase()
+          && (pr.id || 0) > proofSeen
+          && !_c24Seen['proof_'+pr.id];
+    });
+    c24SetBadge('payments', myNewProofs.length);
+  }catch(e){}
+
+  // Payout — badge if payout data updated since last seen
+  try{
+    var payoutTs  = parseInt(localStorage.getItem('__ts_cars24_payout_store')||'0', 10);
+    var payoutSeen = _c24Seen['payout_ts'] || 0;
+    c24SetBadge('payout', payoutTs > payoutSeen ? 1 : 0);
+  }catch(e){}
 }
 window.c24RefreshBadges = c24RefreshBadges;
 
@@ -13952,13 +14493,64 @@ function c24RefreshAdminQueryBadge(){
 }
 window.c24RefreshAdminQueryBadge = c24RefreshAdminQueryBadge;
 
+// ── Admin finance badges: pending invoices, new proofs, target/payout updates ──
+function c24RefreshAdminFinanceBadges(){
+  if(window.currentRole !== 'admin') return;
+
+  // Invoice Manager — count Pending invoices not yet seen by admin
+  try{
+    var invs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
+    var pendingInvs = invs.filter(function(inv){
+      return inv.status === 'Pending' && !_c24Seen['adm_inv_'+inv.id];
+    });
+    c24SetBadge('admin-invoices', pendingInvs.length);
+  }catch(e){}
+
+  // Payment Proofs — count new proofs not yet seen by admin
+  try{
+    var proofs = JSON.parse(localStorage.getItem('cars24_payment_proofs')||'[]');
+    var newProofs = proofs.filter(function(pr){
+      return !_c24Seen['adm_proof_'+pr.id];
+    });
+    c24SetBadge('admin-payments', newProofs.length);
+  }catch(e){}
+
+  // Targets — badge if target store updated since admin last opened it
+  try{
+    var tgtTs   = parseInt(localStorage.getItem('__ts_cars24_target_store')||'0', 10);
+    var tgtSeen = _c24Seen['adm_targets_ts'] || 0;
+    c24SetBadge('admin-targets', tgtTs > tgtSeen ? 1 : 0);
+  }catch(e){}
+
+  // Payouts — badge if payout store updated since admin last opened it
+  try{
+    var payTs   = parseInt(localStorage.getItem('__ts_cars24_payout_store')||'0', 10);
+    var paySeen = _c24Seen['adm_payouts_ts'] || 0;
+    c24SetBadge('admin-payouts', payTs > paySeen ? 1 : 0);
+  }catch(e){}
+}
+window.c24RefreshAdminFinanceBadges = c24RefreshAdminFinanceBadges;
+
 // ── Clear badge when user opens that view ───────────────
 var _origShowPV2 = window.showPV;
 window.showPV = function(id, el){
   if(typeof _origShowPV2 === 'function') _origShowPV2.apply(this, arguments);
   if(id === 'p-announcements'){ c24ClearBadge('announcements'); c24SetBadge('announcements',0); }
   if(id === 'p-invoices')     { c24ClearBadge('invoices');      c24SetBadge('invoices',0); }
-  if(id === 'p-targets')      { c24ClearBadge('targets');       c24SetBadge('targets',0); }
+  if(id === 'p-targets')      { c24ClearBadge('targets');       c24SetBadge('targets',0);
+    _c24Seen['targets_ts'] = Date.now(); _saveSeen(); }
+  if(id === 'p-payments')     { c24SetBadge('payments', 0);
+    try{
+      var _prs = JSON.parse(localStorage.getItem('cars24_payment_proofs')||'[]');
+      var _pn2 = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+      _prs.filter(function(pr){ return (pr.partner||'').toLowerCase()===_pn2.toLowerCase(); })
+          .forEach(function(pr){ _c24Seen['proof_'+pr.id]=true; });
+      _c24Seen['payments_ts'] = Date.now();
+      _saveSeen();
+    }catch(e){}
+  }
+  if(id === 'p-payout')       { c24SetBadge('payout', 0);
+    _c24Seen['payout_ts'] = Date.now(); _saveSeen(); }
   if(id === 'p-chat')         { c24SetBadge('chat',0);
     var myMsgs = [];
     try{
@@ -13975,7 +14567,6 @@ var _origShowV2 = window.showV;
 window.showV = function(id, el){
   if(typeof _origShowV2 === 'function') _origShowV2.apply(this, arguments);
   if(id === 'partner-queries'){
-    // Mark all partner queries as seen by admin
     try{
       var msgs = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]');
       msgs.filter(function(m){ return m.role==='partner'; })
@@ -13984,6 +14575,32 @@ window.showV = function(id, el){
     }catch(e){}
     c24SetBadge('admin-queries', 0);
     buildAdminQueriesInbox();
+  }
+  // Admin finance — clear badge when view opened
+  if(id === 'invoices'){
+    try{
+      var invs2 = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
+      invs2.filter(function(i){ return i.status==='Pending'; })
+           .forEach(function(i){ _c24Seen['adm_inv_'+i.id]=true; });
+      _saveSeen();
+    }catch(e){}
+    c24SetBadge('admin-invoices', 0);
+  }
+  if(id === 'payments'){
+    try{
+      var proofs2 = JSON.parse(localStorage.getItem('cars24_payment_proofs')||'[]');
+      proofs2.forEach(function(pr){ _c24Seen['adm_proof_'+pr.id]=true; });
+      _saveSeen();
+    }catch(e){}
+    c24SetBadge('admin-payments', 0);
+  }
+  if(id === 'targets'){
+    _c24Seen['adm_targets_ts'] = Date.now(); _saveSeen();
+    c24SetBadge('admin-targets', 0);
+  }
+  if(id === 'payouts'){
+    _c24Seen['adm_payouts_ts'] = Date.now(); _saveSeen();
+    c24SetBadge('admin-payouts', 0);
   }
 };
 
@@ -14055,13 +14672,24 @@ function _onStorageWrite(key, value){
         if(window.currentRole==='admin')   c24RefreshAdminQueryBadge();
       }, 200);
     }
+    // Invoice / payment proof / target / payout store changes → refresh admin finance badges
+    if(key==='cars24_invoices' || key==='cars24_payment_proofs' ||
+       key==='cars24_target_store' || key==='cars24_payout_store'){
+      setTimeout(function(){
+        if(window.currentRole==='admin') c24RefreshAdminFinanceBadges();
+        if(window.currentRole==='partner') c24RefreshBadges();
+      }, 300);
+    }
   }catch(ex){}
 }
 
 // ── Poll-based badge refresh (catches Supabase pulls) ───
 setInterval(function(){
   if(window.currentRole==='partner') c24RefreshBadges();
-  if(window.currentRole==='admin')   c24RefreshAdminQueryBadge();
+  if(window.currentRole==='admin'){
+    c24RefreshAdminQueryBadge();
+    c24RefreshAdminFinanceBadges();
+  }
 }, 15000);
 
 // Init on login
@@ -14071,7 +14699,10 @@ window.showPortal = function(role, user, partner){
   _patchNotifHooks();
   setTimeout(function(){
     if(role==='partner'){ c24RefreshBadges(); evaLoadHistory(); }
-    if(role==='admin')   c24RefreshAdminQueryBadge();
+    if(role==='admin'){
+      c24RefreshAdminQueryBadge();
+      c24RefreshAdminFinanceBadges();
+    }
   }, 1500);
 };
 
@@ -14220,6 +14851,7 @@ window.evaSend = function(){
       evaAppendMessage('eva', 'Your query has been sent to the Cars24 admin team. They\'ll respond here shortly. You can also reach out via your dedicated campaign manager.');
       evaStoreQueryForAdmin(text);
       c24RefreshAdminQueryBadge();
+
       c24Toast('✅ Query sent', 'Admin has been notified of your message.', 'success');
     }, 800);
     return;
@@ -14241,69 +14873,155 @@ window.evaSend = function(){
     }).concat(messages);
   }
 
-  var _anthropicKey = (window.CARS24_CONFIG && window.CARS24_CONFIG.anthropicKey) || '';
-  if(!_anthropicKey || _anthropicKey === 'YOUR_ANTHROPIC_API_KEY'){
+  var _groqKey = (window.CARS24_CONFIG && window.CARS24_CONFIG.groqKey) || '';
+  if(!_groqKey || _groqKey === 'YOUR_GROQ_API_KEY'){
     evaShowTyping(false);
     _evaBusy = false;
-    evaAppendMessage('eva', 'The AI assistant is not configured yet. Please ask the admin to set the Anthropic API key in CARS24_CONFIG.anthropicKey. In the meantime, type "raise a query: [your issue]" to reach the admin team directly.');
+    evaAppendMessage('eva', 'EVA is not configured yet. Admin: get a FREE Groq key at console.groq.com → API Keys, then paste it into CARS24_CONFIG.groqKey. No billing needed. In the meantime, type "raise a query: [your issue]" to reach the admin team directly.');
     return;
   }
 
-  fetch('https://api.anthropic.com/v1/messages', {
+  // Build system prompt with full partner context
+  var systemPrompt = 'You are EVA, the Cars24 Affiliate Partner support assistant. '
+    + 'Be concise, friendly and helpful. Reply in plain text only — no markdown, no asterisks, no bullet symbols. '
+    + 'You help partners understand their payouts, targets, invoices and portal features. '
+    + 'Here is the current partner context:\n' + ctx
+    + '\nIf asked something you cannot answer from this data, suggest they type "raise a query: [their issue]" to escalate to the Cars24 admin team.';
+
+  // Groq uses OpenAI-compatible format
+  var groqMessages = [{ role:'system', content: systemPrompt }];
+  messages.forEach(function(m){ groqMessages.push(m); });
+
+  fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': _anthropicKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
+      'Authorization': 'Bearer ' + _groqKey
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: 'You are the Cars24 Affiliate Partner support assistant. Be concise, friendly and helpful. '
-        + 'You help partners understand their payouts, targets, invoices and portal features. '
-        + 'Here is the current partner context:\n' + ctx
-        + '\nIf asked something you cannot answer from the data, suggest they type "raise a query: [their issue]" to escalate to the admin team.',
-      messages: messages
+      model: 'llama-3.3-70b-versatile',
+      messages: groqMessages,
+      max_tokens: 800,
+      temperature: 0.7
     })
   })
   .then(function(r){ return r.json(); })
   .then(function(data){
     evaShowTyping(false);
     _evaBusy = false;
-    var reply = (data.content&&data.content[0]&&data.content[0].text) || 'Sorry, I couldn\'t process that right now. Try typing "raise a query: [your issue]" to reach the admin team.';
+
+    // Error handling
+    if(data.error){
+      var msg = data.error.message || '';
+      var retryMatch = msg.match(/try again in ([\d.]+)s/i) || msg.match(/retry after ([\d.]+)/i);
+      if(retryMatch){
+        var secs = Math.ceil(parseFloat(retryMatch[1]));
+        evaAppendMessage('eva', 'I\'m a little busy — please try again in ' + secs + ' seconds.');
+      } else if(msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit')){
+        evaAppendMessage('eva', 'I\'ve hit my rate limit briefly. Please try again in 30 seconds, or type "raise a query: [your issue]" to reach the admin team.');
+      } else {
+        evaAppendMessage('eva', 'Something went wrong. Please try again or raise a query to the admin team.');
+      }
+      return;
+    }
+
+    // Groq response path: choices[0].message.content
+    var reply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content)
+      || 'Sorry, I couldn\'t process that. Try typing "raise a query: [your issue]" to reach the admin team.';
     evaAppendMessage('eva', reply);
   })
   .catch(function(e){
     evaShowTyping(false);
     _evaBusy = false;
-    console.warn('[EVA] API error:', e.message||e);
-    evaAppendMessage('eva', 'Something went wrong on my end. Please try again, or type "raise a query: [your issue]" to reach the admin team directly.');
+    console.warn('[EVA] Groq error:', e.message||e);
+    evaAppendMessage('eva', 'Connection issue. Please try again, or type "raise a query: [your issue]" to reach the admin team directly.');
   });
 };
 
 function _buildEvaContext(){
-  var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
-  var lines = ['Partner name: '+pn];
+  var pn  = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+  var p   = window.currentPartner || null;
+  var lines = ['Partner: '+pn, 'Role: '+(window.currentRole||'partner')];
+
+  // ── Monthly performance (leads/appts/insps/stocks only — no payout here to avoid duplication) ──
+  try{
+    if(p && window.MONTHS && window.MONTHS.length){
+      var perfLines = window.MONTHS.map(function(m){
+        var lbl = (window.MLABEL&&window.MLABEL[m])||m;
+        var L=p.leads&&p.leads[m]||0, A=p.appts&&p.appts[m]||0;
+        var I=p.insps&&p.insps[m]||0, S=p.stocks&&p.stocks[m]||0;
+        return lbl+': leads='+L+', appts='+A+', insps='+I+', stocks='+S;
+      });
+      lines.push('Monthly performance (funnel data):\n'+perfLines.join('\n'));
+    }
+  }catch(e){}
+
+  // ── CPI performance for latest month (actual achieved KPIs vs formula thresholds) ──
+  try{
+    if(p && p.ext && window.MONTHS && window.MONTHS.length){
+      var lastMo = window.MONTHS[window.MONTHS.length-1];
+      var extKey = Object.keys(p.ext).find(function(k){ return k.toLowerCase().startsWith(lastMo.toLowerCase()); });
+      var ext = extKey ? p.ext[extKey] : null;
+      if(ext){
+        lines.push('CPI performance for '+(( window.MLABEL&&window.MLABEL[lastMo])||lastMo)+':\n'
+          + '  Achieved: CPI=₹'+(ext.cpi||0)+', ASP=₹'+(ext.asp||0)+', A2I='+(((ext.a2i||0)*100).toFixed(1))+'%, I2SI='+(((ext.i2si||0)*100).toFixed(1))+'%\n'
+          + '  CPI formula thresholds (for max CPI): A2I must be >='+(((ext.kpi_a2i||0)*100).toFixed(0))+'%, ASP>=₹'+(ext.kpi_asp||0)+', I2SI>='+(((ext.kpi_i2si||0)*100).toFixed(0))+'%\n'
+          + '  Base CPI: ₹'+(ext.base_cpi||0)+'\n'
+          + '  NOTE: These thresholds are CPI formula inputs, NOT volume targets.');
+      }
+    }
+  }catch(e){}
+
+  // ── Volume targets (seller inspections / buyer visits set by admin) ──
   try{
     var tgt = JSON.parse(localStorage.getItem('cars24_target_store')||'{}');
-    var myT = tgt[pn]||tgt[(pn||'').toLowerCase()]||null;
-    if(myT) lines.push('Targets: '+JSON.stringify(myT));
+    var myTargets = [];
+    Object.keys(tgt).forEach(function(k){
+      if(k.toLowerCase().startsWith(pn.toLowerCase()+'__')){
+        var mo = k.split('__')[1]||'';
+        var moLbl = (window.MLABEL&&window.MLABEL[mo])||mo;
+        var t = tgt[k];
+        if(t && (t.seller_target||t.buyer_target)){
+          myTargets.push(moLbl+': seller target='+(t.seller_target||0)+' inspections, buyer target='+(t.buyer_target||0)+' visits'+(t.notes?' | note: '+t.notes:''));
+        }
+      }
+    });
+    if(myTargets.length) lines.push('Volume targets set by admin (how many inspections/visits to achieve):\n'+myTargets.join('\n'));
+    else lines.push('Volume targets: not set yet by admin.');
   }catch(e){}
+
+  // ── Payout (single source of truth — payout store only) ──
   try{
     var po = JSON.parse(localStorage.getItem('cars24_payout_store')||'{}');
-    var myP = po[pn]||po[(pn||'').toLowerCase()]||null;
-    if(myP) lines.push('Payout data: '+JSON.stringify(myP));
+    var myPay = [];
+    Object.keys(po).forEach(function(k){
+      if(k.toLowerCase().startsWith(pn.toLowerCase()+'__')){
+        var mo = k.split('__')[1]||'';
+        var moLbl = (window.MLABEL&&window.MLABEL[mo])||mo;
+        var e2 = po[k];
+        if(e2) myPay.push(moLbl+': ₹'+(e2.amount||0)+' — status: '+(e2.status||'Pending'));
+      }
+    });
+    if(myPay.length) lines.push('Payout (from admin payout store):\n'+myPay.join('\n'));
+    else lines.push('Payout: no payout records yet.');
   }catch(e){}
+
+  // ── Recent invoices ──
   try{
     var invs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
     var myI = invs.filter(function(i){ return (i.partner||'').toLowerCase()===pn.toLowerCase(); }).slice(-5);
-    if(myI.length) lines.push('Recent invoices: '+JSON.stringify(myI));
+    if(myI.length) lines.push('Recent invoices: '+myI.map(function(i){
+      return '#'+i.invNo+' ₹'+i.amount+' ('+i.fullMonth+') — '+i.status;
+    }).join(', '));
   }catch(e){}
+
+  // ── Latest announcements ──
   try{
     var anns = JSON.parse(localStorage.getItem('cars24_announcements')||'[]');
-    if(anns.length) lines.push('Latest announcement: '+anns[anns.length-1].title+' — '+anns[anns.length-1].body);
+    var myAnns = anns.filter(function(a){ return !a.audience||a.audience==='all'||(a.audience||'').toLowerCase()===pn.toLowerCase(); }).slice(-2);
+    if(myAnns.length) lines.push('Latest announcements: '+myAnns.map(function(a){ return '"'+a.title+'": '+a.body; }).join(' | '));
   }catch(e){}
+
   return lines.join('\n');
 }
 
@@ -14313,6 +15031,21 @@ window.showPV = function(id, el){
   if(typeof _origShowPV3 === 'function') _origShowPV3.apply(this, arguments);
   if(id === 'p-chat') setTimeout(evaRenderMessages, 100);
 };
+
+// ── Store partner query into shared chat messages for admin to see ──
+function evaStoreQueryForAdmin(text){
+  try{
+    var pn  = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+    var all = [];
+    try{ all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
+    var msg = { id:Date.now()+'_q', role:'partner', text:text, partnerName:pn, ts:Date.now() };
+    all.push(msg);
+    if(all.length>200) all=all.slice(-200);
+    var serialised = JSON.stringify(all);
+    localStorage.setItem('cars24_chat_messages', serialised);
+    if(window._c24Cloud&&window._c24Cloud.push) window._c24Cloud.push('cars24_chat_messages', serialised);
+  }catch(e){ console.warn('[EVA] evaStoreQueryForAdmin error:', e); }
+}
 
 // ═══════════════════════════════════════════════════════
 //  4. ADMIN QUERY INBOX

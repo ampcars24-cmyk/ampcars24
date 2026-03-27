@@ -40,8 +40,7 @@ const CARS24_CONFIG = {
   // ── Google Drive Upload Relay ──────────────────────────────────────────
   // Still used ONLY for file uploads (invoices, payment proofs) to Drive.
   // Cross-device DATA sync now runs through Supabase instead.
-  driveWebAppUrl: 'https://script.google.com/a/macros/cars24.com/s/AKfycbwaM6iA_JTa1tC5lRrJewL_EqXyvE4UsPgWqNfvoU2srTAIdFxvTJq-usrfA_a28GvabA/exec',
-  relayToken: 'c24_ng987654321'
+  driveWebAppUrl: 'https://script.google.com/macros/s/AKfycbxrPsPwqTO1QqYnmVvNscRFaeDCJ2XSFbnehrCyuai6K83Hx1wlhcGRVShYg38KI2g/exec'
 };
 
 // Wire Drive URL into upload helper (file uploads only — not used for data sync)
@@ -2115,11 +2114,10 @@ function navScrollTo(id) {
   var isLight = t === 'light';
   if(isLight){
     document.documentElement.classList.add('light');
-    document.documentElement.setAttribute('data-theme','light');
+    // Remove any conflicting data-theme attribute
+    document.documentElement.removeAttribute('data-theme');
   } else {
     document.documentElement.classList.remove('light');
-    // CRITICAL for Android: set data-theme=dark so [data-theme="dark"] CSS vars load
-    document.documentElement.setAttribute('data-theme','dark');
   }
   // Sync UI elements after DOM ready
   document.addEventListener('DOMContentLoaded', function(){
@@ -3157,11 +3155,6 @@ function navScrollTo(id) {
     <!-- PARTNER SIDEBAR -->
     <nav class="sidebar" id="partner-sidebar" style="display:none">
       <div class="sidebar-user" id="partner-user-card">
-        <div style="display:flex;align-items:center;justify-content:center;padding:4px 0 10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:10px;">
-          <svg viewBox="0 0 90 22" width="90" xmlns="http://www.w3.org/2000/svg" style="display:block;">
-            <text x="0" y="17" font-family="Arial Black,Arial" font-weight="900" font-size="18" fill="#E8111A" letter-spacing="-0.5">CARS24</text>
-          </svg>
-        </div>
         <div class="su-name" id="p-card-name">Partner</div>
         <div class="su-role">Partner Access · Own data only</div>
         <div class="su-stats">
@@ -4569,14 +4562,45 @@ function navScrollTo(id) {
             <button onclick="exportPayoutCSV()" style="background:var(--sf);border:1px solid var(--bd);color:var(--t2);border-radius:8px;padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;">⬇ Export CSV</button>
           </div>
         </div>
-        <div class="fb" style="margin-bottom:12px"><div class="fbrow" style="gap:8px;flex-wrap:wrap;align-items:center">
-          <span class="rl">Month:</span><div class="rts" id="payout-month-btns"></div>
-          <button onclick="_showAddMonthModal()" style="padding:4px 10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;">+ Month</button>
-          <input class="srch" id="payout-search" placeholder="🔍 Search partner…" oninput="renderPayoutTable()" style="width:200px;margin-left:8px;">
-        </div></div>
+
+        <!-- ── Filter bar ── -->
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--sf);border:1px solid var(--bd);border-radius:10px;">
+          <!-- Quick range pills -->
+          <div class="rts" id="payout-range-btns" style="gap:6px;">
+            <button class="rt" onclick="_pmSetRange('all',this)">All</button>
+            <button class="rt" onclick="_pmSetRange('l7',this)">L7</button>
+            <button class="rt" onclick="_pmSetRange('l14',this)">L14</button>
+            <button class="rt" onclick="_pmSetRange('l30',this)">L30</button>
+            <button class="rt active" onclick="_pmSetRange('mtd',this)">MTD</button>
+          </div>
+
+          <!-- Month dropdown (no dependency on pills) -->
+          <select id="payout-month-sel" onchange="_pmSelectMonth(this.value)"
+            style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px;font-weight:600;background:var(--bg);color:var(--tx);cursor:pointer;min-width:110px;">
+            <option value="">— Month —</option>
+          </select>
+
+          <!-- Date range (no dependency on pills or month) -->
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.5px;">FROM:</span>
+            <input type="date" id="payout-date-from" onchange="_pmDateChange()"
+              style="padding:5px 8px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px;background:var(--bg);color:var(--tx);">
+            <span style="font-size:11px;font-weight:700;color:var(--t3);">TO:</span>
+            <input type="date" id="payout-date-to" onchange="_pmDateChange()"
+              style="padding:5px 8px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px;background:var(--bg);color:var(--tx);">
+          </div>
+
+          <!-- Search -->
+          <input class="srch" id="payout-search" placeholder="🔍 Search partner…" oninput="renderPayoutTable()"
+            style="width:180px;margin-left:auto;">
+
+          <!-- Add month -->
+          <button onclick="_showAddMonthModal()" style="padding:5px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:7px;font-size:11px;font-weight:700;color:#f59e0b;cursor:pointer;">+ Month</button>
+        </div>
+
         <div class="tc">
           <div class="tch"><div class="tct">Payout Register</div><span id="payout-tbl-sub" style="font-size:11px;color:var(--t3)"></span></div>
-          <div class="tw"><table><thead><tr><th>#</th><th>Partner</th><th class="num">Leads</th><th class="num">Inspections</th><th class="num">Stock-ins</th><th class="num">Payout (₹)</th><th>Status</th><th style="text-align:center">Set Status</th></tr></thead><tbody id="payout-tbl"></tbody></table></div>
+          <div class="tw"><table><thead><tr><th>#</th><th>Partner</th><th>Month</th><th class="num">Leads</th><th class="num">Inspections</th><th class="num">Stock-ins</th><th class="num">Payout (₹)</th><th>Status</th><th style="text-align:center">Set Status</th></tr></thead><tbody id="payout-tbl"></tbody></table></div>
         </div>
       </div>
 
@@ -5160,7 +5184,6 @@ function getTargetStore(){
   try{ var s=localStorage.getItem('cars24_target_store'); return s?JSON.parse(s):{};  }catch(e){ return {}; }
 }
 function saveTargetStore(obj){
-  try{ localStorage.setItem('__ts_cars24_target_store', String(Date.now())); }catch(e){}
   window._c24Cloud.push('cars24_target_store', JSON.stringify(obj), function(ok){
     if(!ok) console.warn('[C24] saveTargetStore cloud push failed — local cache kept');
     window._targetStoreCache = obj;
@@ -6001,8 +6024,7 @@ var fmtN=n=>n>=1000000?(n/1000000).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K
 var fmtL=n=>n>=100000?'₹'+(n/100000).toFixed(1)+'L':n>=1000?'₹'+(n/1000).toFixed(0)+'K':'₹'+n;
 function pct(a,b){return b>0?+(a/b*100).toFixed(1):0;}
 function delta(a,b){return b>0?+((a-b)/b*100).toFixed(1):0;}
-function gc(){const dk=!document.documentElement.classList.contains('light');return{text:dk?'#94a3b8':'#6b7280',grid:dk?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)'};}
-
+function gc(){const dk=document.documentElement.getAttribute('data-theme')==='dark';return{text:dk?'#94a3b8':'#6b7280',grid:dk?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)'};}
 function bO(){const c=gc();return{responsive:true,maintainAspectRatio:false,animation:{duration:400},plugins:{legend:{labels:{color:c.text,font:{family:'DM Sans',size:11},boxWidth:12,padding:11}}},scales:{x:{ticks:{color:c.text,font:{family:'DM Mono',size:10},maxRotation:40},grid:{color:c.grid},border:{color:c.grid}},y:{ticks:{color:c.text,font:{family:'DM Mono',size:10},callback:v=>v>=1000?(v/1000)+'K':v},grid:{color:c.grid},border:{color:c.grid}}}};}
 function animK(id,v){const el=document.getElementById(id);if(!el)return;const cur=parseInt(el.textContent.replace(/[^0-9]/g,''))||0;let i=0;const t=setInterval(()=>{i++;el.textContent=fmtN(Math.round(cur+(v-cur)*(i/20)));if(i>=20){el.textContent=fmtN(v);clearInterval(t);}},15);}
 function pTotal(p,months,key){return months.reduce((s,m)=>s+(p[key][m]||0),0);}
@@ -7303,73 +7325,6 @@ function buildPartnerOverview(){
     }).join('');
   }
 
-  // ── VAS Summary Cards (PDI / LAC / Challan / VHR) ────────────────
-  try{
-    var vasCards = [
-      { id:'p-ov-vas-pdi',     label:'🔧 PDI Orders',    storeFn: getPdiStore,     key:'orders' },
-      { id:'p-ov-vas-lac',     label:'💳 LAC Orders',    storeFn: getLacStore,     key:'orders' },
-      { id:'p-ov-vas-challan', label:'📋 Challan Orders', storeFn: getChallanStore, key:'orders' },
-      { id:'p-ov-vas-vhr',     label:'📄 VHR Count',     storeFn: getVhrStore,     key:'count'  }
-    ];
-
-    // Build or find VAS grid container
-    var vasGrid = document.getElementById('p-ov-vas-grid');
-    if(!vasGrid){
-      vasGrid = document.createElement('div');
-      vasGrid.id = 'p-ov-vas-grid';
-      vasGrid.className = 'p-ov-grid';
-      vasGrid.style.marginTop = '16px';
-      var detailGridEl = document.getElementById('p-ov-detail-grid');
-      if(detailGridEl) detailGridEl.insertAdjacentElement('afterend', vasGrid);
-    }
-
-    vasCards.forEach(function(vc){
-      var store = vc.storeFn();
-      var totalOrders = 0, totalPayout = 0;
-      var monthRows = '';
-
-      filteredMonths.forEach(function(m){
-        var entry = store[m] && store[m][p.name];
-        if(!entry) return;
-        var orders  = entry[vc.key] || entry.orders || entry.count || 0;
-        var payout  = entry.payout || 0;
-        totalOrders += orders;
-        totalPayout += payout;
-        monthRows += '<div class="p-ov-row">'
-          + '<span class="p-ov-lbl">'+(MLABEL[m]||m)+'</span>'
-          + '<span class="p-ov-val">'+orders.toLocaleString()
-          + (payout > 0 ? ' <span style="color:#10b981;font-size:11px;">· '+fmtL(payout)+'</span>' : '')
-          + '</span></div>';
-      });
-
-      // Find or create card
-      var card = document.getElementById(vc.id);
-      if(!card){
-        card = document.createElement('div');
-        card.id = vc.id;
-        card.className = 'p-ov-card';
-        vasGrid.appendChild(card);
-      }
-
-      if(totalOrders === 0 && totalPayout === 0){
-        card.style.display = 'none';
-        return;
-      }
-      card.style.display = '';
-      card.innerHTML = '<div class="p-ov-card-hdr">'+vc.label+'</div>'
-        + monthRows
-        + '<div class="p-ov-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px;">'
-        + '<span class="p-ov-lbl" style="font-weight:700;">Total</span>'
-        + '<span class="p-ov-val" style="font-weight:700;color:var(--ac);">'+totalOrders.toLocaleString()
-        + (totalPayout > 0 ? ' <span style="color:#10b981;font-size:11px;">· '+fmtL(totalPayout)+'</span>' : '')
-        + '</span></div>';
-    });
-
-    // Hide grid entirely if all cards are empty
-    var visibleCards = vasGrid.querySelectorAll('.p-ov-card:not([style*="display: none"])');
-    vasGrid.style.display = visibleCards.length ? '' : 'none';
-  }catch(vasErr){ console.warn('[VAS overview]', vasErr); }
-
   // Announcement preview / banners
   try{ _buildOverviewAnnPreview(); }catch(e){}
 }
@@ -7377,6 +7332,15 @@ function buildPartnerOverview(){
 // ── Banner dismiss storage ─────────────────────────────────────
 var _BANNER_KEY = 'cars24_banner_dismissed';
 var _BANNER_TTL = 4 * 24 * 60 * 60 * 1000; // 4 days in ms
+
+// Safe banner navigation — stays inside portal, never triggers login page
+window._bannerNav = function(viewId){
+  try{
+    var navEl = document.querySelector('#partner-sidebar .ni[onclick*="'+viewId+'"]');
+    if(typeof window.showPV==='function') window.showPV(viewId, navEl);
+    else if(typeof showPV==='function') showPV(viewId, navEl);
+  }catch(e){ console.warn('[Banner] Nav error:', e); }
+};
 
 function _getBannerDismissed(){
   try{ return JSON.parse(localStorage.getItem(_BANNER_KEY)||'{}'); }catch(e){ return {}; }
@@ -7394,20 +7358,6 @@ function _isBannerDismissed(id){
   if(!d[id]) return false;
   // Auto-expire after 4 days
   if(Date.now() - d[id] > _BANNER_TTL){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
-  // Un-dismiss if relevant data was updated AFTER the banner was dismissed
-  var dismissTs = d[id];
-  if(id.startsWith('tgt_')){
-    var tgtTs = parseInt(localStorage.getItem('__ts_cars24_target_store')||'0',10);
-    if(tgtTs > dismissTs){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
-  }
-  if(id.startsWith('pay_')){
-    var payTs2 = parseInt(localStorage.getItem('__ts_cars24_payout_store')||'0',10);
-    if(payTs2 > dismissTs){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
-  }
-  if(id.startsWith('ann_')){
-    var annTs = parseInt(localStorage.getItem('__ts_cars24_announcements')||'0',10);
-    if(annTs > dismissTs){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
-  }
   return true;
 }
 function _cleanBannersGrid(){
@@ -7453,7 +7403,7 @@ function _buildOverviewAnnPreview(){
           title: escH(a.title||'No title'),
           sub: escH((a.body||'').slice(0,70))+((a.body||'').length>70?'…':''),
           isNew: isNew,
-          go: "showPV('p-announcements',document.querySelector('#partner-sidebar .ni[onclick*=p-announcements]'))"
+          go: "window._bannerNav('p-announcements')"
         });
       }
     }
@@ -7509,7 +7459,7 @@ function _buildOverviewAnnPreview(){
           title: parts.length ? parts.join(' · ') : 'Targets set for '+moLbl,
           sub: 'Tap to view your full target breakdown',
           isNew: isNew,
-          go: "showPV('p-targets',document.querySelector('#partner-sidebar .ni[onclick*=p-targets]'))"
+          go: "window._bannerNav('p-targets')"
         });
       }
     }
@@ -7552,7 +7502,7 @@ function _buildOverviewAnnPreview(){
           title: stIcon+' '+st+(amt>0?' — '+fmtL(amt):''),
           sub: subTxt,
           isNew: isNew,
-          go: "showPV('p-payout',document.querySelector('#partner-sidebar .ni[onclick*=p-payout]'))"
+          go: "window._bannerNav('p-payout')"
         });
       }
     }
@@ -8177,7 +8127,7 @@ var ANN_ICONS ={incentive:'🎁',creative:'🎨',notice:'📋',payment:'💸',ot
 var _annFilter='all', _pAnnFilter='all';
 
 function getAnnouncements(){return _storeOrDef('cars24_announcements',[]);}
-function saveAnnouncements(a){ try{ localStorage.setItem('__ts_cars24_announcements', String(Date.now())); }catch(e){} window._c24Cloud.push('cars24_announcements', JSON.stringify(a)); }
+function saveAnnouncements(a){ window._c24Cloud.push('cars24_announcements', JSON.stringify(a)); }
 
 function filterAnnouncements(t,b){_annFilter=t;document.querySelectorAll('#ann-type-btns .rt').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');buildAnnouncementsAdmin();}
 function filterPartnerAnn(t,b){_pAnnFilter=t;document.querySelectorAll('#p-ann-type-btns .rt').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');buildAnnouncementsPartner();}
@@ -9748,9 +9698,16 @@ function _renderPartnerSC(){
 }
 
 // ── 5. PAYOUT MANAGER (protected — never overwritten by import) ───
-var _payoutMonth=MONTHS[MONTHS.length-1]||'Mar';
+// ── PAYOUT MANAGER — filter state ────────────────────────────────────────
+var _pmRange     = 'mtd';   // 'all' | 'l7' | 'l14' | 'l30' | 'mtd' | 'month' | 'custom'
+var _pmMonth     = '';      // shortcode e.g. 'Mar' — used when _pmRange==='month'
+var _pmDateFrom  = '';      // YYYY-MM-DD
+var _pmDateTo    = '';      // YYYY-MM-DD
+var _payoutMonth = '';      // legacy alias — kept for backward compat
+
 function getPayoutStore(){return _storeOrDef('cars24_payout_store',{});}
 function savePayoutStore(s){ try{ localStorage.setItem('__ts_cars24_payout_store', String(Date.now())); }catch(e){} window._c24Cloud.push('cars24_payout_store', JSON.stringify(s)); }
+
 function seedPayoutStore(){
   var store=getPayoutStore(), changed=false;
   MONTHS.forEach(function(m){PARTNERS.forEach(function(p){
@@ -9759,54 +9716,217 @@ function seedPayoutStore(){
   });});
   if(changed)savePayoutStore(store);
 }
+
+// Populate month dropdown from MONTHS array (never from payoutStore keys)
 function buildPayoutMonthBtns(){
   seedPayoutStore();
-  var wrap=document.getElementById('payout-month-btns'); if(!wrap)return;
-  wrap.innerHTML='';
-  MONTHS.forEach(function(m){
-    var btn=document.createElement('button');
-    btn.className='rt'+(m===_payoutMonth?' active':'');
-    btn.textContent=MLABEL[m]||m;
-    btn.onclick=(function(mm){return function(){_payoutMonth=mm;document.querySelectorAll('#payout-month-btns .rt').forEach(x=>x.classList.remove('active'));this.classList.add('active');renderPayoutTable();};})(m);
-    wrap.appendChild(btn);
-  });
-  if(typeof c24YearFilter!=='undefined') c24YearFilter.init('payout-month-btns');
+  var sel = document.getElementById('payout-month-sel');
+  if(!sel) return;
+  var months = (window.MONTHS && window.MONTHS.length) ? window.MONTHS.slice() : [];
+  sel.innerHTML = '<option value="">— Month —</option>'
+    + months.map(function(m){ return '<option value="'+m+'"'+(m===_pmMonth?' selected':'')+'>'+((window.MLABEL&&window.MLABEL[m])||m)+'</option>'; }).join('');
+  // Default: MTD pill active
+  _pmApplyRangePill('mtd');
 }
+
+// Pill click handler
+function _pmSetRange(range, btn){
+  _pmRange    = range;
+  _pmMonth    = '';
+  _pmDateFrom = '';
+  _pmDateTo   = '';
+  // Deselect month dropdown
+  var sel = document.getElementById('payout-month-sel');
+  if(sel) sel.value = '';
+  // Clear date inputs
+  var df = document.getElementById('payout-date-from');
+  var dt = document.getElementById('payout-date-to');
+  if(df) df.value = '';
+  if(dt) dt.value = '';
+  // Highlight pill
+  _pmApplyRangePill(range);
+  renderPayoutTable();
+}
+
+function _pmApplyRangePill(range){
+  document.querySelectorAll('#payout-range-btns .rt').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('onclick').includes("'"+range+"'"));
+  });
+}
+
+// Month dropdown changed
+function _pmSelectMonth(val){
+  if(!val){ return; }
+  _pmRange    = 'month';
+  _pmMonth    = val;
+  _payoutMonth = val; // legacy alias
+  _pmDateFrom = '';
+  _pmDateTo   = '';
+  // Deactivate all pills
+  document.querySelectorAll('#payout-range-btns .rt').forEach(function(b){ b.classList.remove('active'); });
+  var df = document.getElementById('payout-date-from');
+  var dt = document.getElementById('payout-date-to');
+  if(df) df.value = '';
+  if(dt) dt.value = '';
+  renderPayoutTable();
+}
+
+// Date range changed
+function _pmDateChange(){
+  var df = document.getElementById('payout-date-from');
+  var dt = document.getElementById('payout-date-to');
+  _pmDateFrom = (df&&df.value)||'';
+  _pmDateTo   = (dt&&dt.value)||'';
+  if(_pmDateFrom||_pmDateTo){
+    _pmRange = 'custom';
+    _pmMonth = '';
+    // Deactivate pills and month dropdown
+    document.querySelectorAll('#payout-range-btns .rt').forEach(function(b){ b.classList.remove('active'); });
+    var sel = document.getElementById('payout-month-sel');
+    if(sel) sel.value = '';
+  }
+  renderPayoutTable();
+}
+
+// Get list of months to show based on current filter
+function _pmGetMonths(){
+  var allMonths = (window.MONTHS && window.MONTHS.length) ? window.MONTHS.slice() : [];
+  if(!allMonths.length) return [];
+
+  if(_pmRange === 'month' && _pmMonth){
+    return [_pmMonth];
+  }
+  if(_pmRange === 'all'){
+    return allMonths;
+  }
+  if(_pmRange === 'custom' && (_pmDateFrom || _pmDateTo)){
+    // Map date range to months
+    return allMonths.filter(function(m){
+      var mDate = _pmMonthToDate(m);
+      if(!mDate) return true;
+      if(_pmDateFrom && mDate < _pmDateFrom) return false;
+      if(_pmDateTo   && mDate > _pmDateTo)   return false;
+      return true;
+    });
+  }
+  // L7 / L14 / L30 / MTD — compute cutoff
+  var now  = new Date();
+  var cutoff = null;
+  if(_pmRange === 'mtd'){
+    cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if(_pmRange === 'l7'){
+    cutoff = new Date(now - 7*24*60*60*1000);
+  } else if(_pmRange === 'l14'){
+    cutoff = new Date(now - 14*24*60*60*1000);
+  } else if(_pmRange === 'l30'){
+    cutoff = new Date(now - 30*24*60*60*1000);
+  }
+  if(!cutoff) return allMonths;
+  var cutStr = cutoff.toISOString().slice(0,7); // YYYY-MM
+  return allMonths.filter(function(m){
+    var mDate = _pmMonthToDate(m);
+    return !mDate || mDate >= cutStr;
+  });
+}
+
+// Convert month shortcode 'Mar' → 'YYYY-MM' string for comparison
+function _pmMonthToDate(m){
+  var map={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+  // Try to match e.g. 'Mar25', 'Jan26', 'Mar', 'January'
+  var mo3 = m.slice(0,3);
+  var mm  = map[mo3];
+  if(!mm) return null;
+  // Year: try last 2 digits suffix
+  var yrSuffix = m.match(/(\d{2})$/);
+  var yr = yrSuffix ? (2000+parseInt(yrSuffix[1])) : new Date().getFullYear();
+  return yr+'-'+mm;
+}
+
 function renderPayoutTable(){
-  var store=getPayoutStore(), q=(document.getElementById('payout-search')||{value:''}).value.toLowerCase();
-  var tbl=document.getElementById('payout-tbl'); if(!tbl)return;
-  var rows=PARTNERS.filter(p=>!q||p.name.toLowerCase().includes(q));
-  var totPay=0,totStocks=0;
-  var html=rows.map(function(p,i){
-    var key=p.name+'__'+_payoutMonth;
-    var e=store[key]||{amount:(p.payout&&p.payout[_payoutMonth])||0,status:'Pending'};
-    var stocks=(p.stocks&&p.stocks[_payoutMonth])||0, insps=(p.insps&&p.insps[_payoutMonth])||0;
-    totPay+=e.amount; totStocks+=stocks;
-    var stBadge=e.status==='Paid'?'<span style="background:rgba(16,185,129,.12);color:#10b981;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">✓ Paid</span>'
-      :e.status==='Processing'?'<span style="background:rgba(245,158,11,.12);color:#f59e0b;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">⏳ Processing</span>'
-      :'<span style="background:rgba(99,102,241,.12);color:#6366f1;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">⏺ Pending</span>';
-    return`<tr>
-      <td style="font-size:11px;color:var(--t3);font-family:monospace">${i+1}</td>
-      <td style="font-weight:600">${escH(p.name)}</td>
-      <td class="num">${((p.leads&&p.leads[_payoutMonth])||0).toLocaleString()}</td>
-      <td class="num">${insps.toLocaleString()}</td><td class="num">${stocks}</td>
-      <td class="num" style="font-weight:700;color:var(--ac);">
-        <input type="number" value="${e.amount}" min="0" onchange="updatePayoutEntry('${escH(p.name)}','${_payoutMonth}',this.value)"
-          style="width:100px;padding:4px 8px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ac);text-align:right;outline:none;"
-          onfocus="this.style.borderColor='var(--ac)'" onblur="this.style.borderColor='var(--bd)'">
-      </td>
-      <td>${stBadge}</td>
-      <td style="text-align:center"><select onchange="updatePayoutStatus('${escH(p.name)}','${_payoutMonth}',this.value)"
-          style="padding:3px 8px;border:1px solid var(--bd);border-radius:6px;font-size:11px;background:var(--bg);color:var(--t2);cursor:pointer;">
-        <option value="Pending"${e.status==='Pending'?' selected':''}>Pending</option>
-        <option value="Processing"${e.status==='Processing'?' selected':''}>Processing</option>
-        <option value="Paid"${e.status==='Paid'?' selected':''}>Paid</option>
-      </select></td></tr>`;
-  }).join('');
-  html=`<tr class="sumrow"><td colspan="4">Grand Total (${rows.length})</td><td class="num">${totStocks}</td><td class="num" style="font-weight:700;color:var(--ac);">${fmtL(totPay)}</td><td colspan="2"></td></tr>`+html;
-  tbl.innerHTML=html;
-  var sub=document.getElementById('payout-tbl-sub');
-  if(sub)sub.textContent='Month: '+(MLABEL[_payoutMonth]||_payoutMonth)+' · '+rows.length+' partners';
+  var store = getPayoutStore();
+  var q     = (document.getElementById('payout-search')||{value:''}).value.toLowerCase();
+  var tbl   = document.getElementById('payout-tbl');
+  if(!tbl) return;
+
+  var months  = _pmGetMonths();
+  var partners= PARTNERS.filter(function(p){ return !q || p.name.toLowerCase().includes(q); });
+
+  var totPay=0, totStocks=0, rowCount=0;
+  var html = '';
+
+  partners.forEach(function(p){
+    months.forEach(function(m){
+      var key = p.name+'__'+m;
+      var e   = store[key]||{amount:(p.payout&&p.payout[m])||0, status:'Pending'};
+      if(!e.amount && !store[key]) return; // skip months with no data unless explicitly set
+      var stocks = (p.stocks&&p.stocks[m])||0;
+      var insps  = (p.insps&&p.insps[m])||0;
+      var leads  = (p.leads&&p.leads[m])||0;
+      totPay   += e.amount;
+      totStocks+= stocks;
+      rowCount++;
+      var stBadge = e.status==='Paid'
+        ? '<span style="background:rgba(16,185,129,.12);color:#10b981;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">✓ Paid</span>'
+        : e.status==='Processing'
+        ? '<span style="background:rgba(245,158,11,.12);color:#f59e0b;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">⏳ Processing</span>'
+        : '<span style="background:rgba(99,102,241,.12);color:#6366f1;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">⏺ Pending</span>';
+      html += '<tr>'
+        +'<td style="font-size:11px;color:var(--t3);font-family:monospace">'+rowCount+'</td>'
+        +'<td style="font-weight:600">'+escH(p.name)+'</td>'
+        +'<td style="font-size:11px;color:var(--t2);font-weight:600;">'+((window.MLABEL&&window.MLABEL[m])||m)+'</td>'
+        +'<td class="num">'+leads.toLocaleString()+'</td>'
+        +'<td class="num">'+insps.toLocaleString()+'</td>'
+        +'<td class="num">'+stocks+'</td>'
+        +'<td class="num" style="font-weight:700;color:var(--ac);">'
+        +'<input type="number" value="'+e.amount+'" min="0" onchange="updatePayoutEntry(\''+escH(p.name)+'\',\''+m+'\',this.value)"'
+        +' style="width:100px;padding:4px 8px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ac);text-align:right;outline:none;"'
+        +' onfocus="this.style.borderColor=\'var(--ac)\'" onblur="this.style.borderColor=\'var(--bd)\'">'
+        +'</td>'
+        +'<td>'+stBadge+'</td>'
+        +'<td style="text-align:center"><select onchange="updatePayoutStatus(\''+escH(p.name)+'\',\''+m+'\',this.value)"'
+        +' style="padding:3px 8px;border:1px solid var(--bd);border-radius:6px;font-size:11px;background:var(--bg);color:var(--t2);cursor:pointer;">'
+        +'<option value="Pending"'+(e.status==='Pending'?' selected':'')+'>Pending</option>'
+        +'<option value="Processing"'+(e.status==='Processing'?' selected':'')+'>Processing</option>'
+        +'<option value="Paid"'+(e.status==='Paid'?' selected':'')+'>Paid</option>'
+        +'</select></td></tr>';
+    });
+  });
+
+  // Show all stored entries even if partner not in PARTNERS (edge case)
+  if(rowCount === 0 && months.length === 1){
+    // Single month selected — show all partners regardless
+    partners.forEach(function(p){
+      var m = months[0];
+      var key = p.name+'__'+m;
+      var e = store[key]||{amount:(p.payout&&p.payout[m])||0, status:'Pending'};
+      var stocks=(p.stocks&&p.stocks[m])||0, insps=(p.insps&&p.insps[m])||0, leads=(p.leads&&p.leads[m])||0;
+      totPay+=e.amount; totStocks+=stocks; rowCount++;
+      var stBadge = e.status==='Paid'
+        ?'<span style="background:rgba(16,185,129,.12);color:#10b981;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">✓ Paid</span>'
+        :e.status==='Processing'
+        ?'<span style="background:rgba(245,158,11,.12);color:#f59e0b;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">⏳ Processing</span>'
+        :'<span style="background:rgba(99,102,241,.12);color:#6366f1;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;">⏺ Pending</span>';
+      html+='<tr><td style="font-size:11px;color:var(--t3);font-family:monospace">'+rowCount+'</td><td style="font-weight:600">'+escH(p.name)+'</td>'
+        +'<td style="font-size:11px;color:var(--t2);font-weight:600;">'+((window.MLABEL&&window.MLABEL[m])||m)+'</td>'
+        +'<td class="num">'+leads.toLocaleString()+'</td><td class="num">'+insps.toLocaleString()+'</td><td class="num">'+stocks+'</td>'
+        +'<td class="num" style="font-weight:700;color:var(--ac);"><input type="number" value="'+e.amount+'" min="0" onchange="updatePayoutEntry(\''+escH(p.name)+'\',\''+m+'\',this.value)" style="width:100px;padding:4px 8px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ac);text-align:right;" onfocus="this.style.borderColor=\'var(--ac)\'" onblur="this.style.borderColor=\'var(--bd)\'"></td>'
+        +'<td>'+stBadge+'</td>'
+        +'<td style="text-align:center"><select onchange="updatePayoutStatus(\''+escH(p.name)+'\',\''+m+'\',this.value)" style="padding:3px 8px;border:1px solid var(--bd);border-radius:6px;font-size:11px;background:var(--bg);color:var(--t2);cursor:pointer;"><option value="Pending"'+(e.status==='Pending'?' selected':'')+'>Pending</option><option value="Processing"'+(e.status==='Processing'?' selected':'')+'>Processing</option><option value="Paid"'+(e.status==='Paid'?' selected':'')+'>Paid</option></select></td></tr>';
+    });
+  }
+
+  var grandRow = '<tr class="sumrow"><td colspan="5">Grand Total ('+rowCount+' rows · '+partners.length+' partners)</td>'
+    +'<td class="num">'+totStocks+'</td>'
+    +'<td class="num" style="font-weight:700;color:var(--ac);">'+fmtL(totPay)+'</td>'
+    +'<td colspan="2"></td></tr>';
+  tbl.innerHTML = grandRow + html;
+
+  var filterLabel = _pmRange==='month' ? ((window.MLABEL&&window.MLABEL[_pmMonth])||_pmMonth)
+    : _pmRange==='custom' ? (_pmDateFrom+' → '+_pmDateTo)
+    : _pmRange==='all' ? 'All months'
+    : _pmRange.toUpperCase();
+  var sub = document.getElementById('payout-tbl-sub');
+  if(sub) sub.textContent = filterLabel+' · '+rowCount+' rows · '+fmtL(totPay)+' total';
 }
 function updatePayoutEntry(name,month,val){
   var store=getPayoutStore(), key=name+'__'+month;
@@ -9822,13 +9942,16 @@ function updatePayoutStatus(name,month,val){
   store[key].status=val; savePayoutStore(store);
 }
 function exportPayoutCSV(){
-  var store=getPayoutStore();
+  var store   = getPayoutStore();
+  var months  = (typeof _pmGetMonths==='function') ? _pmGetMonths() : (window.MONTHS||[]);
+  var q       = (document.getElementById('payout-search')||{value:''}).value.toLowerCase();
+  var partners= PARTNERS.filter(function(p){return !q||p.name.toLowerCase().includes(q);});
   var rows=[['Partner','Month','Leads','Inspections','Stock-ins','Payout (₹)','Status']];
-  MONTHS.forEach(function(m){PARTNERS.forEach(function(p){
+  months.forEach(function(m){partners.forEach(function(p){
     var key=p.name+'__'+m, e=store[key]||{amount:(p.payout&&p.payout[m])||0,status:'Pending'};
-    rows.push([p.name,MLABEL[m]||m,(p.leads&&p.leads[m])||0,(p.insps&&p.insps[m])||0,(p.stocks&&p.stocks[m])||0,e.amount,e.status]);
+    rows.push([p.name,(window.MLABEL&&window.MLABEL[m])||m,(p.leads&&p.leads[m])||0,(p.insps&&p.insps[m])||0,(p.stocks&&p.stocks[m])||0,e.amount,e.status]);
   });});
-  var csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  var csv=rows.map(function(r){return r.map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='cars24_payouts.csv';a.click();
 }
 
@@ -13141,7 +13264,7 @@ function _confirmAddMonth(){
 
 // Sheet ID is obfuscated — not stored as plain text in source
 var GSHEET_ID = (function(){
-  var a=[49,68,109,80,45,108,69,49,121,103,65,84,86,76], b=[103,49,113,56,108,69,77,65,101,49,75,85,87,53], c=[74,77,89,56,74,117,70,108,57,117,100,87,51,95,69,103];
+  var a=[49,45,120,48,72,56,48,110,97,51,73,78,83,72], b=[100,48,95,115,88,79,117,84,100,118,79,72,122,99], c=[77,76,85,100,55,75,56,101,88,82,99,54,75,108,102,65];
   return a.concat(b).concat(c).map(function(x){return String.fromCharCode(x);}).join('');
 })();
 
@@ -13149,15 +13272,15 @@ var GSHEET_ID = (function(){
 // Key = short tab name, Value = numeric GID string
 // All confirmed GIDs from user-provided sheet URLs
 var GSHEET_TAB_GIDS = {
-  'Partner':  '1459722986',  // Partner View  (gid=1459722986)
-  'Admin':    '667342306',   // Admin View    (gid=667342306) — primary data source for all views
-  'Overview': '506955235',   // DOD/Dashboard (gid=506955235)
-  'Elite':    '0',           // Elite Dashboard (gid=0)
-  'PDI':      '788771803',   // PDI           (gid=788771803)
-  'VHR':      '2004127377',  // VHR           (gid=2004127377)
-  'Challan':  '118527114',   // Challan       (gid=118527114)
-  'LAC':      '723928485',   // LAC           (gid=723928485)
-  'Buyer':    '1229301814',  // Buyer View    (gid=1229301814)
+  // Partner tab (gid=0) removed — Admin tab now populates both PARTNERS and PARTNER_SHEET
+  'Admin':    '1012408495',  // Admin View   (gid=1012408495) — primary data source for all views
+  'Overview': '588337111',   // DOD/Dashboard (gid=588337111)
+  'Buyer':    '1913073478',  // Buyer View   (gid=1913073478)
+  'Elite':    '564077706',   // Elite Dashboard (gid=564077706)
+  'PDI':      '698478831',   // PDI (gid=698478831)
+  'Challan':  '285209008',   // Challan (gid=285209008)
+  'LAC':      '1384850852',  // LAC (gid=1384850852)
+  'VHR':      '1220290751',  // VHR (gid=1220290751)
 };
 
 var _gsheetLastUpdate = null;
@@ -13185,44 +13308,82 @@ setInterval(_updateGSheetTimestamp, 30000);
 // We register a one-time global callback before injecting the script.
 
 var _gvizCallbackIndex = 0;
+var _sheetDataCache    = {}; // gid → { ts, table } — cleared on manual sync
+var _SHEET_CACHE_TTL   = 2 * 60 * 60 * 1000; // 2h in-memory cache
 
+// ── PRIMARY: relay → FALLBACK: gviz/tq ───────────────────────────────────
+// _settled guard ensures onSuccess/onError fires exactly ONCE per call
+// (timeout + .catch would both fire without it, doubling done++ in checkDone)
 function _gvizFetch(gid, cbName, onSuccess, onError){
-  var callbackName = cbName || ('_gvizCb'+(_gvizCallbackIndex++));
-  // Google gviz/tq: tqx must encode the responseHandler correctly
-  var url = 'https://docs.google.com/spreadsheets/d/'+GSHEET_ID
-          + '/gviz/tq?tqx=out:json%3BresponseHandler:'+callbackName
-          + '&gid='+gid
-          + '&t='+Date.now(); // cache-bust
+  var relayUrl = window.CARS24_DRIVE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.driveWebAppUrl) || '';
+  var token    = (window.CARS24_CONFIG&&window.CARS24_CONFIG.relayToken) || '';
 
-  var timeout = setTimeout(function(){
-    try{ delete window[callbackName]; }catch(e){}
-    var old = document.getElementById('_gviz_script_'+callbackName);
-    if(old) old.parentNode.removeChild(old);
-    if(onError) onError(new Error('Timeout fetching gid='+gid));
-  }, 12000);
+  // In-memory cache hit
+  var cached = _sheetDataCache[gid];
+  if(cached && (Date.now()-cached.ts) < _SHEET_CACHE_TTL){
+    if(onSuccess) onSuccess(cached.table);
+    return;
+  }
 
-  window[callbackName] = function(response){
-    clearTimeout(timeout);
-    try{ delete window[callbackName]; }catch(e){}
-    var old = document.getElementById('_gviz_script_'+callbackName);
-    if(old) old.parentNode.removeChild(old);
-    if(!response || response.status === 'error'){
-      var msg = (response && response.errors) ? response.errors[0].message : 'gviz error';
-      if(onError) onError(new Error(msg));
-      return;
-    }
-    if(onSuccess) onSuccess(response.table || null);
+  // ── Apps Script relay (org-internal sheets) ────────────────────────────
+  if(relayUrl && token){
+    var _settled = false;
+    function _ok(tbl){ if(_settled)return; _settled=true; clearTimeout(_tmr); if(onSuccess)onSuccess(tbl); }
+    function _fail(e){ if(_settled)return; _settled=true; clearTimeout(_tmr); console.warn('[GSheet] relay gid='+gid+':', e&&e.message||e); _gvizFetchDirect(gid, cbName, onSuccess, onError); }
+
+    var _tmr = setTimeout(function(){ _fail(new Error('timeout')); }, 25000);
+
+    fetch(relayUrl+'?action=getSheetData&sheetId='+encodeURIComponent(GSHEET_ID)+'&gid='+encodeURIComponent(gid)+'&token='+encodeURIComponent(token)+'&t='+Date.now(), { method:'GET', redirect:'follow' })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(function(txt){
+      var d; try{ d=JSON.parse(txt); }catch(e){ throw new Error('Bad JSON: '+txt.slice(0,80)); }
+      if(d&&d.error) throw new Error(d.error);
+      if(d&&Array.isArray(d.headers)&&Array.isArray(d.rows)){
+        var tbl = _relayToGvizTable(d.headers, d.rows);
+        _sheetDataCache[gid] = { ts:Date.now(), table:tbl };
+        _ok(tbl);
+      } else { _ok(null); }
+    })
+    .catch(function(e){ _fail(e); });
+    return;
+  }
+
+  // ── Fallback: gviz/tq JSONP (public sheets only) ─────────────────────
+  _gvizFetchDirect(gid, cbName, onSuccess, onError);
+}
+
+// Convert Apps Script relay response to gviz-compatible table
+function _relayToGvizTable(headers, rows){
+  var cols = headers.map(function(h){ return { label:String(h||''), id:String(h||'') }; });
+  var tableRows = rows.map(function(row){
+    return { c: row.map(function(v){ return { v:(v===''||v===null||v===undefined)?null:v }; }) };
+  });
+  return { cols:cols, rows:tableRows };
+}
+
+// gviz/tq JSONP — settled guard prevents double-fire from timeout + script.onerror
+var _gvizLastAttempt = {};
+var _GVIZ_COOLDOWN   = 5 * 60 * 1000;
+
+function _gvizFetchDirect(gid, cbName, onSuccess, onError){
+  var last = _gvizLastAttempt[gid]||0;
+  if(Date.now()-last < _GVIZ_COOLDOWN){ if(onError) onError(new Error('gviz cooldown')); return; }
+  _gvizLastAttempt[gid] = Date.now();
+
+  var cb2 = cbName||('_gvizCb'+(_gvizCallbackIndex++));
+  var _s  = false;
+  function _done(fn,arg){ if(_s)return; _s=true; clearTimeout(_to); var el=document.getElementById('_gvs_'+cb2); if(el) el.parentNode.removeChild(el); try{delete window[cb2];}catch(e){} fn(arg); }
+  var _to = setTimeout(function(){ _done(onError||function(){}, new Error('gviz timeout gid='+gid)); }, 12000);
+
+  window[cb2] = function(resp){
+    if(!resp||resp.status==='error'){ var m=(resp&&resp.errors)?resp.errors[0].message:'gviz error'; _done(onError||function(){}, new Error(m)); }
+    else { _done(onSuccess||function(){}, resp.table||null); }
   };
 
-  var script = document.createElement('script');
-  script.id  = '_gviz_script_'+callbackName;
-  script.src = url;
-  script.onerror = function(){
-    clearTimeout(timeout);
-    try{ delete window[callbackName]; }catch(e){}
-    if(onError) onError(new Error('Script load failed for gid='+gid+'. Ensure sheet is shared as "Anyone with the link can view".'));
-  };
-  document.head.appendChild(script);
+  var s=document.createElement('script'); s.id='_gvs_'+cb2;
+  s.src='https://docs.google.com/spreadsheets/d/'+GSHEET_ID+'/gviz/tq?tqx=out:json%3BresponseHandler:'+cb2+'&gid='+gid;
+  s.onerror=function(){ _done(onError||function(){}, new Error('gviz load failed gid='+gid)); };
+  document.head.appendChild(s);
 }
 
 // ─── CONVERT gviz TABLE → ARRAY OF PLAIN OBJECTS ─────────────
@@ -13235,9 +13396,7 @@ function _gvizTableToRows(table){
     var obj = {}, hasData = false;
     headers.forEach(function(h,i){
       var cell = row.c[i];
-      // gviz may give formatted string (f) or raw value (v)
       var v = cell ? (cell.v !== null && cell.v !== undefined ? cell.v : (cell.f||'')) : '';
-      // For Date values gviz returns "Date(year,month,day)" string — convert
       if(typeof v === 'string' && /^Date\(\d+,\d+,\d+\)$/.test(v)){
         var parts = v.replace('Date(','').replace(')','').split(',');
         var yr=parseInt(parts[0]), mo=parseInt(parts[1])+1, dy=parseInt(parts[2]);
@@ -13255,6 +13414,7 @@ function _gvizTableToRows(table){
 function refreshGSheetData(){
   if(_gsheetRefreshing) return;
   _gsheetRefreshing = true;
+  _sheetDataCache = {}; // force fresh fetch on manual sync
 
   var btn   = document.getElementById('gsheet-refresh-btn');
   var icon  = document.getElementById('gsheet-refresh-icon');
@@ -13288,15 +13448,28 @@ function refreshGSheetData(){
   var failCount    = 0;
   var total        = tabsToProbe.length;
   var done         = 0;
+  var _syncDone    = false; // prevents double-completion if _settled guard is bypassed
+
+  // Safety valve — force-complete after 40s so button never stays spinning
+  var _syncSafety = setTimeout(function(){
+    if(_syncDone) return;
+    _syncDone = true;
+    _gsheetRefreshing = false;
+    _setBtnState(btn, icon, label, true);
+    showImportToast(successCount>0 ? '⚠ Sync partial — '+successCount+' tab(s) loaded' : '⚠ Sync timed out — check console for details');
+  }, 40000);
 
   function checkDone(){
     done++;
     if(done < total) return;
+    if(_syncDone) return;
+    _syncDone = true;
+    clearTimeout(_syncSafety);
     // All probes finished
     _gsheetRefreshing = false;
     _setBtnState(btn, icon, label, true);
     if(successCount === 0){
-      showImportToast('\u26a0 No sheet data loaded. Check the sheet is shared as "Anyone with the link can view".');
+      showImportToast('\u26a0 No sheet data loaded. Check relay is deployed with getSheetData action, or sheet is public for gviz fallback.');
       return;
     }
     _gsheetLastUpdate = Date.now();
@@ -15477,18 +15650,17 @@ window.showPV = function(id, el){
 };
 
 // ── Store partner query into shared chat messages for admin to see ──
-// NOTE: evaSaveHistory already writes _evaMsgs to localStorage AND syncs
-// to Supabase. This function just ensures the cloud push happens so admin
-// sees the message across devices. Do NOT push a duplicate message.
 function evaStoreQueryForAdmin(text){
   try{
-    // Use the already-saved history (evaAppendMessage already called evaSaveHistory)
-    // Just force a cloud push of the current full message store
-    var serialised = localStorage.getItem('cars24_chat_messages')||'[]';
+    var pn  = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+    var all = [];
+    try{ all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
+    var msg = { id:Date.now()+'_q', role:'partner', text:text, partnerName:pn, ts:Date.now() };
+    all.push(msg);
+    if(all.length>200) all=all.slice(-200);
+    var serialised = JSON.stringify(all);
+    localStorage.setItem('cars24_chat_messages', serialised);
     if(window._c24Cloud&&window._c24Cloud.push) window._c24Cloud.push('cars24_chat_messages', serialised);
-    // Also bump the admin badge timestamp so admin sees the new query
-    var nowTs = Date.now();
-    try{ localStorage.setItem('__ts_cars24_chat_messages', String(nowTs)); }catch(e){}
   }catch(e){ console.warn('[EVA] evaStoreQueryForAdmin error:', e); }
 }
 
@@ -16461,7 +16633,7 @@ function buildBizDow(data, metric, mLabel, dowTot, dowCnt){
   // Chart
   var ctx = document.getElementById('bizDowChart'); if(!ctx) return;
   if(_CH_biz.dow){ try{_CH_biz.dow.destroy();}catch(e){} }
-  var isDark = !document.documentElement.classList.contains('light');
+  var isDark = document.documentElement.getAttribute('data-theme')==='dark'||!document.documentElement.classList.contains('light');
   var gridColor = isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)';
   var textColor = isDark?'#94a3b8':'#6b7280';
   _CH_biz.dow = new Chart(ctx, {type:'bar', data:{
@@ -18041,32 +18213,11 @@ console.log('[Cars24 v33] Master fix patch applied — login ✓ session restore
   };
 })();
 
-// ── FIX 10: Payout month buttons — same fallback ──
-(function _fixPayoutMonthBtns(){
-  window.buildPayoutMonthBtns = function(){
-    var wrap = document.getElementById('payout-month-btns'); if(!wrap) return;
-    var months = (window.MONTHS && window.MONTHS.length) ? window.MONTHS.slice() : [];
-    if(!months.length){
-      try{ var ps = typeof getPayoutStore==='function' ? getPayoutStore() : {};
-        months = Object.keys(ps).filter(Boolean); }catch(e){}
-    }
-    if(!months.length) return;
-    if(!window._payoutMonth || months.indexOf(window._payoutMonth)<0) window._payoutMonth = months[months.length-1];
-    wrap.innerHTML = '';
-    months.forEach(function(m){
-      var btn = document.createElement('button');
-      btn.className = 'rt'+(m===window._payoutMonth?' active':'');
-      btn.textContent = (window.MLABEL&&window.MLABEL[m])||m;
-      btn.onclick = (function(mm){ return function(){
-        window._payoutMonth = mm;
-        wrap.querySelectorAll('.rt').forEach(function(x){x.classList.remove('active');});
-        this.classList.add('active');
-        if(typeof renderPayoutTable==='function') renderPayoutTable();
-      }; })(m);
-      wrap.appendChild(btn);
-    });
-  };
-})();
+// ── FIX 10: Payout month buttons — now handled by new multi-filter system ──
+// buildPayoutMonthBtns populates #payout-month-sel dropdown from MONTHS array only.
+// The old code using Object.keys(payoutStore) caused partner__month keys to
+// appear as month buttons — that bug is now fixed.
+
 
 // ── FIX 11: Targets — sequence month btn build before data render ──
 (function _fixTargetsSequence(){
@@ -19837,25 +19988,24 @@ console.log('[Cars24 v36] All 6 fixes applied — data isolation ✓ projection 
 // ══════════════════════════════════════════════════════════════════
 (function _cars24ExtraPatches(){
 
-// ══════════════════════════════════════════════════════════════════
-// SUPABASE STORAGE UPLOAD — replaces Google Drive relay entirely
-// Bucket: cars24-invoices (create once in Supabase → Storage)
-// Files stored as: {folder}/{fileName}
-// Public URL returned so partner/admin can view file directly
-// ══════════════════════════════════════════════════════════════════
+// ── GOOGLE DRIVE UPLOAD HELPER ────────────────────────────────────
+// Uses a Google Apps Script Web App as a relay to upload files to Drive.
+// Partners submit invoices → stored in Drive + localStorage.
+// Admin uploads payment proof → stored in Drive + localStorage.
+// Set your Apps Script URL below (deploy as "Anyone" with access).
+var DRIVE_WEBAPP_URL = window.CARS24_DRIVE_URL || '';  // set in config if available
 
-var _SB_STORAGE_BUCKET = 'cars24-invoices';
-
+// Base64-encode a File and POST to the Apps Script relay
 async function uploadFileToDrive(file, folder, fileName){
+  // ── Upload to Supabase Storage (direct from browser — no Apps Script needed) ──
   var sbUrl = window.CARS24_SUPABASE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.url) || '';
   var sbKey = window.CARS24_SUPABASE_ANONKEY || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.anonKey) || '';
+  var BUCKET = 'cars24-invoices';
 
   if(!sbUrl || !sbKey){
     console.warn('[Storage] Supabase not configured — file saved locally only');
     return null;
   }
-
-  // 10MB practical limit (Supabase free tier supports up to 50MB)
   if(file.size > 10 * 1024 * 1024){
     console.warn('[Storage] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max 10MB');
     return 'TOO_LARGE';
@@ -19863,12 +20013,10 @@ async function uploadFileToDrive(file, folder, fileName){
 
   var safeName    = fileName.replace(/[^a-zA-Z0-9._\-() ]/g, '_');
   var storagePath = folder + '/' + safeName;
-
-  console.log('[Storage] Uploading to Supabase:', storagePath);
+  var uploadUrl   = sbUrl + '/storage/v1/object/' + BUCKET + '/' + encodeURIComponent(storagePath);
 
   try{
-    var uploadUrl = sbUrl + '/storage/v1/object/' + _SB_STORAGE_BUCKET + '/' + encodeURIComponent(storagePath);
-    var response  = await fetch(uploadUrl, {
+    var r = await fetch(uploadUrl, {
       method : 'POST',
       headers: {
         'Authorization': 'Bearer ' + sbKey,
@@ -19879,35 +20027,33 @@ async function uploadFileToDrive(file, folder, fileName){
       body: file
     });
 
-    if(!response.ok){
-      var errText = await response.text();
-      console.warn('[Storage] Upload failed:', response.status, errText);
-      // If bucket not found (404) or not authorized (403), try to create it
-      if(response.status === 404 || response.status === 400){
+    if(!r.ok){
+      var errText = await r.text();
+      // If bucket missing (404/400) — try to create it, then retry once
+      if(r.status === 404 || r.status === 400){
         try{
-          var createBucket = await fetch(sbUrl+'/storage/v1/bucket', {
-            method:'POST',
-            headers:{'Authorization':'Bearer '+sbKey,'apikey':sbKey,'Content-Type':'application/json'},
-            body:JSON.stringify({id:_SB_STORAGE_BUCKET,name:_SB_STORAGE_BUCKET,public:true})
+          var cb = await fetch(sbUrl+'/storage/v1/bucket', {
+            method : 'POST',
+            headers: { 'Authorization':'Bearer '+sbKey, 'apikey':sbKey, 'Content-Type':'application/json' },
+            body   : JSON.stringify({ id: BUCKET, name: BUCKET, public: true })
           });
-          if(createBucket.ok){
-            // Retry upload after creating bucket
-            var retry = await fetch(uploadUrl, {
-              method:'POST',
-              headers:{'Authorization':'Bearer '+sbKey,'apikey':sbKey,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},
-              body: file
+          if(cb.ok){
+            var r2 = await fetch(uploadUrl, {
+              method : 'POST',
+              headers: { 'Authorization':'Bearer '+sbKey, 'apikey':sbKey, 'Content-Type': file.type||'application/octet-stream', 'x-upsert':'true' },
+              body   : file
             });
-            if(retry.ok){
-              var publicUrl2 = sbUrl + '/storage/v1/object/public/' + _SB_STORAGE_BUCKET + '/' + encodeURIComponent(storagePath);
-              return publicUrl2;
+            if(r2.ok){
+              return sbUrl + '/storage/v1/object/public/' + BUCKET + '/' + encodeURIComponent(storagePath);
             }
           }
         }catch(e2){ console.warn('[Storage] Bucket create failed:', e2); }
       }
+      console.warn('[Storage] Upload failed:', r.status, errText);
       return null;
     }
 
-    var publicUrl = sbUrl + '/storage/v1/object/public/' + _SB_STORAGE_BUCKET + '/' + encodeURIComponent(storagePath);
+    var publicUrl = sbUrl + '/storage/v1/object/public/' + BUCKET + '/' + encodeURIComponent(storagePath);
     console.log('[Storage] Upload OK:', publicUrl);
     return publicUrl;
 
@@ -19917,8 +20063,7 @@ async function uploadFileToDrive(file, folder, fileName){
   }
 }
 
-
-// ── OVERRIDE: submitPartnerInvoice — Supabase Storage upload ──────
+// ── OVERRIDE: submitPartnerInvoice — add Drive upload ────────────
 window.submitPartnerInvoice = (function(_orig){
   return async function(){
     var sel      = document.getElementById('inv-month-sel');
@@ -19955,14 +20100,14 @@ window.submitPartnerInvoice = (function(_orig){
     var fname   = file ? file.name : '—';
     var driveUrl = null;
 
-    // File size guard — 10MB max for Supabase Storage
-    if(file && file.size > 10 * 1024 * 1024){
-      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 10 MB before uploading.');
+    // File size guard — 3.5MB max for Apps Script base64 payload
+    if(file && file.size > 3.5 * 1024 * 1024){
+      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB before uploading.');
       return;
     }
 
     if(file){
-      showMsg(true,'⏳ Uploading attachment to Supabase…');
+      showMsg(true,'⏳ Uploading attachment to Drive…');
       var driveName = 'INV_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+invNo+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+fname.split('.').pop();
       // Stash metadata so uploadFileToDrive can include it in the log
       window._lastInvMonth  = fullMo;
@@ -19990,13 +20135,13 @@ window.submitPartnerInvoice = (function(_orig){
     if(fileEl) fileEl.value='';
     var fn=document.getElementById('p-inv-fname'); if(fn) fn.textContent='No file';
 
-    // fileUrl can be: a real Supabase public URL, 'TOO_LARGE', or null
+    // driveUrl can be: a real URL string, 'UPLOADED' (no-cors fire), 'TOO_LARGE', or null
     var driveOk     = driveUrl && driveUrl !== 'TOO_LARGE' && driveUrl !== null;
     var hasRealUrl  = driveOk && driveUrl !== 'UPLOADED';
     var driveLabel  = hasRealUrl
-      ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📎 View File ↗</a>'
-      : (driveOk ? ' · <span style="color:#10b981;">☁ File saved ✓</span>'
-        : (file ? ' · <span style="color:#f59e0b;font-size:11px;">⚠ File not attached (invoice data saved — ask admin to enable Supabase Storage bucket "cars24-invoices")</span>' : ''));
+      ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📂 View in Drive ↗</a>'
+      : (driveOk ? ' · <span style="color:#10b981;">📂 Drive ✓</span>'
+        : (file ? ' <span style="color:#f59e0b;font-size:11px;">(Drive upload failed — file name saved)</span>' : ''));
 
     if(msg){
       msg.style.display='block';
@@ -20007,8 +20152,8 @@ window.submitPartnerInvoice = (function(_orig){
       setTimeout(function(){ msg.style.display='none'; }, 7000);
     }
     if(typeof window.buildPartnerInvoices==='function') window.buildPartnerInvoices();
-    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(driveOk?' · Uploaded ✓':''));
-    if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · File:'+driveUrl:''));
+    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(driveOk?' · Drive ✓':''));
+    if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · Drive:'+driveUrl:''));
   };
 })(window.submitPartnerInvoice);
 
@@ -20043,9 +20188,9 @@ window.buildPartnerInvoices = (function(){
       var fileCell = inv.driveUrl && inv.driveUrl !== 'UPLOADED'
         ? '<a href="'+inv.driveUrl+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.2);border-radius:5px;">📎 View File</a>'
         : (inv.driveUrl === 'UPLOADED'
-          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">☁ Uploaded ✓</span>'
+          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">📂 In Drive ✓</span>'
           : (inv.fileName && inv.fileName!=='—'
-            ? '<span style="font-size:11px;color:var(--t3);">📎 '+inv.fileName+'<br><span style="font-size:10px;color:#f59e0b;">Not uploaded</span></span>'
+            ? '<span style="font-size:11px;color:var(--t3);">📎 '+inv.fileName+'<br><span style="font-size:10px;color:#f59e0b;">Not uploaded to Drive</span></span>'
             : '—'));
       return '<tr>'
         +'<td>'+(window.MLABEL&&window.MLABEL[inv.month]?window.MLABEL[inv.month]:inv.fullMonth||inv.month)+'</td>'
@@ -20059,7 +20204,7 @@ window.buildPartnerInvoices = (function(){
   };
 })();
 
-// ── OVERRIDE: savePaymentProof — Supabase Storage upload ──────────
+// ── OVERRIDE: savePaymentProof — with Drive upload ───────────────
 window.savePaymentProof = async function(){
   var partner = (document.getElementById('proof-partner')||{value:''}).value.trim();
   var month   = (document.getElementById('proof-month-sel')||{value:''}).value;
@@ -20083,14 +20228,14 @@ window.savePaymentProof = async function(){
   var fname    = file ? file.name : '—';
   var driveUrl = null;
 
-  // File size guard — 10MB max for Supabase Storage
-  if(file && file.size > 10 * 1024 * 1024){
+  // File size guard — 3.5MB max for Apps Script base64 payload
+  if(file && file.size > 3.5 * 1024 * 1024){
     showErr('⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB.');
     return;
   }
 
   if(file){
-    showErr('⏳ Uploading to Supabase…', '#f59e0b');
+    showErr('⏳ Uploading to Drive…', '#f59e0b');
     var ext       = fname.split('.').pop();
     var driveName = 'PROOF_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+utr+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+ext;
     window._lastProofMonth  = fullMo;
@@ -20119,8 +20264,8 @@ window.savePaymentProof = async function(){
 
   var ov = document.getElementById('proof-ov'); if(ov) ov.remove();
   if(typeof window.renderProofTable==='function') window.renderProofTable();
-  if(typeof window.showImportToast==='function') window.showImportToast('✅ Payment proof saved for '+partner+(driveOk?' · Uploaded ✓':(file?' · Drive upload failed':''))  );
-  if(typeof window._auditLog==='function') window._auditLog('Payment proof uploaded', partner+' · UTR:'+utr+' · ₹'+amount+(driveUrl&&driveUrl!=='UPLOADED'?' · File:'+driveUrl:driveOk?' · File:uploaded':''));
+  if(typeof window.showImportToast==='function') window.showImportToast('✅ Payment proof saved for '+partner+(driveOk?' · Drive ✓':(file?' · Drive upload failed':''))  );
+  if(typeof window._auditLog==='function') window._auditLog('Payment proof uploaded', partner+' · UTR:'+utr+' · ₹'+amount+(driveUrl&&driveUrl!=='UPLOADED'?' · Drive:'+driveUrl:driveOk?' · Drive:uploaded':''));
 };
 
 // ── Patch renderProofTable to show Drive link ─────────────────────
@@ -20141,7 +20286,7 @@ window.renderProofTable = function(){
     var fileCell = pr.driveUrl && pr.driveUrl !== 'UPLOADED'
       ? '<a href="'+pr.driveUrl+'" target="_blank" style="color:#10b981;font-size:11px;font-weight:600;text-decoration:none;">📎 Drive ↗</a>'
       : (pr.driveUrl === 'UPLOADED'
-        ? '<span style="font-size:11px;color:#10b981;font-weight:600;">☁ Uploaded ✓</span>'
+        ? '<span style="font-size:11px;color:#10b981;font-weight:600;">📂 In Drive ✓</span>'
         : (pr.fileName&&pr.fileName!=='—' ? '<span style="font-size:11px;color:var(--t3);">'+pr.fileName+'</span>' : '—'));
     return '<tr>'
       +'<td style="font-size:11px;color:var(--t3);">'+(i+1)+'</td>'
@@ -22281,488 +22426,5 @@ function doGet(e) {
 }
 
      ══════════════════════════════════════════════════════════════════ -->
-
-<script>
-// ══════════════════════════════════════════════════════════════════════
-// TARGETED FIX BLOCK — Three issues:
-//  A) Page reload shows landing page before portal loads
-//  B) Android shows light/washed-out portal (dark mode not applied)
-//  C) Filters / date-range / buttons show no data change
-// ══════════════════════════════════════════════════════════════════════
-
-// ─────────────────────────────────────────────────────────────────────
-// FIX A: Hide ENTIRE body content on reload when a valid session exists
-// The old approach only hid #portal-fullscreen, leaving the public
-// landing page (header, hero, sections) visible for ~500ms.
-// We now inject a <style> that hides the body's direct children
-// (the public page) while the portal loads.
-// ─────────────────────────────────────────────────────────────────────
-(function _fixSessionFlash(){
-  // This runs immediately (synchronously) — before any paint
-  var saved = null;
-  try { saved = localStorage.getItem('c24_session'); } catch(e) {}
-  if (!saved) return;
-
-  var sess = null;
-  try { sess = JSON.parse(saved); } catch(e) {}
-  if (!sess || !sess.role || !sess.user) return;
-  if (sess.exp && Date.now() > sess.exp) {
-    try { localStorage.removeItem('c24_session'); } catch(e) {}
-    return;
-  }
-
-  // Valid session — hide the public landing page content immediately
-  var style = document.createElement('style');
-  style.id = 'c24-body-hide';
-  // Hide all direct body children EXCEPT the portal overlay and toast container
-  // Use opacity:0 + pointer-events:none so layout is preserved (no reflow jank)
-  style.textContent = [
-    'body > *:not(#portal-fullscreen):not(#portal-login-overlay):not(#c24-toast-container):not(script):not(style){',
-    '  opacity:0 !important;',
-    '  pointer-events:none !important;',
-    '  user-select:none !important;',
-    '}',
-    '#portal-fullscreen:not(.open){',
-    '  opacity:0 !important;',
-    '}'
-  ].join('');
-  document.head.appendChild(style);
-
-  // Safety valve — always remove after 4s even if portal fails to load
-  var _hideTimer = setTimeout(function(){
-    var s = document.getElementById('c24-body-hide');
-    if (s) s.remove();
-  }, 4000);
-
-  // Remove as soon as portal is open (normal path)
-  // We watch for the 'open' class being added to #portal-fullscreen
-  var _observer = new MutationObserver(function(mutations){
-    mutations.forEach(function(m){
-      if (m.target && m.target.id === 'portal-fullscreen' &&
-          m.target.classList.contains('open')) {
-        clearTimeout(_hideTimer);
-        var s = document.getElementById('c24-body-hide');
-        if (s) s.remove();
-        _observer.disconnect();
-      }
-    });
-  });
-  document.addEventListener('DOMContentLoaded', function(){
-    var pf = document.getElementById('portal-fullscreen');
-    if (pf) {
-      // Already open (fast load)
-      if (pf.classList.contains('open')) {
-        clearTimeout(_hideTimer);
-        var s = document.getElementById('c24-body-hide');
-        if (s) s.remove();
-      } else {
-        _observer.observe(pf, { attributes: true, attributeFilter: ['class'] });
-      }
-    }
-  });
-
-  // Also hook showPortal directly as a belt-and-suspenders
-  var _origSP_flash = window.showPortal;
-  window.showPortal = function(){
-    if (typeof _origSP_flash === 'function') _origSP_flash.apply(this, arguments);
-    clearTimeout(_hideTimer);
-    var s = document.getElementById('c24-body-hide');
-    if (s) s.remove();
-    // Restore body visibility cleanly
-    document.body.style.opacity = '';
-    document.body.style.visibility = '';
-  };
-})();
-
-
-// ─────────────────────────────────────────────────────────────────────
-// FIX B: Android dark mode — unified theme via html.light class
-// Portal CSS vars must respond to html.light class, not data-theme.
-// We inject a <style> that mirrors [data-theme="dark"] rules for
-// html:not(.light) so Android browsers that miss data-theme get them.
-// ─────────────────────────────────────────────────────────────────────
-(function _fixAndroidTheme(){
-  // 1. Inject CSS: map html:not(.light) to all [data-theme="dark"] vars
-  if(!document.getElementById('_android-theme-bridge')){
-    var s = document.createElement('style');
-    s.id = '_android-theme-bridge';
-    s.textContent = [
-      // Mirror the [data-theme="dark"] block for html:not(.light)
-      'html:not(.light) #portal-fullscreen,',
-      'html:not(.light) #portal-fullscreen * {',
-      '  color-scheme: dark;',
-      '}',
-      // Ensure portal vars inherit from :root dark values
-      'html:not(.light) #portal-fullscreen { --bg:var(--bg); --sf:var(--sf); }',
-    ].join('\n');
-    (document.head || document.documentElement).appendChild(s);
-  }
-
-  // 2. Sync data-theme on portal element (keeps any data-theme-keyed CSS working)
-  function _syncPortalAttr(){
-    var pf = document.getElementById('portal-fullscreen');
-    if(!pf) return;
-    var isLight = document.documentElement.classList.contains('light');
-    pf.setAttribute('data-theme', isLight ? 'light' : 'dark');
-    // Also force html data-theme to match (fixes Android Webview)
-    document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
-  }
-
-  // Apply on load and after any toggle
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', _syncPortalAttr);
-  } else {
-    _syncPortalAttr();
-  }
-
-  // Patch toggleTheme
-  var _origT = window.toggleTheme;
-  window.toggleTheme = function(){
-    if(typeof _origT==='function') _origT.apply(this, arguments);
-    _syncPortalAttr();
-  };
-  // Patch togglePageTheme  
-  var _origTP = window.togglePageTheme;
-  window.togglePageTheme = function(){
-    if(typeof _origTP==='function') _origTP.apply(this, arguments);
-    _syncPortalAttr();
-  };
-  // Patch showPortal
-  var _origSP_t = window.showPortal;
-  window.showPortal = function(){
-    if(typeof _origSP_t==='function') _origSP_t.apply(this, arguments);
-    setTimeout(_syncPortalAttr, 50);
-  };
-
-  window._syncPortalAttr = _syncPortalAttr;
-})();
-
-
-// ─────────────────────────────────────────────────────────────────────
-// FIX C: Filters / buttons show no data change
-//
-// Root causes identified:
-//  C1. Month filter buttons (setRange) update curRange but RMETA[curRange]
-//      may be undefined if rebuildMonthMeta() hasn't built that key yet.
-//      updateDashboard() silently falls back to RMETA['all'] → looks like
-//      nothing changed.
-//  C2. Date-range pickers (setDashDateRange) call updateDashboard() but
-//      PERIOD['custom'] is set AFTER curRange is set to 'custom', so if
-//      updateDashboard reads PERIOD before the custom entry is written,
-//      it shows zeros.
-//  C3. DOD partner selector, buyer month buttons, VAS month buttons — all
-//      call their render functions but the render functions read stale
-//      _buyerMonth / _vasMonth globals that aren't updated first.
-//  C4. Funnel period buttons (setFR) — FR state gets out of sync after
-//      rebuildMonthMeta because the active button class is reset but the
-//      data variable isn't.
-//  C5. MoM selects call setMomFromSelects() but mtdCur/mtdPrev may not
-//      match new MONTHS array after a sync.
-// ─────────────────────────────────────────────────────────────────────
-(function _fixFilterDataIssues(){
-
-  // ── C1: Patch setRange to ensure RMETA has the requested key ──────────
-  var _origSetRange = window.setRange;
-  window.setRange = function(key, btn){
-    // If key is a month shortcode and RMETA doesn't have it yet, build it
-    if (key && key !== 'all' && key !== 'mtd' && key !== 'l7' &&
-        key !== 'l14' && key !== 'l30' && key !== 'custom') {
-      var _RM = window.RMETA || {};
-      if (!_RM[key]) {
-        // Build the missing entry on the fly
-        var _PER = window.PERIOD || {};
-        var _ML  = window.MLABEL || {};
-        _RM[key] = {
-          label  : _ML[key] || key,
-          days   : '~30 days',
-          months : [key]
-        };
-        if (!_PER[key]) {
-          var _PARTNERS = window.PARTNERS || [];
-          var tL=0,tA=0,tI=0,tS=0,tP=0;
-          _PARTNERS.forEach(function(p){
-            tL += (p.leads && p.leads[key])  || 0;
-            tA += (p.appts && p.appts[key])  || 0;
-            tI += (p.insps && p.insps[key])  || 0;
-            tS += (p.stocks && p.stocks[key])|| 0;
-            tP += (p.payout && p.payout[key])|| 0;
-          });
-          _PER[key] = {leads:tL,appts:tA,insps:tI,stocks:tS,payout:tP};
-          window.PERIOD = _PER;
-        }
-        window.RMETA = _RM;
-      }
-    }
-    // Now call original
-    if (typeof _origSetRange === 'function') {
-      _origSetRange.apply(this, arguments);
-    } else {
-      // Fallback if original was overwritten
-      window.curRange = key;
-      var wrapB = document.getElementById('range-btns');
-      if (wrapB) wrapB.querySelectorAll('.rt').forEach(function(b){ b.classList.remove('active'); });
-      if (btn) btn.classList.add('active');
-      if (typeof window.updateDashboard === 'function') window.updateDashboard();
-    }
-  };
-
-
-  // ── C2: Patch setDashDateRange — ensure PERIOD['custom'] written before updateDashboard ──
-  var _origDDR = window.setDashDateRange;
-  window.setDashDateRange = function(){
-    var from = (document.getElementById('dash-from-date')||{value:''}).value;
-    var to   = (document.getElementById('dash-to-date')||{value:''}).value;
-    if (!from && !to) return;
-
-    // Deactivate preset buttons
-    var wrapB2 = document.getElementById('range-btns');
-    if (wrapB2) wrapB2.querySelectorAll('.rt').forEach(function(b){ b.classList.remove('active'); });
-
-    var _MONTHS  = window.MONTHS  || [];
-    var _PARTNERS= window.PARTNERS|| [];
-    var _MLABEL  = window.MLABEL  || {};
-    var reg = (typeof window.loadMonthRegistry === 'function') ? window.loadMonthRegistry() : {yearMap:{}};
-    var MNUM2 = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
-
-    var filteredMonths = [];
-    _MONTHS.forEach(function(m){
-      var yr = reg.yearMap[m], mn = MNUM2[m];
-      if (!yr || !mn) return;
-      var mStart = yr+'-'+mn+'-01';
-      var mEnd   = yr+'-'+mn+'-31';
-      if ((!from || mEnd >= from) && (!to || mStart <= to)) filteredMonths.push(m);
-    });
-
-    var tL=0,tA=0,tI=0,tS=0,tP=0;
-    _PARTNERS.forEach(function(p){
-      filteredMonths.forEach(function(m){
-        tL += (p.leads && p.leads[m]) || 0;
-        tA += (p.appts && p.appts[m]) || 0;
-        tI += (p.insps && p.insps[m]) || 0;
-        tS += (p.stocks&& p.stocks[m])|| 0;
-        tP += (p.payout&&p.payout[m]) || 0;
-      });
-    });
-
-    var label = 'Custom · '+(from||'…')+' → '+(to||'…');
-    window.RMETA  = window.RMETA  || {};
-    window.PERIOD = window.PERIOD || {};
-    window.RMETA['custom']  = {label:label, days:'Custom range', months: filteredMonths.length ? filteredMonths : null};
-    window.PERIOD['custom'] = {leads:tL, appts:tA, insps:tI, stocks:tS, payout:tP};
-    window.curRange = 'custom';
-
-    if (typeof window.updateDashboard === 'function') window.updateDashboard();
-  };
-
-
-  // ── C3: DOD partner selector — ensure it re-renders when changed ──────
-  document.addEventListener('DOMContentLoaded', function(){
-    var dodSel = document.getElementById('dod-partner-sel');
-    if (dodSel && !dodSel._c24Fixed) {
-      dodSel._c24Fixed = true;
-      dodSel.addEventListener('change', function(){
-        if (typeof window.buildDodStats === 'function') window.buildDodStats();
-        if (typeof window.buildDodChart === 'function') window.buildDodChart();
-      });
-    }
-  });
-
-
-  // ── C3b: Buyer month buttons — patch _rebuildBuyerButtons ────────────
-  var _origBBB = window._rebuildBuyerButtons;
-  window._rebuildBuyerButtons = function(){
-    if (typeof _origBBB === 'function') _origBBB.apply(this, arguments);
-    // Ensure all buyer month buttons wire to renderBuyerTable
-    var buyerBtns = document.querySelectorAll('#buyer-month-btns .rt, #view-buyer .rt[data-month]');
-    buyerBtns.forEach(function(btn){
-      if (btn._c24Fixed) return;
-      btn._c24Fixed = true;
-      var m = btn.getAttribute('data-month') || btn.textContent;
-      btn.addEventListener('click', function(){
-        window._buyerMonth = m;
-        document.querySelectorAll('#buyer-month-btns .rt, #view-buyer .rt[data-month]')
-          .forEach(function(b){ b.classList.remove('active'); });
-        btn.classList.add('active');
-        if (typeof window.renderBuyerTable === 'function') window.renderBuyerTable();
-      });
-    });
-  };
-
-
-  // ── C3c: VAS/VHR month buttons — patch _rebuildVasButtons ────────────
-  // Ensure _vasMonth is set and buildVasCurrent() is called on click
-  var _origVasBtns = window._rebuildVasButtons || window.buildVasMonthBtns;
-  function _rewireVasBtns(){
-    var vasBtns = document.querySelectorAll('#vas-month-btns .rt, #view-vas .rt[data-month]');
-    vasBtns.forEach(function(btn){
-      if (btn._c24Fixed) return;
-      btn._c24Fixed = true;
-      var m = btn.getAttribute('data-month') || btn.textContent;
-      btn.addEventListener('click', function(){
-        window._vasMonth = m;
-        document.querySelectorAll('#vas-month-btns .rt, #view-vas .rt[data-month]')
-          .forEach(function(b){ b.classList.remove('active'); });
-        btn.classList.add('active');
-        if (typeof window.buildVasCurrent === 'function') window.buildVasCurrent();
-      });
-    });
-  }
-  // Run after DOM and after data syncs
-  document.addEventListener('DOMContentLoaded', function(){ setTimeout(_rewireVasBtns, 800); });
-
-
-  // ── C4: Funnel period buttons — patch setFR to guard against missing FR ──
-  var _origSetFR = window.setFR;
-  window.setFR = function(key, btn){
-    // Ensure the funnel period buttons reflect new active state
-    var fbtns = document.querySelectorAll('#funnel-period-btns .rt');
-    fbtns.forEach(function(b){ b.classList.remove('active'); });
-    if (btn) btn.classList.add('active');
-    // Store the selected range
-    window._funnelRange = key;
-    // Call original if it exists, else call buildFSteps directly
-    if (typeof _origSetFR === 'function') {
-      _origSetFR.apply(this, arguments);
-    } else {
-      if (typeof window.buildFSteps === 'function') window.buildFSteps();
-      if (typeof window.buildFChart === 'function') window.buildFChart();
-    }
-  };
-
-
-  // ── C5: MoM selects — patch setMomFromSelects to guard MONTHS ────────
-  var _origMomSel = window.setMomFromSelects;
-  window.setMomFromSelects = function(){
-    var selCur  = document.getElementById('mom-sel-cur');
-    var selPrev = document.getElementById('mom-sel-prev');
-    var _MONTHS = window.MONTHS || [];
-    // Populate dropdowns if empty (can happen after sync)
-    if (selCur && selPrev && selCur.options.length <= 1 && _MONTHS.length >= 2) {
-      var _ML = window.MLABEL || {};
-      selCur.innerHTML  = '';
-      selPrev.innerHTML = '';
-      for (var mi = _MONTHS.length - 1; mi >= 0; mi--) {
-        var m = _MONTHS[mi];
-        var lbl = _ML[m] || m;
-        var optC = document.createElement('option'); optC.value=m; optC.textContent=lbl;
-        var optP = document.createElement('option'); optP.value=m; optP.textContent=lbl;
-        selCur.appendChild(optC);
-        selPrev.appendChild(optP);
-      }
-      if (selCur.options.length > 0)  selCur.selectedIndex  = 0;
-      if (selPrev.options.length > 1) selPrev.selectedIndex = 1;
-    }
-    // Call original
-    if (typeof _origMomSel === 'function') {
-      _origMomSel.apply(this, arguments);
-    } else {
-      if (typeof window.buildMom === 'function') window.buildMom();
-    }
-  };
-
-
-  // ── C6: Date-range inputs for DOD — wire change events if missing ─────
-  document.addEventListener('DOMContentLoaded', function(){
-    ['dod-from-date','dod-to-date'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el && !el._c24Fixed) {
-        el._c24Fixed = true;
-        el.addEventListener('change', function(){
-          if (typeof window.applyDodDateRange === 'function') window.applyDodDateRange();
-          else {
-            if (typeof window.buildDodStats === 'function') window.buildDodStats();
-            if (typeof window.buildDodChart === 'function') window.buildDodChart();
-          }
-        });
-      }
-    });
-    ['mom-from-date','mom-to-date'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el && !el._c24Fixed) {
-        el._c24Fixed = true;
-        el.addEventListener('change', function(){
-          if (typeof window.buildMom === 'function') window.buildMom();
-        });
-      }
-    });
-    ['biz-from','biz-to'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el && !el._c24Fixed) {
-        el._c24Fixed = true;
-        el.addEventListener('change', function(){
-          if (typeof window.buildBizView === 'function') window.buildBizView();
-        });
-      }
-    });
-    ['wdwe-from-date','wdwe-to-date'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el && !el._c24Fixed) {
-        el._c24Fixed = true;
-        el.addEventListener('change', function(){
-          if (typeof window.buildWdWe === 'function') window.buildWdWe();
-        });
-      }
-    });
-  });
-
-
-  // ── C7: Status filter and search — ensure updateDashboard is called ───
-  var _origFilterStatus = window.filterStatus;
-  window.filterStatus = function(s){
-    window.curStatus = s;
-    if (typeof _origFilterStatus === 'function') {
-      _origFilterStatus.apply(this, arguments);
-    } else {
-      if (typeof window.updateDashboard === 'function') window.updateDashboard();
-    }
-  };
-
-  var _origFilterSearch = window.filterPartnerSearch;
-  window.filterPartnerSearch = function(v){
-    window.curSearch = v;
-    if (typeof _origFilterSearch === 'function') {
-      _origFilterSearch.apply(this, arguments);
-    } else {
-      if (typeof window.buildPartnerTable === 'function') window.buildPartnerTable();
-    }
-  };
-
-
-  // ── C8: Sort column — ensure buildPartnerTable is called ─────────────
-  var _origSetSortCol = window.setSortCol;
-  window.setSortCol = function(v){
-    window.sortCol = v;
-    if (typeof _origSetSortCol === 'function') {
-      _origSetSortCol.apply(this, arguments);
-    } else {
-      if (typeof window.buildPartnerTable === 'function') window.buildPartnerTable();
-    }
-  };
-
-
-  // ── C9: Ensure PERIOD and RMETA are populated when portal opens ───────
-  // If showPortal is called before rebuildMonthMeta has run with data,
-  // all filter clicks return zero. Re-run rebuildMonthMeta after a delay.
-  var _origSP_data = window.showPortal;
-  window.showPortal = function(){
-    if (typeof _origSP_data === 'function') _origSP_data.apply(this, arguments);
-    // Re-run at staggered intervals to catch async data loads
-    [600, 2000, 5000].forEach(function(delay){
-      setTimeout(function(){
-        var hasPeriod = window.PERIOD && Object.keys(window.PERIOD).length > 2;
-        var hasMonths = window.MONTHS && window.MONTHS.length > 0;
-        if (hasMonths && !hasPeriod) {
-          try { window.rebuildMonthMeta && window.rebuildMonthMeta(); } catch(e){}
-        }
-        // Also re-apply portal theme in case DOM wasn't ready before
-        if (typeof window._applyPortalTheme === 'function') window._applyPortalTheme();
-      }, delay);
-    });
-  };
-
-
-  console.log('[C24TargetedFix] Fixes A (no-flash) + B (dark mode) + C (filters) applied ✅');
-})();
-</script>
 
 </html>

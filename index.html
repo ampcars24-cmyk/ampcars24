@@ -40,7 +40,7 @@ const CARS24_CONFIG = {
   // ── Google Drive Upload Relay ──────────────────────────────────────────
   // Still used ONLY for file uploads (invoices, payment proofs) to Drive.
   // Cross-device DATA sync now runs through Supabase instead.
-  driveWebAppUrl: 'https://script.google.com/a/macros/cars24.com/s/AKfycby1EA2wMj_HcdDuOH8VB5z_o-p2NPTTZBKRSwTE63M30S21CQGul5X7NAk8QnrfXU84ag/exec',
+  driveWebAppUrl: 'https://script.google.com/a/macros/cars24.com/s/AKfycbwaM6iA_JTa1tC5lRrJewL_EqXyvE4UsPgWqNfvoU2srTAIdFxvTJq-usrfA_a28GvabA/exec',
   relayToken: 'c24_ng987654321'
 };
 
@@ -639,28 +639,8 @@ input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 6px rgba(61,53
   height: -webkit-fill-available;
   height: 100dvh;
   overflow: hidden;
-  /* Explicit background fallback — prevents landing page showing through */
-  background: #f4f6fb;
-}
-/* Dark mode portal background */
-html:not(.light) #portal-fullscreen,
-[data-theme="dark"] #portal-fullscreen {
-  background: #0d0f18;
-}
-/* Light mode portal background */
-html.light #portal-fullscreen,
-[data-theme="light"] #portal-fullscreen {
-  background: #f4f6fb;
 }
 #portal-fullscreen.open { display: flex; }
-
-/* When portal is open — permanently hide all landing page content */
-/* This prevents ANY landing page element from bleeding through */
-body:has(#portal-fullscreen.open) > *:not(#portal-fullscreen):not(#portal-login-overlay):not(#c24-toast-container):not(script):not(style) {
-  display: none !important;
-}
-/* Fallback for browsers that don't support :has() */
-#portal-fullscreen.open ~ * { display: none !important; }
 
 
 
@@ -675,11 +655,6 @@ body:has(#portal-fullscreen.open) > *:not(#portal-fullscreen):not(#portal-login-
   --bg:#0d0f18;--sb:#14172a;--sf:#1b1f30;
   --bd:#252840;--tx:#f1f5f9;--t2:#94a3b8;--t3:#64748b;--al:rgba(79,70,229,.13);
   --shadow:0 1px 6px rgba(0,0,0,.4);
-}
-[data-theme="light"]{
-  --bg:#f4f6fb;--sb:#ffffff;--sf:#ffffff;
-  --bd:#e2e8f0;--tx:#0d1626;--t2:#475569;--t3:#94a3b8;--al:rgba(79,70,229,.06);
-  --shadow:0 1px 6px rgba(0,0,0,.08);
 }
 #portal-fullscreen{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;transition:background .25s,color .25s}
 
@@ -1339,7 +1314,7 @@ input[type=range]::-webkit-slider-thumb {
   </nav>
   <div style="display:flex;align-items:center;gap:12px;">
     <div class="theme-toggle" onclick="togglePageTheme()" id="themeBtn" title="Switch theme">
-      <span id="themeLabel">🌙 Dark</span>
+      <span id="themeLabel">☀️ Light</span>
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
     </div>
     <div style="position:relative;" id="login-menu-wrapper">
@@ -2134,17 +2109,16 @@ function navScrollTo(id) {
 // ── Theme Toggle ──
 
 // Restore saved theme — runs before paint to prevent flash on Android
-// DEFAULT: light mode. Only goes dark if user explicitly chose dark.
 (function(){
   var t = '';
   try{ t = localStorage.getItem('theme')||''; }catch(e){}
-  // Default to light if no preference saved
-  var isLight = (t !== 'dark');
+  var isLight = t === 'light';
   if(isLight){
     document.documentElement.classList.add('light');
     document.documentElement.setAttribute('data-theme','light');
   } else {
     document.documentElement.classList.remove('light');
+    // CRITICAL for Android: set data-theme=dark so [data-theme="dark"] CSS vars load
     document.documentElement.setAttribute('data-theme','dark');
   }
   // Sync UI elements after DOM ready
@@ -3058,8 +3032,6 @@ document.addEventListener('click', function(e) {
 function togglePageTheme() {
   const html = document.documentElement;
   const isLight = html.classList.toggle('light');
-  // Sync data-theme attribute for Android compatibility
-  html.setAttribute('data-theme', isLight ? 'light' : 'dark');
   const label = document.getElementById('themeLabel');
   if (label) label.textContent = isLight ? '🌙 Dark' : '☀️ Light';
   const logoDark = document.getElementById('logo-dark');
@@ -8152,52 +8124,14 @@ function launchApp() { _openPortal(); }
 
 // ── Override portal doLogout ──
 function doLogout() {
-  // ── 1. Remove all dynamically inserted modal overlays ─────────────────
-  var _modalIds = [
-    'ann-ov','proof-ov','bulk-email-modal-overlay','_add-month-modal',
-    'v36-bulk-upload-modal','dcm-modal','pw-change-modal','change-pw-ov',
-    'payout-edit-modal','partner-edit-modal'
-  ];
-  _modalIds.forEach(function(id){
-    var el = document.getElementById(id);
-    if(el){ try{ el.remove(); }catch(e){ el.style.display='none'; } }
-  });
-  // Also remove any fixed-position overlay dynamically added to body
-  try{
-    var _toRemove = [];
-    Array.prototype.forEach.call(document.body.children, function(el){
-      if(el.id==='portal-fullscreen'||el.id==='portal-login-overlay'||
-         el.id==='c24-toast-container'||el.id==='import-modal-overlay'||
-         el.id==='bulk-target-modal-overlay'||el.id==='add-admin-modal'||
-         el.id==='mob-sidebar-overlay'||el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
-      try{ if(window.getComputedStyle(el).position==='fixed') _toRemove.push(el); }catch(e){}
-    });
-    _toRemove.forEach(function(el){ try{ el.remove(); }catch(e){} });
-  }catch(e){}
-
-  // ── 2. Close portal & hide static modals ─────────────────────────────
-  // Hide static modals that use display:none toggle
-  var _staticModals = ['import-modal-overlay','bulk-target-modal-overlay','add-admin-modal','cred-modal-overlay'];
-  _staticModals.forEach(function(id){
-    var el = document.getElementById(id); if(el) el.style.display='none';
-  });
   document.getElementById('portal-fullscreen').classList.remove('open');
   document.body.style.overflow = '';
-
-  // ── 3. Restore landing page elements ──────────────────────────────────
-  try{
-    Array.prototype.forEach.call(document.body.children, function(el){
-      if(el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
-      if(el.id!=='portal-fullscreen') el.style.display='';
-    });
-  }catch(e){}
-
-  // ── 4. Clear session & charts ─────────────────────────────────────────
   currentUser = null; currentRole = null; currentPartner = null;
   try{ localStorage.removeItem('c24_session'); }catch(e){}
-  try{ Object.values(CH).forEach(function(ch){ if(ch) ch.destroy(); }); }catch(e){}
+  try { Object.values(CH).forEach(function(ch){ if(ch) ch.destroy(); }); } catch(e){}
   CH = {};
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+
 }
 
 // ── Close portal login modal on backdrop click ──
@@ -13252,94 +13186,13 @@ setInterval(_updateGSheetTimestamp, 30000);
 
 var _gvizCallbackIndex = 0;
 
-// ── Fetch sheet data via Apps Script relay (works for org-internal sheets) ──
-// Falls back to gviz/tq for public sheets if relay is not configured.
-// Caches each tab result for 2 hours to avoid hammering the Apps Script.
-var _sheetDataCache  = {}; // gid → { ts, table }
-var _SHEET_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
-
 function _gvizFetch(gid, cbName, onSuccess, onError){
-  var relayUrl = window.CARS24_DRIVE_URL || (window.CARS24_CONFIG && window.CARS24_CONFIG.driveWebAppUrl) || '';
-  var token    = (window.CARS24_CONFIG && window.CARS24_CONFIG.relayToken) || '';
-
-  // ── Check in-memory cache first (avoids redundant relay calls) ────────
-  var cached = _sheetDataCache[gid];
-  if(cached && (Date.now() - cached.ts) < _SHEET_CACHE_TTL){
-    if(onSuccess) onSuccess(cached.table);
-    return;
-  }
-
-  // ── PRIMARY: Apps Script relay (works for org-internal sheets) ────────
-  if(relayUrl && token){
-    var fetchUrl = relayUrl
-      + '?action=getSheetData'
-      + '&sheetId=' + encodeURIComponent(GSHEET_ID)
-      + '&gid='     + encodeURIComponent(gid)
-      + '&token='   + encodeURIComponent(token);
-    // Note: no &t= cache-buster — let browser cache apply (Apps Script honors Cache-Control)
-
-    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timer = setTimeout(function(){
-      if(ctrl) ctrl.abort();
-      if(onError) onError(new Error('Relay timeout for gid='+gid));
-    }, 20000);
-
-    fetch(fetchUrl, ctrl ? { signal: ctrl.signal, redirect: 'follow' } : { redirect: 'follow' })
-      .then(function(r){
-        clearTimeout(timer);
-        if(!r.ok) throw new Error('Relay HTTP '+r.status);
-        return r.json();
-      })
-      .then(function(data){
-        if(data && data.error) throw new Error(data.error);
-        if(data && data.headers && data.rows){
-          var table = _relayToGvizTable(data.headers, data.rows);
-          _sheetDataCache[gid] = { ts: Date.now(), table: table };
-          if(onSuccess) onSuccess(table);
-        } else {
-          if(onSuccess) onSuccess(null);
-        }
-      })
-      .catch(function(err){
-        clearTimeout(timer);
-        console.warn('[GSheet] Relay failed for gid='+gid+':', err.message, '— trying gviz fallback');
-        _gvizFetchDirect(gid, cbName, onSuccess, onError);
-      });
-    return;
-  }
-
-  // ── FALLBACK: gviz/tq (requires sheet to be publicly shared) ──────────
-  _gvizFetchDirect(gid, cbName, onSuccess, onError);
-}
-
-// Convert relay { headers, rows } to a gviz-compatible table object
-function _relayToGvizTable(headers, rows){
-  var cols = headers.map(function(h){ return { label: String(h||''), id: String(h||'') }; });
-  var tableRows = rows.map(function(row){
-    return { c: row.map(function(v){ return { v: (v===''||v===null||v===undefined)?null:v }; }) };
-  });
-  return { cols: cols, rows: tableRows };
-}
-
-// Original gviz/tq JSONP fetch — fallback only, for public sheets
-// Has a 5-min cooldown per GID to prevent hammering Google if relay is unavailable
-var _gvizLastAttempt = {}; // gid → timestamp of last gviz attempt
-var _GVIZ_COOLDOWN = 5 * 60 * 1000; // 5 minutes between fallback attempts per tab
-
-function _gvizFetchDirect(gid, cbName, onSuccess, onError){
-  // Enforce cooldown — don't hammer Google's servers
-  var lastAttempt = _gvizLastAttempt[gid] || 0;
-  if(Date.now() - lastAttempt < _GVIZ_COOLDOWN){
-    if(onError) onError(new Error('gviz cooldown active for gid='+gid+' — relay required for org-internal sheet'));
-    return;
-  }
-  _gvizLastAttempt[gid] = Date.now();
-
   var callbackName = cbName || ('_gvizCb'+(_gvizCallbackIndex++));
+  // Google gviz/tq: tqx must encode the responseHandler correctly
   var url = 'https://docs.google.com/spreadsheets/d/'+GSHEET_ID
           + '/gviz/tq?tqx=out:json%3BresponseHandler:'+callbackName
-          + '&gid='+gid;
-          // No &t= cache-buster — let browser cache work (reduces Google quota usage)
+          + '&gid='+gid
+          + '&t='+Date.now(); // cache-bust
 
   var timeout = setTimeout(function(){
     try{ delete window[callbackName]; }catch(e){}
@@ -13367,7 +13220,7 @@ function _gvizFetchDirect(gid, cbName, onSuccess, onError){
   script.onerror = function(){
     clearTimeout(timeout);
     try{ delete window[callbackName]; }catch(e){}
-    if(onError) onError(new Error('gviz script load failed for gid='+gid+' — sheet must be publicly shared for fallback to work'));
+    if(onError) onError(new Error('Script load failed for gid='+gid+'. Ensure sheet is shared as "Anyone with the link can view".'));
   };
   document.head.appendChild(script);
 }
@@ -13402,8 +13255,6 @@ function _gvizTableToRows(table){
 function refreshGSheetData(){
   if(_gsheetRefreshing) return;
   _gsheetRefreshing = true;
-  // Clear in-memory cache so this sync always fetches fresh data
-  _sheetDataCache = {};
 
   var btn   = document.getElementById('gsheet-refresh-btn');
   var icon  = document.getElementById('gsheet-refresh-icon');
@@ -13445,7 +13296,7 @@ function refreshGSheetData(){
     _gsheetRefreshing = false;
     _setBtnState(btn, icon, label, true);
     if(successCount === 0){
-      showImportToast('\u26a0 No sheet data loaded. Ensure your Apps Script relay has getSheetData action and is deployed with org access.');
+      showImportToast('\u26a0 No sheet data loaded. Check the sheet is shared as "Anyone with the link can view".');
       return;
     }
     _gsheetLastUpdate = Date.now();
@@ -17556,13 +17407,6 @@ window.showPortal = function(role, user, partner) {
   if(!pf){ alert('Portal element not found. Please reload the page.'); return; }
   pf.classList.add('open');
   document.body.style.overflow = 'hidden';
-  // Hide all landing page elements so nothing bleeds through the portal
-  try{
-    Array.prototype.forEach.call(document.body.children, function(el){
-      if(el.id==='portal-fullscreen'||el.id==='portal-login-overlay'||el.id==='c24-toast-container'||el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
-      el.style.display='none';
-    });
-  }catch(e){}
   // Remove login-flash-prevention splash if set during restore
   try{ var sp=document.getElementById('c24-restore-splash'); if(sp) sp.remove(); }catch(e){}
   try{ window.rebuildMonthMeta(); }catch(e){}
@@ -22431,35 +22275,6 @@ function getOrCreateFolder(name) {
 }
 
 function doGet(e) {
-  var p = e && e.parameter ? e.parameter : {};
-
-  // ── getSheetData: fetch any tab of the Cars24 sheet ──────────────────
-  // Called by the portal when gviz/tq fails (org-internal sheet).
-  // Returns { headers: [...], rows: [[...], [...]] }
-  if(p.action === 'getSheetData' && p.sheetId && p.gid !== undefined){
-    try{
-      var ss   = SpreadsheetApp.openById(p.sheetId);
-      var sheets = ss.getSheets();
-      var target = sheets.find(function(s){ return String(s.getSheetId()) === String(p.gid); });
-      if(!target){
-        return ContentService
-          .createTextOutput(JSON.stringify({ error: 'Sheet gid '+p.gid+' not found' }))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-      var data    = target.getDataRange().getValues();
-      var headers = data[0] || [];
-      var rows    = data.slice(1);
-      return ContentService
-        .createTextOutput(JSON.stringify({ headers: headers, rows: rows }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }catch(err2){
-      return ContentService
-        .createTextOutput(JSON.stringify({ error: err2.message }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-
-  // ── Default: relay health check ──────────────────────────────────────
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'ok', message: 'Cars24 Drive relay is live' }))
     .setMimeType(ContentService.MimeType.JSON);

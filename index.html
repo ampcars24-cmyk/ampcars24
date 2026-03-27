@@ -40,7 +40,7 @@ const CARS24_CONFIG = {
   // ── Google Drive Upload Relay ──────────────────────────────────────────
   // Still used ONLY for file uploads (invoices, payment proofs) to Drive.
   // Cross-device DATA sync now runs through Supabase instead.
-  driveWebAppUrl: 'https://script.google.com/a/macros/cars24.com/s/AKfycbwaM6iA_JTa1tC5lRrJewL_EqXyvE4UsPgWqNfvoU2srTAIdFxvTJq-usrfA_a28GvabA/exec',
+  driveWebAppUrl: 'https://script.google.com/a/macros/cars24.com/s/AKfycby1EA2wMj_HcdDuOH8VB5z_o-p2NPTTZBKRSwTE63M30S21CQGul5X7NAk8QnrfXU84ag/exec',
   relayToken: 'c24_ng987654321'
 };
 
@@ -639,8 +639,28 @@ input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 6px rgba(61,53
   height: -webkit-fill-available;
   height: 100dvh;
   overflow: hidden;
+  /* Explicit background fallback — prevents landing page showing through */
+  background: #f4f6fb;
+}
+/* Dark mode portal background */
+html:not(.light) #portal-fullscreen,
+[data-theme="dark"] #portal-fullscreen {
+  background: #0d0f18;
+}
+/* Light mode portal background */
+html.light #portal-fullscreen,
+[data-theme="light"] #portal-fullscreen {
+  background: #f4f6fb;
 }
 #portal-fullscreen.open { display: flex; }
+
+/* When portal is open — permanently hide all landing page content */
+/* This prevents ANY landing page element from bleeding through */
+body:has(#portal-fullscreen.open) > *:not(#portal-fullscreen):not(#portal-login-overlay):not(#c24-toast-container):not(script):not(style) {
+  display: none !important;
+}
+/* Fallback for browsers that don't support :has() */
+#portal-fullscreen.open ~ * { display: none !important; }
 
 
 
@@ -655,6 +675,11 @@ input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 6px rgba(61,53
   --bg:#0d0f18;--sb:#14172a;--sf:#1b1f30;
   --bd:#252840;--tx:#f1f5f9;--t2:#94a3b8;--t3:#64748b;--al:rgba(79,70,229,.13);
   --shadow:0 1px 6px rgba(0,0,0,.4);
+}
+[data-theme="light"]{
+  --bg:#f4f6fb;--sb:#ffffff;--sf:#ffffff;
+  --bd:#e2e8f0;--tx:#0d1626;--t2:#475569;--t3:#94a3b8;--al:rgba(79,70,229,.06);
+  --shadow:0 1px 6px rgba(0,0,0,.08);
 }
 #portal-fullscreen{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;transition:background .25s,color .25s}
 
@@ -1314,7 +1339,7 @@ input[type=range]::-webkit-slider-thumb {
   </nav>
   <div style="display:flex;align-items:center;gap:12px;">
     <div class="theme-toggle" onclick="togglePageTheme()" id="themeBtn" title="Switch theme">
-      <span id="themeLabel">☀️ Light</span>
+      <span id="themeLabel">🌙 Dark</span>
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
     </div>
     <div style="position:relative;" id="login-menu-wrapper">
@@ -2109,16 +2134,18 @@ function navScrollTo(id) {
 // ── Theme Toggle ──
 
 // Restore saved theme — runs before paint to prevent flash on Android
+// DEFAULT: light mode. Only goes dark if user explicitly chose dark.
 (function(){
   var t = '';
   try{ t = localStorage.getItem('theme')||''; }catch(e){}
-  var isLight = t === 'light';
+  // Default to light if no preference saved
+  var isLight = (t !== 'dark');
   if(isLight){
     document.documentElement.classList.add('light');
-    // Remove any conflicting data-theme attribute
-    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme','light');
   } else {
     document.documentElement.classList.remove('light');
+    document.documentElement.setAttribute('data-theme','dark');
   }
   // Sync UI elements after DOM ready
   document.addEventListener('DOMContentLoaded', function(){
@@ -3031,6 +3058,8 @@ document.addEventListener('click', function(e) {
 function togglePageTheme() {
   const html = document.documentElement;
   const isLight = html.classList.toggle('light');
+  // Sync data-theme attribute for Android compatibility
+  html.setAttribute('data-theme', isLight ? 'light' : 'dark');
   const label = document.getElementById('themeLabel');
   if (label) label.textContent = isLight ? '🌙 Dark' : '☀️ Light';
   const logoDark = document.getElementById('logo-dark');
@@ -3156,6 +3185,11 @@ function navScrollTo(id) {
     <!-- PARTNER SIDEBAR -->
     <nav class="sidebar" id="partner-sidebar" style="display:none">
       <div class="sidebar-user" id="partner-user-card">
+        <div style="display:flex;align-items:center;justify-content:center;padding:4px 0 10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:10px;">
+          <svg viewBox="0 0 90 22" width="90" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+            <text x="0" y="17" font-family="Arial Black,Arial" font-weight="900" font-size="18" fill="#E8111A" letter-spacing="-0.5">CARS24</text>
+          </svg>
+        </div>
         <div class="su-name" id="p-card-name">Partner</div>
         <div class="su-role">Partner Access · Own data only</div>
         <div class="su-stats">
@@ -5154,6 +5188,7 @@ function getTargetStore(){
   try{ var s=localStorage.getItem('cars24_target_store'); return s?JSON.parse(s):{};  }catch(e){ return {}; }
 }
 function saveTargetStore(obj){
+  try{ localStorage.setItem('__ts_cars24_target_store', String(Date.now())); }catch(e){}
   window._c24Cloud.push('cars24_target_store', JSON.stringify(obj), function(ok){
     if(!ok) console.warn('[C24] saveTargetStore cloud push failed — local cache kept');
     window._targetStoreCache = obj;
@@ -5994,7 +6029,8 @@ var fmtN=n=>n>=1000000?(n/1000000).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K
 var fmtL=n=>n>=100000?'₹'+(n/100000).toFixed(1)+'L':n>=1000?'₹'+(n/1000).toFixed(0)+'K':'₹'+n;
 function pct(a,b){return b>0?+(a/b*100).toFixed(1):0;}
 function delta(a,b){return b>0?+((a-b)/b*100).toFixed(1):0;}
-function gc(){const dk=document.documentElement.getAttribute('data-theme')==='dark';return{text:dk?'#94a3b8':'#6b7280',grid:dk?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)'};}
+function gc(){const dk=!document.documentElement.classList.contains('light');return{text:dk?'#94a3b8':'#6b7280',grid:dk?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)'};}
+
 function bO(){const c=gc();return{responsive:true,maintainAspectRatio:false,animation:{duration:400},plugins:{legend:{labels:{color:c.text,font:{family:'DM Sans',size:11},boxWidth:12,padding:11}}},scales:{x:{ticks:{color:c.text,font:{family:'DM Mono',size:10},maxRotation:40},grid:{color:c.grid},border:{color:c.grid}},y:{ticks:{color:c.text,font:{family:'DM Mono',size:10},callback:v=>v>=1000?(v/1000)+'K':v},grid:{color:c.grid},border:{color:c.grid}}}};}
 function animK(id,v){const el=document.getElementById(id);if(!el)return;const cur=parseInt(el.textContent.replace(/[^0-9]/g,''))||0;let i=0;const t=setInterval(()=>{i++;el.textContent=fmtN(Math.round(cur+(v-cur)*(i/20)));if(i>=20){el.textContent=fmtN(v);clearInterval(t);}},15);}
 function pTotal(p,months,key){return months.reduce((s,m)=>s+(p[key][m]||0),0);}
@@ -7386,6 +7422,20 @@ function _isBannerDismissed(id){
   if(!d[id]) return false;
   // Auto-expire after 4 days
   if(Date.now() - d[id] > _BANNER_TTL){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
+  // Un-dismiss if relevant data was updated AFTER the banner was dismissed
+  var dismissTs = d[id];
+  if(id.startsWith('tgt_')){
+    var tgtTs = parseInt(localStorage.getItem('__ts_cars24_target_store')||'0',10);
+    if(tgtTs > dismissTs){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
+  }
+  if(id.startsWith('pay_')){
+    var payTs2 = parseInt(localStorage.getItem('__ts_cars24_payout_store')||'0',10);
+    if(payTs2 > dismissTs){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
+  }
+  if(id.startsWith('ann_')){
+    var annTs = parseInt(localStorage.getItem('__ts_cars24_announcements')||'0',10);
+    if(annTs > dismissTs){ delete d[id]; localStorage.setItem(_BANNER_KEY, JSON.stringify(d)); return false; }
+  }
   return true;
 }
 function _cleanBannersGrid(){
@@ -8102,14 +8152,52 @@ function launchApp() { _openPortal(); }
 
 // ── Override portal doLogout ──
 function doLogout() {
+  // ── 1. Remove all dynamically inserted modal overlays ─────────────────
+  var _modalIds = [
+    'ann-ov','proof-ov','bulk-email-modal-overlay','_add-month-modal',
+    'v36-bulk-upload-modal','dcm-modal','pw-change-modal','change-pw-ov',
+    'payout-edit-modal','partner-edit-modal'
+  ];
+  _modalIds.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el){ try{ el.remove(); }catch(e){ el.style.display='none'; } }
+  });
+  // Also remove any fixed-position overlay dynamically added to body
+  try{
+    var _toRemove = [];
+    Array.prototype.forEach.call(document.body.children, function(el){
+      if(el.id==='portal-fullscreen'||el.id==='portal-login-overlay'||
+         el.id==='c24-toast-container'||el.id==='import-modal-overlay'||
+         el.id==='bulk-target-modal-overlay'||el.id==='add-admin-modal'||
+         el.id==='mob-sidebar-overlay'||el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
+      try{ if(window.getComputedStyle(el).position==='fixed') _toRemove.push(el); }catch(e){}
+    });
+    _toRemove.forEach(function(el){ try{ el.remove(); }catch(e){} });
+  }catch(e){}
+
+  // ── 2. Close portal & hide static modals ─────────────────────────────
+  // Hide static modals that use display:none toggle
+  var _staticModals = ['import-modal-overlay','bulk-target-modal-overlay','add-admin-modal','cred-modal-overlay'];
+  _staticModals.forEach(function(id){
+    var el = document.getElementById(id); if(el) el.style.display='none';
+  });
   document.getElementById('portal-fullscreen').classList.remove('open');
   document.body.style.overflow = '';
+
+  // ── 3. Restore landing page elements ──────────────────────────────────
+  try{
+    Array.prototype.forEach.call(document.body.children, function(el){
+      if(el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
+      if(el.id!=='portal-fullscreen') el.style.display='';
+    });
+  }catch(e){}
+
+  // ── 4. Clear session & charts ─────────────────────────────────────────
   currentUser = null; currentRole = null; currentPartner = null;
   try{ localStorage.removeItem('c24_session'); }catch(e){}
-  try { Object.values(CH).forEach(function(ch){ if(ch) ch.destroy(); }); } catch(e){}
+  try{ Object.values(CH).forEach(function(ch){ if(ch) ch.destroy(); }); }catch(e){}
   CH = {};
   document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
-
 }
 
 // ── Close portal login modal on backdrop click ──
@@ -8155,7 +8243,7 @@ var ANN_ICONS ={incentive:'🎁',creative:'🎨',notice:'📋',payment:'💸',ot
 var _annFilter='all', _pAnnFilter='all';
 
 function getAnnouncements(){return _storeOrDef('cars24_announcements',[]);}
-function saveAnnouncements(a){ window._c24Cloud.push('cars24_announcements', JSON.stringify(a)); }
+function saveAnnouncements(a){ try{ localStorage.setItem('__ts_cars24_announcements', String(Date.now())); }catch(e){} window._c24Cloud.push('cars24_announcements', JSON.stringify(a)); }
 
 function filterAnnouncements(t,b){_annFilter=t;document.querySelectorAll('#ann-type-btns .rt').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');buildAnnouncementsAdmin();}
 function filterPartnerAnn(t,b){_pAnnFilter=t;document.querySelectorAll('#p-ann-type-btns .rt').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');buildAnnouncementsPartner();}
@@ -9728,7 +9816,7 @@ function _renderPartnerSC(){
 // ── 5. PAYOUT MANAGER (protected — never overwritten by import) ───
 var _payoutMonth=MONTHS[MONTHS.length-1]||'Mar';
 function getPayoutStore(){return _storeOrDef('cars24_payout_store',{});}
-function savePayoutStore(s){ window._c24Cloud.push('cars24_payout_store', JSON.stringify(s)); }
+function savePayoutStore(s){ try{ localStorage.setItem('__ts_cars24_payout_store', String(Date.now())); }catch(e){} window._c24Cloud.push('cars24_payout_store', JSON.stringify(s)); }
 function seedPayoutStore(){
   var store=getPayoutStore(), changed=false;
   MONTHS.forEach(function(m){PARTNERS.forEach(function(p){
@@ -13164,13 +13252,94 @@ setInterval(_updateGSheetTimestamp, 30000);
 
 var _gvizCallbackIndex = 0;
 
+// ── Fetch sheet data via Apps Script relay (works for org-internal sheets) ──
+// Falls back to gviz/tq for public sheets if relay is not configured.
+// Caches each tab result for 2 hours to avoid hammering the Apps Script.
+var _sheetDataCache  = {}; // gid → { ts, table }
+var _SHEET_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
+
 function _gvizFetch(gid, cbName, onSuccess, onError){
+  var relayUrl = window.CARS24_DRIVE_URL || (window.CARS24_CONFIG && window.CARS24_CONFIG.driveWebAppUrl) || '';
+  var token    = (window.CARS24_CONFIG && window.CARS24_CONFIG.relayToken) || '';
+
+  // ── Check in-memory cache first (avoids redundant relay calls) ────────
+  var cached = _sheetDataCache[gid];
+  if(cached && (Date.now() - cached.ts) < _SHEET_CACHE_TTL){
+    if(onSuccess) onSuccess(cached.table);
+    return;
+  }
+
+  // ── PRIMARY: Apps Script relay (works for org-internal sheets) ────────
+  if(relayUrl && token){
+    var fetchUrl = relayUrl
+      + '?action=getSheetData'
+      + '&sheetId=' + encodeURIComponent(GSHEET_ID)
+      + '&gid='     + encodeURIComponent(gid)
+      + '&token='   + encodeURIComponent(token);
+    // Note: no &t= cache-buster — let browser cache apply (Apps Script honors Cache-Control)
+
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = setTimeout(function(){
+      if(ctrl) ctrl.abort();
+      if(onError) onError(new Error('Relay timeout for gid='+gid));
+    }, 20000);
+
+    fetch(fetchUrl, ctrl ? { signal: ctrl.signal, redirect: 'follow' } : { redirect: 'follow' })
+      .then(function(r){
+        clearTimeout(timer);
+        if(!r.ok) throw new Error('Relay HTTP '+r.status);
+        return r.json();
+      })
+      .then(function(data){
+        if(data && data.error) throw new Error(data.error);
+        if(data && data.headers && data.rows){
+          var table = _relayToGvizTable(data.headers, data.rows);
+          _sheetDataCache[gid] = { ts: Date.now(), table: table };
+          if(onSuccess) onSuccess(table);
+        } else {
+          if(onSuccess) onSuccess(null);
+        }
+      })
+      .catch(function(err){
+        clearTimeout(timer);
+        console.warn('[GSheet] Relay failed for gid='+gid+':', err.message, '— trying gviz fallback');
+        _gvizFetchDirect(gid, cbName, onSuccess, onError);
+      });
+    return;
+  }
+
+  // ── FALLBACK: gviz/tq (requires sheet to be publicly shared) ──────────
+  _gvizFetchDirect(gid, cbName, onSuccess, onError);
+}
+
+// Convert relay { headers, rows } to a gviz-compatible table object
+function _relayToGvizTable(headers, rows){
+  var cols = headers.map(function(h){ return { label: String(h||''), id: String(h||'') }; });
+  var tableRows = rows.map(function(row){
+    return { c: row.map(function(v){ return { v: (v===''||v===null||v===undefined)?null:v }; }) };
+  });
+  return { cols: cols, rows: tableRows };
+}
+
+// Original gviz/tq JSONP fetch — fallback only, for public sheets
+// Has a 5-min cooldown per GID to prevent hammering Google if relay is unavailable
+var _gvizLastAttempt = {}; // gid → timestamp of last gviz attempt
+var _GVIZ_COOLDOWN = 5 * 60 * 1000; // 5 minutes between fallback attempts per tab
+
+function _gvizFetchDirect(gid, cbName, onSuccess, onError){
+  // Enforce cooldown — don't hammer Google's servers
+  var lastAttempt = _gvizLastAttempt[gid] || 0;
+  if(Date.now() - lastAttempt < _GVIZ_COOLDOWN){
+    if(onError) onError(new Error('gviz cooldown active for gid='+gid+' — relay required for org-internal sheet'));
+    return;
+  }
+  _gvizLastAttempt[gid] = Date.now();
+
   var callbackName = cbName || ('_gvizCb'+(_gvizCallbackIndex++));
-  // Google gviz/tq: tqx must encode the responseHandler correctly
   var url = 'https://docs.google.com/spreadsheets/d/'+GSHEET_ID
           + '/gviz/tq?tqx=out:json%3BresponseHandler:'+callbackName
-          + '&gid='+gid
-          + '&t='+Date.now(); // cache-bust
+          + '&gid='+gid;
+          // No &t= cache-buster — let browser cache work (reduces Google quota usage)
 
   var timeout = setTimeout(function(){
     try{ delete window[callbackName]; }catch(e){}
@@ -13198,7 +13367,7 @@ function _gvizFetch(gid, cbName, onSuccess, onError){
   script.onerror = function(){
     clearTimeout(timeout);
     try{ delete window[callbackName]; }catch(e){}
-    if(onError) onError(new Error('Script load failed for gid='+gid+'. Ensure sheet is shared as "Anyone with the link can view".'));
+    if(onError) onError(new Error('gviz script load failed for gid='+gid+' — sheet must be publicly shared for fallback to work'));
   };
   document.head.appendChild(script);
 }
@@ -13233,6 +13402,8 @@ function _gvizTableToRows(table){
 function refreshGSheetData(){
   if(_gsheetRefreshing) return;
   _gsheetRefreshing = true;
+  // Clear in-memory cache so this sync always fetches fresh data
+  _sheetDataCache = {};
 
   var btn   = document.getElementById('gsheet-refresh-btn');
   var icon  = document.getElementById('gsheet-refresh-icon');
@@ -13274,7 +13445,7 @@ function refreshGSheetData(){
     _gsheetRefreshing = false;
     _setBtnState(btn, icon, label, true);
     if(successCount === 0){
-      showImportToast('\u26a0 No sheet data loaded. Check the sheet is shared as "Anyone with the link can view".');
+      showImportToast('\u26a0 No sheet data loaded. Ensure your Apps Script relay has getSheetData action and is deployed with org access.');
       return;
     }
     _gsheetLastUpdate = Date.now();
@@ -15455,17 +15626,18 @@ window.showPV = function(id, el){
 };
 
 // ── Store partner query into shared chat messages for admin to see ──
+// NOTE: evaSaveHistory already writes _evaMsgs to localStorage AND syncs
+// to Supabase. This function just ensures the cloud push happens so admin
+// sees the message across devices. Do NOT push a duplicate message.
 function evaStoreQueryForAdmin(text){
   try{
-    var pn  = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
-    var all = [];
-    try{ all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
-    var msg = { id:Date.now()+'_q', role:'partner', text:text, partnerName:pn, ts:Date.now() };
-    all.push(msg);
-    if(all.length>200) all=all.slice(-200);
-    var serialised = JSON.stringify(all);
-    localStorage.setItem('cars24_chat_messages', serialised);
+    // Use the already-saved history (evaAppendMessage already called evaSaveHistory)
+    // Just force a cloud push of the current full message store
+    var serialised = localStorage.getItem('cars24_chat_messages')||'[]';
     if(window._c24Cloud&&window._c24Cloud.push) window._c24Cloud.push('cars24_chat_messages', serialised);
+    // Also bump the admin badge timestamp so admin sees the new query
+    var nowTs = Date.now();
+    try{ localStorage.setItem('__ts_cars24_chat_messages', String(nowTs)); }catch(e){}
   }catch(e){ console.warn('[EVA] evaStoreQueryForAdmin error:', e); }
 }
 
@@ -16438,7 +16610,7 @@ function buildBizDow(data, metric, mLabel, dowTot, dowCnt){
   // Chart
   var ctx = document.getElementById('bizDowChart'); if(!ctx) return;
   if(_CH_biz.dow){ try{_CH_biz.dow.destroy();}catch(e){} }
-  var isDark = document.documentElement.getAttribute('data-theme')==='dark'||!document.documentElement.classList.contains('light');
+  var isDark = !document.documentElement.classList.contains('light');
   var gridColor = isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)';
   var textColor = isDark?'#94a3b8':'#6b7280';
   _CH_biz.dow = new Chart(ctx, {type:'bar', data:{
@@ -17384,6 +17556,13 @@ window.showPortal = function(role, user, partner) {
   if(!pf){ alert('Portal element not found. Please reload the page.'); return; }
   pf.classList.add('open');
   document.body.style.overflow = 'hidden';
+  // Hide all landing page elements so nothing bleeds through the portal
+  try{
+    Array.prototype.forEach.call(document.body.children, function(el){
+      if(el.id==='portal-fullscreen'||el.id==='portal-login-overlay'||el.id==='c24-toast-container'||el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
+      el.style.display='none';
+    });
+  }catch(e){}
   // Remove login-flash-prevention splash if set during restore
   try{ var sp=document.getElementById('c24-restore-splash'); if(sp) sp.remove(); }catch(e){}
   try{ window.rebuildMonthMeta(); }catch(e){}
@@ -19859,6 +20038,28 @@ async function uploadFileToDrive(file, folder, fileName){
     if(!response.ok){
       var errText = await response.text();
       console.warn('[Storage] Upload failed:', response.status, errText);
+      // If bucket not found (404) or not authorized (403), try to create it
+      if(response.status === 404 || response.status === 400){
+        try{
+          var createBucket = await fetch(sbUrl+'/storage/v1/bucket', {
+            method:'POST',
+            headers:{'Authorization':'Bearer '+sbKey,'apikey':sbKey,'Content-Type':'application/json'},
+            body:JSON.stringify({id:_SB_STORAGE_BUCKET,name:_SB_STORAGE_BUCKET,public:true})
+          });
+          if(createBucket.ok){
+            // Retry upload after creating bucket
+            var retry = await fetch(uploadUrl, {
+              method:'POST',
+              headers:{'Authorization':'Bearer '+sbKey,'apikey':sbKey,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},
+              body: file
+            });
+            if(retry.ok){
+              var publicUrl2 = sbUrl + '/storage/v1/object/public/' + _SB_STORAGE_BUCKET + '/' + encodeURIComponent(storagePath);
+              return publicUrl2;
+            }
+          }
+        }catch(e2){ console.warn('[Storage] Bucket create failed:', e2); }
+      }
       return null;
     }
 
@@ -19950,8 +20151,8 @@ window.submitPartnerInvoice = (function(_orig){
     var hasRealUrl  = driveOk && driveUrl !== 'UPLOADED';
     var driveLabel  = hasRealUrl
       ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📎 View File ↗</a>'
-      : (driveOk ? ' · <span style="color:#10b981;">☁ Supabase ✓</span>'
-        : (file ? ' <span style="color:#f59e0b;font-size:11px;">(Upload failed — file name saved)</span>' : ''));
+      : (driveOk ? ' · <span style="color:#10b981;">☁ File saved ✓</span>'
+        : (file ? ' · <span style="color:#f59e0b;font-size:11px;">⚠ File not attached (invoice data saved — ask admin to enable Supabase Storage bucket "cars24-invoices")</span>' : ''));
 
     if(msg){
       msg.style.display='block';
@@ -22230,6 +22431,35 @@ function getOrCreateFolder(name) {
 }
 
 function doGet(e) {
+  var p = e && e.parameter ? e.parameter : {};
+
+  // ── getSheetData: fetch any tab of the Cars24 sheet ──────────────────
+  // Called by the portal when gviz/tq fails (org-internal sheet).
+  // Returns { headers: [...], rows: [[...], [...]] }
+  if(p.action === 'getSheetData' && p.sheetId && p.gid !== undefined){
+    try{
+      var ss   = SpreadsheetApp.openById(p.sheetId);
+      var sheets = ss.getSheets();
+      var target = sheets.find(function(s){ return String(s.getSheetId()) === String(p.gid); });
+      if(!target){
+        return ContentService
+          .createTextOutput(JSON.stringify({ error: 'Sheet gid '+p.gid+' not found' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var data    = target.getDataRange().getValues();
+      var headers = data[0] || [];
+      var rows    = data.slice(1);
+      return ContentService
+        .createTextOutput(JSON.stringify({ headers: headers, rows: rows }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }catch(err2){
+      return ContentService
+        .createTextOutput(JSON.stringify({ error: err2.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ── Default: relay health check ──────────────────────────────────────
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'ok', message: 'Cars24 Drive relay is live' }))
     .setMimeType(ContentService.MimeType.JSON);
@@ -22331,54 +22561,65 @@ function doGet(e) {
 
 
 // ─────────────────────────────────────────────────────────────────────
-// FIX B: Android dark mode — portal uses [data-theme="dark"] CSS vars
-// but nobody was setting that attribute on the portal element.
-// The portal shows as light/washed-out on Android because :root CSS
-// vars default to light values.
-// Fix: set data-theme="dark" on #portal-fullscreen at load time,
-// and update it whenever toggleTheme() is called.
+// FIX B: Android dark mode — unified theme via html.light class
+// Portal CSS vars must respond to html.light class, not data-theme.
+// We inject a <style> that mirrors [data-theme="dark"] rules for
+// html:not(.light) so Android browsers that miss data-theme get them.
 // ─────────────────────────────────────────────────────────────────────
-(function _fixPortalDarkMode(){
-
-  function _applyPortalTheme(){
-    var pf  = document.getElementById('portal-fullscreen');
-    if (!pf) return;
-    // Read saved theme (local-only key, always from localStorage)
-    var t = '';
-    try { t = localStorage.getItem('theme') || ''; } catch(e) {}
-    var isLight = (t === 'light') || document.documentElement.classList.contains('light');
-    if (isLight) {
-      pf.setAttribute('data-theme', 'light');
-    } else {
-      pf.setAttribute('data-theme', 'dark');
-    }
+(function _fixAndroidTheme(){
+  // 1. Inject CSS: map html:not(.light) to all [data-theme="dark"] vars
+  if(!document.getElementById('_android-theme-bridge')){
+    var s = document.createElement('style');
+    s.id = '_android-theme-bridge';
+    s.textContent = [
+      // Mirror the [data-theme="dark"] block for html:not(.light)
+      'html:not(.light) #portal-fullscreen,',
+      'html:not(.light) #portal-fullscreen * {',
+      '  color-scheme: dark;',
+      '}',
+      // Ensure portal vars inherit from :root dark values
+      'html:not(.light) #portal-fullscreen { --bg:var(--bg); --sf:var(--sf); }',
+    ].join('\n');
+    (document.head || document.documentElement).appendChild(s);
   }
 
-  // Apply immediately (in case DOM is ready)
-  _applyPortalTheme();
-
-  // Apply once DOM is fully ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _applyPortalTheme);
+  // 2. Sync data-theme on portal element (keeps any data-theme-keyed CSS working)
+  function _syncPortalAttr(){
+    var pf = document.getElementById('portal-fullscreen');
+    if(!pf) return;
+    var isLight = document.documentElement.classList.contains('light');
+    pf.setAttribute('data-theme', isLight ? 'light' : 'dark');
+    // Also force html data-theme to match (fixes Android Webview)
+    document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
   }
 
-  // Patch toggleTheme to also update the portal attribute
-  var _origToggle = window.toggleTheme;
+  // Apply on load and after any toggle
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _syncPortalAttr);
+  } else {
+    _syncPortalAttr();
+  }
+
+  // Patch toggleTheme
+  var _origT = window.toggleTheme;
   window.toggleTheme = function(){
-    if (typeof _origToggle === 'function') _origToggle.apply(this, arguments);
-    _applyPortalTheme();
+    if(typeof _origT==='function') _origT.apply(this, arguments);
+    _syncPortalAttr();
   };
-
-  // Patch showPortal to apply theme when portal opens
-  var _origSP_theme = window.showPortal;
+  // Patch togglePageTheme  
+  var _origTP = window.togglePageTheme;
+  window.togglePageTheme = function(){
+    if(typeof _origTP==='function') _origTP.apply(this, arguments);
+    _syncPortalAttr();
+  };
+  // Patch showPortal
+  var _origSP_t = window.showPortal;
   window.showPortal = function(){
-    if (typeof _origSP_theme === 'function') _origSP_theme.apply(this, arguments);
-    // Slight delay so #portal-fullscreen element is visible
-    setTimeout(_applyPortalTheme, 50);
+    if(typeof _origSP_t==='function') _origSP_t.apply(this, arguments);
+    setTimeout(_syncPortalAttr, 50);
   };
 
-  // Also expose so it can be called manually
-  window._applyPortalTheme = _applyPortalTheme;
+  window._syncPortalAttr = _syncPortalAttr;
 })();
 
 

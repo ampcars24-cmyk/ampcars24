@@ -10180,12 +10180,18 @@ function buildPartnerInvoices(){
     var stBg    = inv.status==='Approved'?'rgba(16,185,129,.1)':inv.status==='Rejected'?'rgba(239,68,68,.08)':'rgba(245,158,11,.08)';
     var statusBadge = '<span style="background:'+stBg+';color:'+stColor+';padding:3px 10px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid '+stColor+'44;">'+stIcon+'</span>';
     var remarkRow = inv.remark ? '<div style="font-size:11px;color:var(--t3);margin-top:3px;">💬 Admin note: '+escH(inv.remark)+'</div>' : '';
+    var fileCell0 = (inv.driveUrl && inv.driveUrl !== 'TOO_LARGE' && inv.driveUrl !== 'UPLOADED')
+      ? '<a href="'+inv.driveUrl+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.18);border-radius:5px;">📎 View File ↗</a>'
+      : (inv.driveUrl === 'UPLOADED' ? '<span style="color:#10b981;font-size:11px;font-weight:600;">☁ Uploaded ✓</span>'
+        : (inv.fileName && inv.fileName !== '—'
+          ? '<div><span style="font-size:12px;color:var(--t2);">📎 '+escH(inv.fileName)+'</span><br><span style="font-size:10px;color:#f59e0b;">⚠ Upload failed — re-submit to attach file</span></div>'
+          : '<span style="color:var(--t3);font-size:11px;">—</span>'));
     return'<tr>'+
       '<td style="font-weight:600">'+(MLABEL[inv.month]||inv.month)+'</td>'+
       '<td style="font-family:DM Mono,monospace;font-size:12px;">'+escH(inv.invNo)+'</td>'+
       '<td class="num" style="font-weight:600;">₹'+(inv.amount||0).toLocaleString()+'</td>'+
       '<td style="color:var(--t3);font-size:12px;">'+inv.submitted+'</td>'+
-      '<td style="font-size:12px;color:var(--t3);">'+escH(inv.fileName||'—')+'</td>'+
+      '<td>'+fileCell0+'</td>'+
       '<td>'+statusBadge+remarkRow+'</td>'+
       '</tr>';
   }).join('');
@@ -10265,6 +10271,12 @@ function renderInvoiceTableAdmin(){
     var st=inv.status==='Approved'?'<span style="color:#10b981;font-weight:700;">✓ Approved</span>'
       :inv.status==='Rejected'?'<span style="color:#ef4444;font-weight:700;">✗ Rejected</span>'
       :'<span style="color:#f59e0b;font-weight:700;">⏳ Pending</span>';
+    var invFileCell = (inv.driveUrl && inv.driveUrl !== 'TOO_LARGE' && inv.driveUrl !== 'UPLOADED')
+      ? '<a href="'+inv.driveUrl+'" target="_blank" style="color:var(--ac);font-size:11px;font-weight:700;text-decoration:none;">📎 View File ↗</a>'
+      : (inv.driveUrl === 'UPLOADED' ? '<span style="color:#10b981;font-size:11px;">☁ Uploaded ✓</span>'
+        : (inv.fileName && inv.fileName !== '—'
+          ? '<div style="font-size:11px;"><span style="color:var(--t2);">📎 '+escH(inv.fileName)+'</span><br><span style="color:#f59e0b;font-size:10px;">⚠ Not uploaded</span></div>'
+          : '—'));
     return`<tr>
       <td style="font-size:11px;color:var(--t3);">${i+1}</td>
       <td style="font-weight:600">${escH(inv.partner)}</td>
@@ -10272,7 +10284,7 @@ function renderInvoiceTableAdmin(){
       <td style="font-family:monospace;font-size:12px;">${escH(inv.invNo)}</td>
       <td class="num">₹${(inv.amount||0).toLocaleString()}</td>
       <td style="color:var(--t3);font-size:12px;">${inv.submitted}</td>
-      <td style="font-size:12px;color:var(--t3);">${escH(inv.fileName||'—')}</td>
+      <td>${invFileCell}</td>
       <td>${st}</td>
       <td style="text-align:center;display:flex;gap:5px;justify-content:center;">
         <button onclick="approveInvoice(${inv.id},'Approved')" style="padding:3px 10px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);color:#10b981;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;">✓</button>
@@ -10318,6 +10330,9 @@ function renderProofTable(){
   var rows=proofs.filter(p=>p.month===_proofMonth&&(!q||p.partner.toLowerCase().includes(q)));
   if(!rows.length){tbl.innerHTML='<tr><td colspan="8" class="empty">No payment proofs for this month.</td></tr>';return;}
   tbl.innerHTML=rows.map(function(pr,i){
+    var pfCell = pr.driveUrl && pr.driveUrl !== 'TOO_LARGE'
+      ? '<a href="'+pr.driveUrl+'" target="_blank" style="color:var(--ac);font-size:11px;font-weight:600;text-decoration:none;">📎 View ↗</a>'
+      : (pr.fileName && pr.fileName !== '—' ? '<span style="font-size:11px;color:var(--t3);">'+escH(pr.fileName)+'</span>' : '—');
     return`<tr>
       <td style="font-size:11px;color:var(--t3);">${i+1}</td>
       <td style="font-weight:600">${escH(pr.partner)}</td>
@@ -10325,7 +10340,7 @@ function renderProofTable(){
       <td class="num">₹${(pr.amount||0).toLocaleString()}</td>
       <td style="font-family:monospace;font-size:12px;">${escH(pr.utr||'—')}</td>
       <td style="color:var(--t3);font-size:12px;">${pr.date||'—'}</td>
-      <td style="font-size:12px;color:var(--t3);">${escH(pr.fileName||'—')}</td>
+      <td>${pfCell}</td>
       <td style="text-align:center"><button onclick="deleteProof(${pr.id})" style="padding:3px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#dc2626;border-radius:5px;font-size:11px;cursor:pointer;">🗑</button></td></tr>`;
   }).join('');
 }
@@ -10395,7 +10410,9 @@ function buildPartnerPayments(){
         <div style="font-size:12px;color:var(--t3);margin-top:3px;">UTR: <span style="font-family:monospace;color:var(--t2)">${escH(pr.utr||'—')}</span> · Date: ${pr.date||'—'}</div></div>
       <div style="font-size:22px;font-weight:800;color:#10b981;">₹${(pr.amount||0).toLocaleString()}</div>
     </div>
-    ${pr.fileName&&pr.fileName!=='—'?`<div style="margin-top:8px;font-size:12px;color:var(--t3);">📎 ${escH(pr.fileName)}</div>`:''}
+    ${pr.driveUrl && pr.driveUrl !== 'TOO_LARGE'
+      ? '<div style="margin-top:8px;"><a href="'+pr.driveUrl+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:600;text-decoration:none;">📎 View Payment Proof ↗</a></div>'
+      : (pr.fileName && pr.fileName !== '—' ? '<div style="margin-top:8px;font-size:12px;color:var(--t3);">📎 '+escH(pr.fileName)+'</div>' : '')}
   </div>`).join('');
 }
 
@@ -12912,12 +12929,17 @@ window.buildPartnerInvoices = function(){
     var stBg    = inv.status==='Approved'?'rgba(16,185,129,.1)':inv.status==='Rejected'?'rgba(239,68,68,.08)':'rgba(245,158,11,.08)';
     var st = '<span style="background:'+stBg+';color:'+stColor+';padding:3px 10px;border-radius:8px;font-size:12px;font-weight:700;">'+stLabel+'</span>';
     var note = inv.remark ? '<div style="font-size:11px;color:var(--t3);margin-top:3px;">💬 '+escH(inv.remark)+'</div>' : '';
+    var fileCell = inv.driveUrl && inv.driveUrl !== 'TOO_LARGE'
+      ? '<a href="'+inv.driveUrl+'" target="_blank" style="color:var(--ac);font-size:11px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:3px;">📎 View File ↗</a>'
+      : (inv.fileName && inv.fileName !== '—'
+          ? '<span style="font-size:11px;color:var(--t3);">'+escH(inv.fileName)+'</span>'
+          : '<span style="color:var(--t3);font-size:11px;">—</span>');
     return '<tr>'+
       '<td style="font-weight:600">'+(window.MLABEL&&window.MLABEL[inv.month]?window.MLABEL[inv.month]:inv.month)+'</td>'+
       '<td style="font-family:monospace;font-size:12px;">'+escH(inv.invNo)+'</td>'+
       '<td style="text-align:right;font-weight:600;">₹'+(inv.amount||0).toLocaleString()+'</td>'+
       '<td style="color:var(--t3);font-size:12px;">'+inv.submitted+'</td>'+
-      '<td style="font-size:12px;color:var(--t3);">'+escH(inv.fileName||'—')+'</td>'+
+      '<td>'+fileCell+'</td>'+
       '<td>'+st+note+'</td>'+
       '</tr>';
   }).join('');
@@ -20100,14 +20122,14 @@ window.submitPartnerInvoice = (function(_orig){
     var fname   = file ? file.name : '—';
     var driveUrl = null;
 
-    // File size guard — 3.5MB max for Apps Script base64 payload
-    if(file && file.size > 3.5 * 1024 * 1024){
-      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB before uploading.');
+    // 10MB max for Supabase Storage
+    if(file && file.size > 10 * 1024 * 1024){
+      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Max 10 MB.');
       return;
     }
 
     if(file){
-      showMsg(true,'⏳ Uploading attachment to Drive…');
+      showMsg(true,'⏳ Uploading file to cloud storage…');
       var driveName = 'INV_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+invNo+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+fname.split('.').pop();
       // Stash metadata so uploadFileToDrive can include it in the log
       window._lastInvMonth  = fullMo;
@@ -20135,13 +20157,12 @@ window.submitPartnerInvoice = (function(_orig){
     if(fileEl) fileEl.value='';
     var fn=document.getElementById('p-inv-fname'); if(fn) fn.textContent='No file';
 
-    // driveUrl can be: a real URL string, 'UPLOADED' (no-cors fire), 'TOO_LARGE', or null
-    var driveOk     = driveUrl && driveUrl !== 'TOO_LARGE' && driveUrl !== null;
-    var hasRealUrl  = driveOk && driveUrl !== 'UPLOADED';
-    var driveLabel  = hasRealUrl
-      ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📂 View in Drive ↗</a>'
-      : (driveOk ? ' · <span style="color:#10b981;">📂 Drive ✓</span>'
-        : (file ? ' <span style="color:#f59e0b;font-size:11px;">(Drive upload failed — file name saved)</span>' : ''));
+    var uploaded   = driveUrl && driveUrl !== 'TOO_LARGE';
+    var hasLink    = uploaded && driveUrl !== 'UPLOADED';
+    var driveLabel = hasLink
+      ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📎 View File ↗</a>'
+      : (uploaded ? ' · <span style="color:#10b981;">☁ File uploaded ✓</span>'
+        : (file ? ' · <span style="color:#f59e0b;font-size:11px;">⚠ Upload failed — check Supabase storage</span>' : ''));
 
     if(msg){
       msg.style.display='block';
@@ -20152,8 +20173,8 @@ window.submitPartnerInvoice = (function(_orig){
       setTimeout(function(){ msg.style.display='none'; }, 7000);
     }
     if(typeof window.buildPartnerInvoices==='function') window.buildPartnerInvoices();
-    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(driveOk?' · Drive ✓':''));
-    if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · Drive:'+driveUrl:''));
+    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(uploaded?' · File ✓':''));
+    if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · '+driveUrl:''));
   };
 })(window.submitPartnerInvoice);
 
@@ -20185,13 +20206,14 @@ window.buildPartnerInvoices = (function(){
         : inv.status==='Rejected'
         ? '<span style="color:#ef4444;font-weight:700;">✗ Rejected'+(inv.remark?' — '+inv.remark:'')+'</span>'
         : '<span style="color:#f59e0b;font-weight:700;">⏳ Pending</span>';
-      var fileCell = inv.driveUrl && inv.driveUrl !== 'UPLOADED'
-        ? '<a href="'+inv.driveUrl+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.2);border-radius:5px;">📎 View File</a>'
-        : (inv.driveUrl === 'UPLOADED'
-          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">📂 In Drive ✓</span>'
+      var _du = inv.driveUrl || '';
+      var fileCell = (_du && _du !== 'TOO_LARGE' && _du !== 'UPLOADED')
+        ? '<a href="'+_du+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.2);border-radius:5px;">📎 View File ↗</a>'
+        : (_du === 'UPLOADED'
+          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">☁ Uploaded ✓</span>'
           : (inv.fileName && inv.fileName!=='—'
-            ? '<span style="font-size:11px;color:var(--t3);">📎 '+inv.fileName+'<br><span style="font-size:10px;color:#f59e0b;">Not uploaded to Drive</span></span>'
-            : '—'));
+            ? '<div><span style="font-size:12px;color:var(--t2);">📎 '+inv.fileName+'</span><br><span style="font-size:10px;color:#f59e0b;">⚠ Not uploaded — check storage</span></div>'
+            : '<span style="color:var(--t3);">—</span>'));
       return '<tr>'
         +'<td>'+(window.MLABEL&&window.MLABEL[inv.month]?window.MLABEL[inv.month]:inv.fullMonth||inv.month)+'</td>'
         +'<td style="font-size:12px;font-weight:600;">'+inv.invNo+'</td>'

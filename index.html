@@ -40,7 +40,8 @@ const CARS24_CONFIG = {
   // ── Google Drive Upload Relay ──────────────────────────────────────────
   // Still used ONLY for file uploads (invoices, payment proofs) to Drive.
   // Cross-device DATA sync now runs through Supabase instead.
-  driveWebAppUrl: 'https://script.google.com/macros/s/AKfycbxrPsPwqTO1QqYnmVvNscRFaeDCJ2XSFbnehrCyuai6K83Hx1wlhcGRVShYg38KI2g/exec'
+  driveWebAppUrl: 'https://script.google.com/a/macros/cars24.com/s/AKfycbyuQV0lCs8xscLkFsRHp_Ang1pFvMSySmSv7uBsGVgfAG3TjPaNwgJ3-Sy0-80bV98BqQ/exec',
+  relayToken: 'c24_CHANGE_ME_NOW_987654'  // ⚠️ must match SECRET_TOKEN in Cars24_Relay_v4.gs
 };
 
 // Wire Drive URL into upload helper (file uploads only — not used for data sync)
@@ -3109,6 +3110,7 @@ function navScrollTo(id) {
       <div class="ng">
         <div class="ngl">Finance</div>
         <div class="ni" onclick="showV('payouts',this)" id="nav-admin-payouts"><span class="nic">💰</span>Payout Manager<span class="c24-nb" id="nb-admin-payouts" style="display:none"></span></div>
+        <div class="ni" onclick="showV('provision',this)" id="nav-admin-provision"><span class="nic">📋</span>Provision Tracker</div>
         <div class="ni" onclick="showV('invoices',this)" id="nav-admin-invoices"><span class="nic">🧾</span>Invoice Manager<span class="c24-nb" id="nb-admin-invoices" style="display:none"></span></div>
         <div class="ni" onclick="showV('payments',this)" id="nav-admin-payments"><span class="nic">✅</span>Payment Proofs<span class="c24-nb" id="nb-admin-payments" style="display:none"></span></div>
         <div class="ni" onclick="showV('targets',this)" id="nav-admin-targets"><span class="nic">🎯</span>Targets<span class="c24-nb" id="nb-admin-targets" style="display:none"></span></div>
@@ -3256,12 +3258,23 @@ function navScrollTo(id) {
           <div class="kc ca"><div class="kl">Active Partners</div><div class="kv" id="k-active">53</div><div class="ks" id="ks-active">of 94 total</div></div>
           <div class="kc cr"><div class="kl">Total Payout</div><div class="kv" id="k-payout">—</div><div class="ks" id="ks-payout">—</div></div>
         </div>
-        <div class="cc">
-          <div class="ch">
-            <div><div class="cti">Monthly Performance</div><div class="csu" id="chart-sub">Grand totals · all periods</div></div>
-            <div class="ctg"><button class="ctb active" id="ctbar" onclick="setCT('bar')">Bar</button><button class="ctb" id="ctline" onclick="setCT('line')">Line</button></div>
+        <!-- Funnel KPI grid + top-partner insights replacing the chart -->
+        <div class="cc" id="dash-funnel-card" style="margin-bottom:14px;">
+          <div class="ch" style="margin-bottom:12px;">
+            <div><div class="cti">Conversion Funnel</div><div class="csu" id="chart-sub">Grand totals · all periods</div></div>
+            <span id="funnel-period-badge" style="font-size:11px;color:var(--t3);font-weight:600;"></span>
           </div>
-          <div class="cw"><canvas id="monthlyChart"></canvas></div>
+          <div id="dash-funnel-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.6px;margin-bottom:8px;">TOP 5 PARTNERS · LEADS</div>
+              <div id="dash-top-leads" style="display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.6px;margin-bottom:8px;">TOP 5 PARTNERS · INSPECTIONS</div>
+              <div id="dash-top-insps" style="display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+          </div>
         </div>
         <div class="tc">
           <div class="tch">
@@ -3273,6 +3286,43 @@ function navScrollTo(id) {
           </div>
           <div class="tw" id="ptbl-wrap">
             <table id="ptbl-table"><thead id="ptbl-thead"><tr><th>#</th><th>Partner Name</th><th>Status</th><th class="num">Leads</th><th class="num">Appointments</th><th class="num">Inspections</th><th class="num">Stock-ins</th><th class="num">Payout</th><th class="num">Conv%</th></tr></thead><tbody id="ptbl"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROVISION TRACKER -->
+      <div class="view" id="view-provision">
+        <div class="ph" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div class="pt">📋 Provision Tracker</div>
+            <div class="ps">Track provision vs payout per partner · gap, overhit &amp; available reversal</div>
+            <div style="margin-top:6px;font-size:11px;color:var(--t3);background:rgba(79,70,229,.06);border:1px solid rgba(79,70,229,.18);border-radius:6px;padding:7px 12px;max-width:680px;line-height:1.5;">
+              💡 <strong>Gap = Provision − Payout.</strong> Positive → Available reversal. Negative → Overhit (payout exceeded provision).
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="exportProvisionCSV()" style="background:var(--sf);border:1px solid var(--bd);color:var(--t2);border-radius:8px;padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;">⬇ Export CSV</button>
+            <button onclick="buildProvisionTable()" style="background:rgba(79,70,229,.1);border:1px solid rgba(79,70,229,.25);color:#818cf8;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;">↻ Refresh</button>
+          </div>
+        </div>
+        <!-- KPI strip -->
+        <div class="vg" id="provision-kpis" style="margin-bottom:14px;grid-template-columns:repeat(4,1fr);"></div>
+        <!-- Month filter -->
+        <div class="fb" style="margin-bottom:12px">
+          <div class="fbrow" style="gap:8px;flex-wrap:wrap;align-items:center;">
+            <span class="rl">Month:</span>
+            <div class="rts" id="provision-month-btns"></div>
+            <input class="srch" id="provision-search" placeholder="🔍 Search partner…" oninput="buildProvisionTable()" style="width:200px;margin-left:8px;">
+          </div>
+        </div>
+        <div class="tc">
+          <div class="tch"><div class="tct">Provision Register</div><span id="provision-tbl-sub" style="font-size:11px;color:var(--t3)"></span></div>
+          <div class="tw">
+            <table><thead><tr>
+              <th>#</th><th>Partner</th><th>Month</th>
+              <th class="num">Provision (₹)</th><th class="num">Payout (₹)</th>
+              <th class="num">Gap (₹)</th><th class="num">Reversal Used (₹)</th><th>Status</th><th>Actions</th>
+            </tr></thead><tbody id="provision-tbl"></tbody></table>
           </div>
         </div>
       </div>
@@ -5406,9 +5456,29 @@ function rebuildMonthMeta(){
   // L7/L14/L30 use DOD_D slice totals (static approximation — keep previous logic)
   var dLen = typeof DOD_D !== 'undefined' ? DOD_D.leads.length : 0;
   function dodSum(key,n){ return typeof DOD_D!=='undefined'?DOD_D[key].slice(-n).reduce(function(a,b){return a+b;},0):0; }
-  PERIOD.l7  = {leads:dodSum('leads',7), appts:dodSum('appts',7), insps:dodSum('insps',7), stocks:dodSum('stocks',7), payout:0};
-  PERIOD.l14 = {leads:dodSum('leads',14),appts:dodSum('appts',14),insps:dodSum('insps',14),stocks:dodSum('stocks',14),payout:0};
-  PERIOD.l30 = {leads:dodSum('leads',30),appts:dodSum('appts',30),insps:dodSum('insps',30),stocks:dodSum('stocks',30),payout:0};
+  // L7/L14/L30: use DOD slice if available, else fall back to latest month(s) from PARTNERS
+  function _periodForRange(days){
+    var dLen = typeof DOD_D!=='undefined' ? DOD_D.leads.length : 0;
+    if(dLen >= days){
+      return {leads:dodSum('leads',days),appts:dodSum('appts',days),insps:dodSum('insps',days),stocks:dodSum('stocks',days),payout:0};
+    }
+    // Fallback: use last 1-2 months from PARTNERS proportionally
+    var fraction = days / 30;
+    var mList = MONTHS.slice(-2);
+    var tL=0,tA=0,tI=0,tS=0,tP=0;
+    var _Pf=(typeof PARTNERS!=='undefined'&&Array.isArray(PARTNERS))?PARTNERS:[];
+    mList.forEach(function(m){ _Pf.forEach(function(p){
+      tL+=(p.leads&&p.leads[m]||0); tA+=(p.appts&&p.appts[m]||0);
+      tI+=(p.insps&&p.insps[m]||0); tS+=(p.stocks&&p.stocks[m]||0);
+      tP+=(p.payout&&p.payout[m]||0);
+    }); });
+    var n = mList.length || 1;
+    return {leads:Math.round(tL/n*fraction),appts:Math.round(tA/n*fraction),
+            insps:Math.round(tI/n*fraction),stocks:Math.round(tS/n*fraction),payout:Math.round(tP/n*fraction)};
+  }
+  PERIOD.l7  = _periodForRange(7);
+  PERIOD.l14 = _periodForRange(14);
+  PERIOD.l30 = _periodForRange(30);
 
   // RMETA
   var firstLabel = MLABEL[MONTHS[0]] || MONTHS[0];
@@ -5428,9 +5498,9 @@ function rebuildMonthMeta(){
         return days+' days';
       })(),
       months:MONTHS.slice()},
-    l7:  {label:'L7 · Last 7 Days',  days:'7 days',  months:null},
-    l14: {label:'L14 · Last 14 Days', days:'14 days', months:null},
-    l30: {label:'L30 · Last 30 Days', days:'30 days', months:null},
+    l7:  {label:'L7 · Last 7 Days',  days:'7 days',  months:[lastM]},
+    l14: {label:'L14 · Last 14 Days', days:'14 days', months:[lastM]},
+    l30: {label:'L30 · Last 30 Days', days:'30 days', months:MONTHS.length>1?[MONTHS[MONTHS.length-2],lastM]:[lastM]},
     mtd: {label:'MTD · '+lastLabel,   days:'MTD',     months:[lastM]},
   };
   MONTHS.forEach(function(m){
@@ -5455,6 +5525,8 @@ function rebuildMonthMeta(){
   }
   // Refresh year filters across all views
   try{ if(typeof c24YearFilter!=='undefined') setTimeout(function(){ c24YearFilter.applyAll(); }, 50); }catch(e){}
+  // Refresh provision month buttons if view is open
+  try{ if(typeof buildProvisionMonthBtns==='function') buildProvisionMonthBtns(); }catch(e){}
 }
 
 // ─── _shortLabel — abbreviate "May 2025" → "May'25", "Jan 2026" → "Jan'26" ───
@@ -5629,7 +5701,7 @@ function _rebuildDashboardLabels(){
 rebuildMonthMeta();
 
 // State
-var CH={}, chartType='bar', dodMetric='leads', dodDays=30, wowM='leads', sdcM='leads';
+var CH={}, chartType='bar', dodMetric='leads', dodDays=999, wowM='leads', sdcM='leads';
 var curRange='all', curStatus='', curSearch='', sortCol='leads';
 var funnelR='all', mtdCur, mtdPrev;
 var currentUser=null, currentRole=null, currentPartner=null;
@@ -5801,7 +5873,23 @@ function doLogin(){
 }
 
 
+import { PushNotifications } from '@capacitor/push-notifications';
 
+// Request permission
+PushNotifications.requestPermissions().then(result => {
+  if (result.receive === 'granted') {
+    PushNotifications.register();
+  }
+});
+
+// Listen for incoming notifications
+PushNotifications.addListener('pushNotificationReceived', notification => {
+  console.log('Push received: ', notification);
+});
+
+PushNotifications.addListener('pushNotificationActionPerformed', notification => {
+  console.log('Push action performed: ', notification);
+});
 
 
 // ════════════════════════════════════════════════
@@ -5826,6 +5914,12 @@ function triggerView(id){
   if(id==='funnel'){buildFunnelPeriodBtns();buildFSteps();buildFChart();}
   if(id==='dod'){
     buildDodMonthBtns();
+    // Auto-select all days when data exists
+    if(typeof DOD_DATES!=='undefined' && DOD_DATES.length > 0 && dodDays < DOD_DATES.length){
+      dodDays = 999;
+      var _dsel = document.getElementById('dod-days-sel');
+      if(_dsel) _dsel.value = '999';
+    }
     // Populate partner selector
     var pSel=document.getElementById('dod-partner-sel');
     if(pSel && PARTNERS && PARTNERS.length){
@@ -5863,6 +5957,7 @@ function triggerView(id){
   }
   if(id==='announcements')buildAnnouncementsAdmin();
   if(id==='payouts'){buildPayoutMonthBtns();renderPayoutTable();}
+  if(id==='provision'){buildProvisionTable();}
   if(id==='invoices'){buildInvMonthBtnsAdmin();renderInvoiceTableAdmin();}
   if(id==='payments'){buildProofMonthBtns();renderProofTable();}
   if(id==='reports'){/* static */}
@@ -5960,8 +6055,67 @@ function updateDashboard(){
   var ksa=document.getElementById('ks-appts'); if(ksa) ksa.textContent=fmtN(pd.appts)+' · '+pct(pd.appts,pd.leads)+'% of leads';
   var ksi=document.getElementById('ks-insps'); if(ksi) ksi.textContent=fmtN(pd.insps)+' · '+pct(pd.insps,pd.leads)+'% of leads';
   var kss=document.getElementById('ks-stocks'); if(kss) kss.textContent=pd.stocks+' · '+pct(pd.stocks,pd.insps)+'% of insps';
-  var ksp=document.getElementById('ks-payout'); if(ksp) ksp.textContent=pd.payout>0?rm.label:'N/A for DOD range';
-  buildMonthlyChart(); buildPartnerTable();
+  var ksp=document.getElementById('ks-payout'); if(ksp) ksp.textContent=pd.payout>0?rm.label:'—';
+  buildDashFunnelCard(); buildPartnerTable();
+}
+
+function buildDashFunnelCard(){
+  var rm  = RMETA[curRange]||RMETA['all']||{label:'All',months:MONTHS.slice()};
+  var pd  = PERIOD[curRange]||PERIOD['all']||{leads:0,appts:0,insps:0,stocks:0,payout:0};
+  var months = rm.months || MONTHS.slice(-1);
+  var sub = document.getElementById('chart-sub');
+  if(sub) sub.textContent = 'Period: ' + rm.label;
+  var fp  = document.getElementById('funnel-period-badge');
+  if(fp)  fp.textContent  = rm.label;
+
+  // Funnel KPI grid
+  var fkpis = document.getElementById('dash-funnel-kpis');
+  if(fkpis){
+    var L=pd.leads||0, A=pd.appts||0, I=pd.insps||0, S=pd.stocks||0, P=pd.payout||0;
+    var l2a = L>0?(A/L*100).toFixed(1):'—';
+    var l2i = L>0?(I/L*100).toFixed(1):'—';
+    var i2s = I>0?(S/I*100).toFixed(1):'—';
+    var cpi  = S>0&&P>0?(P/S).toFixed(0):'—';
+    fkpis.innerHTML = [
+      {l:'Total Leads',    v:fmtN(L), s:rm.label,                     c:'#6366f1',bg:'rgba(99,102,241,.08)'},
+      {l:'Appointments',   v:fmtN(A), s:l2a+'% of leads (L→A)',       c:'#06b6d4',bg:'rgba(6,182,212,.08)'},
+      {l:'Inspections',    v:fmtN(I), s:l2i+'% of leads (L→I)',       c:'#10b981',bg:'rgba(16,185,129,.08)'},
+      {l:'Stock-ins',      v:S.toLocaleString(), s:i2s+'% of insps (I→SI)', c:'#f59e0b',bg:'rgba(245,158,11,.08)'},
+      {l:'Total Payout',   v:P>0?fmtL(P):'—',  s:cpi!=='—'?'₹'+Number(cpi).toLocaleString()+' CPI':'—', c:'#8b5cf6',bg:'rgba(139,92,246,.08)'},
+    ].map(function(x){
+      return '<div style="background:'+x.bg+';border-radius:10px;padding:12px 14px;border-left:3px solid '+x.c+';">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.5px;margin-bottom:4px;">'+x.l.toUpperCase()+'</div>'
+        +'<div style="font-size:20px;font-weight:800;color:'+x.c+';">'+x.v+'</div>'
+        +'<div style="font-size:10px;color:var(--t3);margin-top:2px;">'+x.s+'</div>'
+        +'</div>';
+    }).join('');
+  }
+
+  // Top 5 by Leads
+  var tl = document.getElementById('dash-top-leads');
+  var ti = document.getElementById('dash-top-insps');
+  if(tl||ti){
+    var ranked = (PARTNERS||[]).map(function(p){
+      var l=0,i=0;
+      months.forEach(function(m){ l+=(p.leads&&p.leads[m])||0; i+=(p.insps&&p.insps[m])||0; });
+      return {name:p.name, leads:l, insps:i};
+    });
+    var byLeads = ranked.slice().sort(function(a,b){return b.leads-a.leads;}).slice(0,5);
+    var byInsps = ranked.slice().sort(function(a,b){return b.insps-a.insps;}).slice(0,5);
+    var maxL = byLeads[0]?byLeads[0].leads:1;
+    var maxI = byInsps[0]?byInsps[0].insps:1;
+    function barRow(p,val,max,col){
+      var pct = max>0?Math.round(val/max*100):0;
+      return '<div style="margin-bottom:4px;">'
+        +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">'
+        +'<span style="font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%">'+p+'</span>'
+        +'<span style="font-weight:700;color:'+col+';">'+val.toLocaleString()+'</span></div>'
+        +'<div style="height:5px;background:var(--bd);border-radius:3px;">'
+        +'<div style="height:5px;width:'+pct+'%;background:'+col+';border-radius:3px;transition:width .3s;"></div></div></div>';
+    }
+    if(tl) tl.innerHTML = byLeads.map(function(p){ return barRow(p.name,p.leads,maxL,'#6366f1'); }).join('');
+    if(ti) ti.innerHTML = byInsps.map(function(p){ return barRow(p.name,p.insps,maxI,'#10b981'); }).join('');
+  }
 }
 
 var _partnerTableView = 'compact'; // 'compact' | 'detail'
@@ -5985,7 +6139,11 @@ function buildPartnerTable(){
   var months=rm.months; var isDod=!months;
   var showDetail = (_partnerTableView === 'detail');
   let rows=PARTNERS.filter(p=>(!curStatus||p.status===curStatus)&&(!curSearch||p.name.toLowerCase().includes(curSearch.toLowerCase())));
-  if(isDod){document.getElementById('ptbl').innerHTML=`<tr><td colspan="9" class="empty">📊 Per-partner breakdown not available for L7/L14/L30 ranges.<br>Use ${MONTHS.join(' / ')} or All.</td></tr>`;document.getElementById('tbl-sub').textContent='Period: '+rm.label+' (DOD range)';return;}
+  if(isDod){
+    // isDod means months:null (shouldn't happen after fix, but fallback)
+    var fallbackMonths = MONTHS.slice(-1);
+    months = fallbackMonths;
+  }
 
   // Update table headers
   var thead = document.getElementById('ptbl-thead');
@@ -6092,6 +6250,7 @@ function buildPartnerTable(){
 }
 
 function buildMonthlyChart(){
+  // Chart replaced by funnel card — no-op
   const ctx=document.getElementById('monthlyChart');if(!ctx)return;
   if(CH.mc)CH.mc.destroy();
   const months=(RMETA[curRange].months||MONTHS);
@@ -6296,6 +6455,11 @@ function _getDodSlice(){
 }
 
 function buildDodStats(){
+  // Auto-set to all available data on first call
+  if(dodDays===999 && DOD_DATES.length > 0){
+    var sel = document.getElementById('dod-days-sel');
+    if(sel) sel.value = '999';
+  }
   // Update overview banner
   var bannerDates = document.getElementById('dod-banner-dates');
   var bannerDays  = document.getElementById('dod-banner-days');
@@ -9597,6 +9761,164 @@ function exportPayoutCSV(){
   var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='cars24_payouts.csv';a.click();
 }
 
+// ════════════════════════════════════════════════════════════════
+// PROVISION TRACKER
+// ════════════════════════════════════════════════════════════════
+var _provisionMonth = '';
+
+function getProvisionStore(){ return _storeOrDef('cars24_provision_store', {}); }
+function saveProvisionStore(s){
+  localStorage.setItem('cars24_provision_store', JSON.stringify(s));
+  if(window._c24Cloud&&window._c24Cloud.push) window._c24Cloud.push('cars24_provision_store', JSON.stringify(s));
+}
+
+function buildProvisionMonthBtns(){
+  var wrap = document.getElementById('provision-month-btns'); if(!wrap) return;
+  var months = (window.MONTHS && window.MONTHS.length) ? window.MONTHS.slice() : [];
+  if(!_provisionMonth || months.indexOf(_provisionMonth)<0)
+    _provisionMonth = months[months.length-1] || '';
+  wrap.innerHTML = '';
+  months.forEach(function(m){
+    var btn = document.createElement('button');
+    btn.className = 'rt'+(m===_provisionMonth?' active':'');
+    btn.textContent = (window.MLABEL&&window.MLABEL[m])||m;
+    btn.onclick = (function(mm){ return function(){
+      _provisionMonth = mm;
+      wrap.querySelectorAll('.rt').forEach(function(x){x.classList.remove('active');});
+      this.classList.add('active');
+      buildProvisionTable();
+    }; })(m);
+    wrap.appendChild(btn);
+  });
+}
+
+function buildProvisionTable(){
+  if(!_provisionMonth && window.MONTHS && window.MONTHS.length)
+    _provisionMonth = window.MONTHS[window.MONTHS.length-1];
+  buildProvisionMonthBtns();
+
+  var store    = getProvisionStore();
+  var payStore = (typeof getPayoutStore==='function') ? getPayoutStore() : {};
+  var q        = (document.getElementById('provision-search')||{value:''}).value.toLowerCase();
+  var tbl      = document.getElementById('provision-tbl'); if(!tbl) return;
+  var month    = _provisionMonth;
+  var partners = (window.PARTNERS||[]).filter(function(p){
+    return !q || p.name.toLowerCase().includes(q);
+  });
+
+  var totProv=0, totPay=0, totGap=0, totRev=0;
+  var rows = '';
+  var idx  = 0;
+
+  partners.forEach(function(p){
+    var key     = p.name+'__'+month;
+    var entry   = store[key] || {};
+    var payout  = (payStore[key]&&payStore[key].amount) || (p.payout&&p.payout[month]) || 0;
+    var prov    = entry.provision || 0;
+    var revUsed = entry.reversalUsed || 0;
+    var gap     = prov - payout;
+    var effGap  = gap + revUsed;
+
+    totProv += prov; totPay += payout; totGap += gap; totRev += revUsed;
+    idx++;
+
+    var gapColor = effGap >= 0 ? '#10b981' : '#ef4444';
+    var gapLabel = effGap >= 0
+      ? '<span style="color:#10b981;font-weight:700;">+'+fmtL(effGap)+' Available</span>'
+      : '<span style="color:#ef4444;font-weight:700;">'+fmtL(Math.abs(effGap))+' Overhit</span>';
+
+    var statusBadge = prov===0
+      ? '<span style="background:rgba(156,163,175,.15);color:var(--t3);padding:2px 8px;border-radius:10px;font-size:11px;">No Provision</span>'
+      : effGap >= 0
+        ? '<span style="background:rgba(16,185,129,.12);color:#10b981;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">✓ OK</span>'
+        : '<span style="background:rgba(239,68,68,.1);color:#ef4444;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">⚠ Overhit</span>';
+
+    var _pn = escH(p.name);
+    var _mo = ((window.MLABEL&&window.MLABEL[month])||month);
+    var _inp = 'padding:4px 8px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;background:var(--bg);color:var(--tx);text-align:right;outline:none;';
+    rows += '<tr>'
+      +'<td style="font-size:11px;color:var(--t3);">'+idx+'</td>'
+      +'<td style="font-weight:600;">'+_pn+'</td>'
+      +'<td style="font-size:11px;color:var(--t2);">'+_mo+'</td>'
+      +'<td class="num"><input type="number" min="0" value="'+prov+'" style="width:110px;'+_inp+'" oninput="_provUpdate(this)" data-pn="'+_pn+'" data-mo="'+month+'" data-fld="provision"></td>'
+      +'<td class="num" style="font-weight:700;color:var(--ac);">'+fmtL(payout)+'</td>'
+      +'<td class="num">'+gapLabel+'</td>'
+      +'<td class="num"><input type="number" min="0" value="'+revUsed+'" style="width:90px;'+_inp+'" oninput="_provUpdate(this)" data-pn="'+_pn+'" data-mo="'+month+'" data-fld="reversalUsed"></td>'
+      +'<td>'+statusBadge+'</td>'
+      +'<td><button onclick="_provClear(this)" data-pn="'+_pn+'" data-mo="'+month+'" style="font-size:10px;padding:3px 8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;border-radius:5px;cursor:pointer;">Clear</button></td>'
+      +'</tr>';
+  });
+
+  tbl.innerHTML = '<tr class="sumrow">'
+    +'<td colspan="3">Grand Total ('+idx+' partners)</td>'
+    +'<td class="num" style="font-weight:700;">'+fmtL(totProv)+'</td>'
+    +'<td class="num" style="font-weight:700;color:var(--ac);">'+fmtL(totPay)+'</td>'
+    +'<td class="num" style="font-weight:700;color:'+(totGap>=0?'#10b981':'#ef4444')+';">'+fmtL(totGap)+'</td>'
+    +'<td class="num">'+fmtL(totRev)+'</td>'
+    +'<td colspan="2"></td></tr>'
+    + rows;
+
+  // KPI strip
+  var kpis = document.getElementById('provision-kpis');
+  if(kpis){
+    var avail  = Math.max(0, totGap + totRev);
+    var overhit= Math.abs(Math.min(0, totGap + totRev));
+    kpis.innerHTML = [
+      {l:'Total Provision', v:fmtL(totProv), s:'Set for '+idx+' partners',                c:'cb'},
+      {l:'Total Payout',    v:fmtL(totPay),  s:'From Payout Manager',                    c:'ct'},
+      {l:'Net Gap',         v:fmtL(totProv-totPay), s:totGap>=0?'Under budget':'Over budget', c:'cp'},
+      {l:'Available Reversal',v:fmtL(avail), s:'Can carry forward',                      c:'cg'},
+    ].map(function(x){
+      return '<div class="vc"><div class="vt">'+x.l+'</div><div class="vv" style="font-size:22px;">'+x.v+'</div><div class="vs">'+x.s+'</div></div>';
+    }).join('');
+  }
+
+  var sub = document.getElementById('provision-tbl-sub');
+  if(sub) sub.textContent = ((window.MLABEL&&window.MLABEL[month])||month)+' · '+idx+' partners';
+}
+
+function updateProvision(name, month, field, val){
+  var store = getProvisionStore();
+  var key   = name+'__'+month;
+  if(!store[key]) store[key] = {provision:0, reversalUsed:0};
+  store[key][field] = parseInt(val)||0;
+  saveProvisionStore(store);
+}
+function _provUpdate(el){ updateProvision(el.dataset.pn, el.dataset.mo, el.dataset.fld, el.value); }
+function _provClear(el){ clearProvision(el.dataset.pn, el.dataset.mo); }
+
+function clearProvision(name, month){
+  var store = getProvisionStore();
+  var key   = name+'__'+month;
+  delete store[key];
+  saveProvisionStore(store);
+  buildProvisionTable();
+}
+
+function exportProvisionCSV(){
+  var store    = getProvisionStore();
+  var payStore = (typeof getPayoutStore==='function') ? getPayoutStore() : {};
+  var rows     = [['Partner','Month','Provision (₹)','Payout (₹)','Gap (₹)','Reversal Used (₹)','Status']];
+  (window.MONTHS||[]).forEach(function(m){
+    (window.PARTNERS||[]).forEach(function(p){
+      var key    = p.name+'__'+m;
+      var entry  = store[key]||{};
+      var payout = (payStore[key]&&payStore[key].amount)||(p.payout&&p.payout[m])||0;
+      var prov   = entry.provision||0;
+      var rev    = entry.reversalUsed||0;
+      var gap    = prov - payout;
+      var status = prov===0?'No Provision':gap+rev>=0?'OK':'Overhit';
+      rows.push([p.name,(window.MLABEL&&window.MLABEL[m])||m,prov,payout,gap,rev,status]);
+    });
+  });
+  var csv = rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download = 'cars24_provision.csv'; a.click();
+}
+
+
+
 // ── 6. INVOICES ───────────────────────────────────────────────────
 var _invMonthAdmin=MONTHS[MONTHS.length-1]||'Mar';
 function getInvoices(){return _storeOrDef('cars24_invoices',[]);}
@@ -12412,12 +12734,30 @@ function buildDashboardProjection(){
   monthRows.sort(function(a,b){ return a.date<b.date?-1:1; });
 
   if(!monthRows.length){
-    var tbody0 = document.getElementById('dash-proj-tbody');
-    if(tbody0) tbody0.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">No daily data synced for this month. Click "Sync Google Sheet" to load Overview tab data.</td></tr>';
-    var meta0 = document.getElementById('dash-proj-meta');
-    if(meta0) meta0.textContent='No data — sync GSheet Overview tab';
-    var cards0 = document.getElementById('dash-proj-cards');
-    if(cards0) cards0.innerHTML='';
+    // Fallback: use PERIOD data for this month to show estimated projection
+    var pd0 = PERIOD[selMonth];
+    if(pd0 && (pd0.leads||pd0.insps)){
+      var meta0 = document.getElementById('dash-proj-meta');
+      if(meta0) meta0.textContent='Using monthly totals (sync GSheet Overview tab for day-level projection)';
+      var cards0 = document.getElementById('dash-proj-cards');
+      if(cards0) cards0.innerHTML = [
+        {l:'Total Leads (Month)',   v:(pd0.leads||0).toLocaleString(),  s:'Full month total',  c:'rgba(99,102,241,.1)'},
+        {l:'Total Inspections',     v:(pd0.insps||0).toLocaleString(),  s:'L→I: '+(pd0.leads>0?(pd0.insps/pd0.leads*100).toFixed(1)+'%':'—'), c:'rgba(16,185,129,.1)'},
+        {l:'Stock-ins',             v:(pd0.stocks||0).toLocaleString(), s:'I→SI: '+(pd0.insps>0?(pd0.stocks/pd0.insps*100).toFixed(1)+'%':'—'), c:'rgba(245,158,11,.1)'},
+        {l:'Payout',                v:pd0.payout>0?fmtL(pd0.payout):'—', s:'From data',        c:'rgba(139,92,246,.1)'},
+      ].map(function(x){
+        return '<div class="vc" style="background:'+x.c+';"><div class="vt">'+x.l+'</div><div class="vv">'+x.v+'</div><div class="vs">'+x.s+'</div></div>';
+      }).join('');
+      var tbody0 = document.getElementById('dash-proj-tbody');
+      if(tbody0) tbody0.innerHTML='<tr><td colspan="8" style="text-align:center;padding:12px;color:var(--t3);font-size:11px;">📊 Day-level projection requires GSheet Overview tab sync · showing monthly totals above</td></tr>';
+      return;
+    }
+    var tbody0b = document.getElementById('dash-proj-tbody');
+    if(tbody0b) tbody0b.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">No data for this month. Import data or sync Google Sheet.</td></tr>';
+    var meta0b = document.getElementById('dash-proj-meta');
+    if(meta0b) meta0b.textContent='No data available';
+    var cards0b = document.getElementById('dash-proj-cards');
+    if(cards0b) cards0b.innerHTML='';
     return;
   }
 
@@ -12743,42 +13083,72 @@ setInterval(_updateGSheetTimestamp, 30000);
 var _gvizCallbackIndex = 0;
 
 function _gvizFetch(gid, cbName, onSuccess, onError){
-  var callbackName = cbName || ('_gvizCb'+(_gvizCallbackIndex++));
-  // Google gviz/tq: tqx must encode the responseHandler correctly
-  var url = 'https://docs.google.com/spreadsheets/d/'+GSHEET_ID
-          + '/gviz/tq?tqx=out:json%3BresponseHandler:'+callbackName
-          + '&gid='+gid
-          + '&t='+Date.now(); // cache-bust
+  var relayUrl = window.CARS24_DRIVE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.driveWebAppUrl) || '';
+  var token    = (window.CARS24_CONFIG&&window.CARS24_CONFIG.relayToken) || '';
+  var GSHEET_ID_HERE = (typeof GSHEET_ID !== 'undefined') ? GSHEET_ID : '';
 
-  var timeout = setTimeout(function(){
-    try{ delete window[callbackName]; }catch(e){}
-    var old = document.getElementById('_gviz_script_'+callbackName);
-    if(old) old.parentNode.removeChild(old);
-    if(onError) onError(new Error('Timeout fetching gid='+gid));
-  }, 12000);
+  // ── Relay-first: Apps Script getSheetData → fallback gviz/tq ────────────
+  if(relayUrl && token && GSHEET_ID_HERE){
+    var _settled = false;
+    var _tmr = setTimeout(function(){ _fail(new Error('relay timeout')); }, 25000);
+    function _ok(tbl){ if(_settled)return; _settled=true; clearTimeout(_tmr); if(onSuccess)onSuccess(tbl); }
+    function _fail(e){ if(_settled)return; _settled=true; clearTimeout(_tmr); _gvizFetchDirect(gid, cbName, onSuccess, onError); }
 
-  window[callbackName] = function(response){
-    clearTimeout(timeout);
-    try{ delete window[callbackName]; }catch(e){}
-    var old = document.getElementById('_gviz_script_'+callbackName);
-    if(old) old.parentNode.removeChild(old);
-    if(!response || response.status === 'error'){
-      var msg = (response && response.errors) ? response.errors[0].message : 'gviz error';
-      if(onError) onError(new Error(msg));
-      return;
-    }
-    if(onSuccess) onSuccess(response.table || null);
+    fetch(relayUrl + '?action=getSheetData'
+        + '&sheetId=' + encodeURIComponent(GSHEET_ID_HERE)
+        + '&gid='     + encodeURIComponent(gid)
+        + '&token='   + encodeURIComponent(token)
+        + '&t='       + Date.now(),
+      { method:'GET', redirect:'follow' }
+    )
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(function(txt){
+      var d; try{ d=JSON.parse(txt); }catch(e){ throw new Error('Bad JSON'); }
+      if(d&&d.error) throw new Error(d.error);
+      if(d&&Array.isArray(d.headers)&&Array.isArray(d.rows)){
+        var tbl = _relayToGvizTable(d.headers, d.rows);
+        _ok(tbl);
+      } else { _ok(null); }
+    })
+    .catch(function(e){ _fail(e); });
+    return;
+  }
+
+  // ── Fallback: gviz/tq JSONP (requires sheet to be publicly shared) ───────
+  _gvizFetchDirect(gid, cbName, onSuccess, onError);
+}
+
+function _relayToGvizTable(headers, rows){
+  var cols = headers.map(function(h){ return { label:String(h||''), id:String(h||'') }; });
+  var tableRows = rows.map(function(row){
+    return { c: row.map(function(v){ return { v:(v===''||v===null||v===undefined)?null:v }; }) };
+  });
+  return { cols:cols, rows:tableRows };
+}
+
+var _gvizCallbackIndex = 0;
+var _gvizLastAttempt = {};
+var _GVIZ_COOLDOWN = 5*60*1000;
+
+function _gvizFetchDirect(gid, cbName, onSuccess, onError){
+  var last = _gvizLastAttempt[gid]||0;
+  if(Date.now()-last < _GVIZ_COOLDOWN){ if(onError) onError(new Error('gviz cooldown')); return; }
+  _gvizLastAttempt[gid] = Date.now();
+
+  var cb2 = cbName||('_gvizCb'+(_gvizCallbackIndex++));
+  var _s  = false;
+  function _done(fn,arg){ if(_s)return; _s=true; clearTimeout(_to); var el=document.getElementById('_gvs_'+cb2); if(el) el.parentNode.removeChild(el); try{delete window[cb2];}catch(e){} fn(arg); }
+  var _to = setTimeout(function(){ _done(onError||function(){}, new Error('gviz timeout gid='+gid)); }, 12000);
+
+  var GSHEET_ID_D = (typeof GSHEET_ID !== 'undefined') ? GSHEET_ID : '';
+  window[cb2] = function(resp){
+    if(!resp||resp.status==='error'){ var m=(resp&&resp.errors)?resp.errors[0].message:'gviz error'; _done(onError||function(){}, new Error(m)); }
+    else { _done(onSuccess||function(){}, resp.table||null); }
   };
-
-  var script = document.createElement('script');
-  script.id  = '_gviz_script_'+callbackName;
-  script.src = url;
-  script.onerror = function(){
-    clearTimeout(timeout);
-    try{ delete window[callbackName]; }catch(e){}
-    if(onError) onError(new Error('Script load failed for gid='+gid+'. Ensure sheet is shared as "Anyone with the link can view".'));
-  };
-  document.head.appendChild(script);
+  var s=document.createElement('script'); s.id='_gvs_'+cb2;
+  s.src='https://docs.google.com/spreadsheets/d/'+GSHEET_ID_D+'/gviz/tq?tqx=out:json%3BresponseHandler:'+cb2+'&gid='+gid;
+  s.onerror=function(){ _done(onError||function(){}, new Error('gviz load failed gid='+gid)); };
+  document.head.appendChild(s);
 }
 
 // ─── CONVERT gviz TABLE → ARRAY OF PLAIN OBJECTS ─────────────
@@ -15967,8 +16337,30 @@ function buildBizView(){
   var nodata = document.getElementById('biz-nodata');
 
   if(!data.length){
-    if(nodata) nodata.style.display='';
-    document.getElementById('biz-kpis').innerHTML='';
+    // Fallback: build summary from PERIOD when DOD not synced
+    var kpis0 = document.getElementById('biz-kpis');
+    if(kpis0 && window.PERIOD && window.MONTHS && window.MONTHS.length){
+      var allLeads=0,allAppts=0,allInsps=0,allStocks=0;
+      window.MONTHS.forEach(function(m){ 
+        var pd=window.PERIOD[m]||{}; 
+        allLeads+=pd.leads||0; allAppts+=pd.appts||0; allInsps+=pd.insps||0; allStocks+=pd.stocks||0; 
+      });
+      var months=window.MONTHS.length;
+      kpis0.innerHTML=[
+        {l:'Months of Data',    v:months,                                          s:window.MONTHS[0]+' → '+window.MONTHS[window.MONTHS.length-1], col:'cb'},
+        {l:'Total Leads',       v:allLeads.toLocaleString(),                       s:'Avg '+(allLeads/months).toFixed(0)+'/month', col:'ct'},
+        {l:'L → A Rate',        v:allLeads>0?(allAppts/allLeads*100).toFixed(1)+'%':'—', s:'Lead to Appt', col:'cp'},
+        {l:'L → I Rate',        v:allLeads>0?(allInsps/allLeads*100).toFixed(1)+'%':'—', s:'Lead to Insp', col:'cg'},
+        {l:'I → SI Rate',       v:allInsps>0?(allStocks/allInsps*100).toFixed(1)+'%':'—', s:'Insp to Stock-in', col:'ca'},
+        {l:'Avg Stock-ins/Mo',  v:(allStocks/months).toFixed(0),                  s:'Across '+months+' months', col:'cr'},
+      ].map(function(k){ return '<div class="kc '+k.col+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div></div>'; }).join('');
+      if(nodata) nodata.style.display='';
+      var nd_inner = nodata ? nodata.querySelector('p,div') : null;
+      if(nodata) nodata.innerHTML='<div style="padding:16px;font-size:12px;color:var(--t3);text-align:center;">📊 Day-level analytics require GSheet Overview tab sync · showing monthly summary above</div>';
+    } else {
+      if(nodata) nodata.style.display='';
+      if(kpis0) kpis0.innerHTML='';
+    }
     return;
   }
   if(nodata) nodata.style.display='none';
@@ -16251,7 +16643,26 @@ function buildProjView(){
   });
   rows.sort(function(a,b){ return a.date<b.date?-1:1; });
 
-  if(!rows.length){ if(nodata) nodata.style.display=''; return; }
+  if(!rows.length){
+    // Fallback: show PERIOD data for selected month
+    var pd2 = window.PERIOD && window.PERIOD[_projMonth];
+    if(pd2 && (pd2.leads||pd2.insps)){
+      if(nodata){
+        nodata.style.display='';
+        nodata.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--t3);">📊 No daily data for '+(_projMonth||'this month')+'. Showing monthly totals from imported data below.</div>';
+      }
+      var kpis2 = document.getElementById('proj-kpis');
+      if(kpis2) kpis2.innerHTML=[
+        {l:'Total Leads',    v:(pd2.leads||0).toLocaleString(),  s:'Full month', c:'cb'},
+        {l:'Inspections',    v:(pd2.insps||0).toLocaleString(),  s:'L→I: '+(pd2.leads>0?(pd2.insps/pd2.leads*100).toFixed(1)+'%':'—'), c:'cp'},
+        {l:'Stock-ins',      v:(pd2.stocks||0).toLocaleString(), s:'I→SI: '+(pd2.insps>0?(pd2.stocks/pd2.insps*100).toFixed(1)+'%':'—'), c:'cg'},
+        {l:'Payout',         v:pd2.payout>0?fmtL(pd2.payout):'—', s:'Imported', c:'ca'},
+      ].map(function(k){return '<div class="kc '+k.col+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div></div>';}).join('');
+    } else {
+      if(nodata) nodata.style.display='';
+    }
+    return;
+  }
   if(nodata) nodata.style.display='none';
 
   // Core projection: confirmed days = rows.length (already 2-day lagged from Tableau)
@@ -18215,7 +18626,11 @@ window.scTogglePartner = function(colId, btnId){
   var _origBuildMom = window.buildMom;
   window.buildMom = function(){
     var _M = window.MONTHS || [];
-    if(!_M.length) return;
+    if(!_M.length){ 
+      var kpis=document.getElementById('mom-kpis');
+      if(kpis) kpis.innerHTML='<div style="padding:16px;font-size:12px;color:var(--t3);">No data yet. Import data first.</div>';
+      return; 
+    }
     var fromV=(document.getElementById('mom-from-date')||{value:''}).value;
     var toV  =(document.getElementById('mom-to-date')||{value:''}).value;
     var useFilter=(fromV||toV);
@@ -19363,99 +19778,75 @@ console.log('[Cars24 v36] All 6 fixes applied — data isolation ✓ projection 
 var DRIVE_WEBAPP_URL = window.CARS24_DRIVE_URL || '';  // set in config if available
 
 // Base64-encode a File and POST to the Apps Script relay
+// ── Supabase Storage upload (direct from browser, no Apps Script needed) ──
+// Bucket: cars24-invoices (public, org-readable)
+// Path:   folder/fileName  e.g. Cars24_Invoices/INV_Partner_Mar26.pdf
 async function uploadFileToDrive(file, folder, fileName){
-  return new Promise(function(resolve){
-    var url = window.CARS24_DRIVE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.driveWebAppUrl) || '';
-    if(!url){
-      console.warn('[Drive] driveWebAppUrl not configured — file saved locally only');
-      resolve(null);
-      return;
-    }
+  var sbUrl = window.CARS24_SUPABASE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.url) || '';
+  var sbKey = window.CARS24_SUPABASE_ANONKEY || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.anonKey) || '';
+  var BUCKET = 'cars24-invoices';
 
-    // File size guard — Apps Script payload limit is ~5MB base64 (≈ 3.7MB raw file)
-    var MAX_BYTES = 3.5 * 1024 * 1024;
-    if(file.size > MAX_BYTES){
-      console.warn('[Drive] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max 3.5MB for Drive upload');
-      resolve('TOO_LARGE');
-      return;
-    }
+  if(!sbUrl || !sbKey){
+    console.warn('[Storage] Supabase not configured');
+    return null;
+  }
+  if(file.size > 10 * 1024 * 1024){
+    console.warn('[Storage] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max 10MB');
+    return 'TOO_LARGE';
+  }
 
-    var reader = new FileReader();
-    reader.onload = function(e){
-      var base64 = e.target.result.split(',')[1];
-      var payload = JSON.stringify({
-        action    : 'upload',
-        fileName  : fileName,
-        mimeType  : file.type || 'application/octet-stream',
-        base64Data: base64,
-        folder    : folder,
-        partner   : window.currentPartner ? (window.currentPartner.display||window.currentPartner.name||'') : '',
-        month     : folder === 'Cars24_Invoices' ? (window._lastInvMonth||'') : (window._lastProofMonth||''),
-        invNo     : window._lastInvNo || '',
-        utr       : window._lastProofUtr || '',
-        amount    : window._lastInvAmount || window._lastProofAmount || 0
-      });
+  var safeName    = fileName.replace(/[^a-zA-Z0-9._\-()\ ]/g, '_');
+  var storagePath = folder + '/' + safeName;
+  var uploadUrl   = sbUrl + '/storage/v1/object/' + BUCKET + '/' + encodeURIComponent(storagePath);
 
-      // ── Phase 1: try CORS fetch (Apps Script sends Access-Control-Allow-Origin: * after redirect) ──
-      fetch(url, {
-        method  : 'POST',
-        headers : { 'Content-Type': 'text/plain;charset=utf-8' },
-        body    : payload,
-        redirect: 'follow',
-        mode    : 'cors',
-        credentials: 'omit'
-      })
-      .then(function(r){
-        if(!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
-      })
-      .then(function(txt){
+  try{
+    var r = await fetch(uploadUrl, {
+      method : 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + sbKey,
+        'apikey'       : sbKey,
+        'Content-Type' : file.type || 'application/octet-stream',
+        'x-upsert'     : 'true'
+      },
+      body: file
+    });
+
+    if(!r.ok){
+      var errText = await r.text();
+      // Bucket missing → try auto-create once then retry
+      if(r.status === 404 || r.status === 400){
         try{
-          var d = JSON.parse(txt);
-          if(d.fileUrl || d.url){
-            console.log('[Drive] Upload OK (cors):', d.fileUrl||d.url);
-            resolve(d.fileUrl || d.url);
-          } else if(d.success){
-            // success but no URL returned — file is in Drive, construct a generic confirmation
-            console.log('[Drive] Upload OK (cors, no URL)');
-            resolve('UPLOADED');
-          } else if(d.error){
-            console.warn('[Drive] Server error:', d.error);
-            resolve(null);
-          } else {
-            resolve(d.fileUrl || d.url || 'UPLOADED');
+          var cb = await fetch(sbUrl+'/storage/v1/bucket', {
+            method : 'POST',
+            headers: { 'Authorization':'Bearer '+sbKey, 'apikey':sbKey, 'Content-Type':'application/json' },
+            body   : JSON.stringify({ id:BUCKET, name:BUCKET, public:true })
+          });
+          if(cb.ok || cb.status===409){ // 409 = already exists
+            var r2 = await fetch(uploadUrl, {
+              method : 'POST',
+              headers: { 'Authorization':'Bearer '+sbKey, 'apikey':sbKey, 'Content-Type':file.type||'application/octet-stream', 'x-upsert':'true' },
+              body   : file
+            });
+            if(r2.ok){
+              var publicUrl2 = sbUrl+'/storage/v1/object/public/'+BUCKET+'/'+encodeURIComponent(storagePath);
+              console.log('[Storage] Upload OK (after bucket create):', publicUrl2);
+              return publicUrl2;
+            }
           }
-        }catch(pe){
-          // Non-JSON response but HTTP 200 = file landed in Drive
-          console.log('[Drive] Upload OK (cors, non-JSON 200):', txt.slice(0,80));
-          resolve('UPLOADED');
-        }
-      })
-      .catch(function(corsErr){
-        // ── Phase 2: CORS failed (opaque redirect) — fire no-cors and assume success ──
-        console.warn('[Drive] CORS fetch failed ('+corsErr.message+') — falling back to no-cors fire-and-forget');
-        fetch(url, {
-          method  : 'POST',
-          headers : { 'Content-Type': 'text/plain;charset=utf-8' },
-          body    : payload,
-          mode    : 'no-cors'
-        })
-        .then(function(){
-          console.log('[Drive] no-cors fire sent — assuming upload succeeded');
-          resolve('UPLOADED');  // opaque: we can't read the URL, but file is in Drive
-        })
-        .catch(function(err2){
-          console.warn('[Drive] Upload failed entirely:', err2.message);
-          resolve(null);
-        });
-      });
-    };
-    reader.onerror = function(e){
-      console.warn('[Drive] FileReader error:', e);
-      resolve(null);
-    };
-    reader.readAsDataURL(file);
-  });
+        }catch(e2){ console.warn('[Storage] Bucket create failed:', e2); }
+      }
+      console.warn('[Storage] Upload failed:', r.status, errText.slice(0,120));
+      return null;
+    }
+
+    var publicUrl = sbUrl+'/storage/v1/object/public/'+BUCKET+'/'+encodeURIComponent(storagePath);
+    console.log('[Storage] Upload OK:', publicUrl);
+    return publicUrl;
+
+  }catch(err){
+    console.warn('[Storage] Upload error:', err.message||err);
+    return null;
+  }
 }
 
 // ── OVERRIDE: submitPartnerInvoice — add Drive upload ────────────
@@ -19495,20 +19886,19 @@ window.submitPartnerInvoice = (function(_orig){
     var fname   = file ? file.name : '—';
     var driveUrl = null;
 
-    // File size guard — 3.5MB max for Apps Script base64 payload
-    if(file && file.size > 3.5 * 1024 * 1024){
-      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB before uploading.');
+    // 10MB max — Supabase Storage (raw bytes, no base64 overhead)
+    if(file && file.size > 10 * 1024 * 1024){
+      showMsg(false, '⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Max 10 MB.');
       return;
     }
 
     if(file){
-      showMsg(true,'⏳ Uploading attachment to Drive…');
+      showMsg(true,'⏳ Uploading to cloud storage…');
       var driveName = 'INV_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+invNo+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+fname.split('.').pop();
-      // Stash metadata so uploadFileToDrive can include it in the log
       window._lastInvMonth  = fullMo;
       window._lastInvAmount = amount;
       window._lastInvNo     = invNo;
-      window._lastProofUtr  = '';  // clear proof UTR
+      window._lastProofUtr  = '';
       driveUrl = await uploadFileToDrive(file, 'Cars24_Invoices', driveName);
     }
 
@@ -19531,24 +19921,24 @@ window.submitPartnerInvoice = (function(_orig){
     var fn=document.getElementById('p-inv-fname'); if(fn) fn.textContent='No file';
 
     // driveUrl can be: a real URL string, 'UPLOADED' (no-cors fire), 'TOO_LARGE', or null
-    var driveOk     = driveUrl && driveUrl !== 'TOO_LARGE' && driveUrl !== null;
-    var hasRealUrl  = driveOk && driveUrl !== 'UPLOADED';
-    var driveLabel  = hasRealUrl
-      ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📂 View in Drive ↗</a>'
-      : (driveOk ? ' · <span style="color:#10b981;">📂 Drive ✓</span>'
-        : (file ? ' <span style="color:#f59e0b;font-size:11px;">(Drive upload failed — file name saved)</span>' : ''));
+    var uploaded   = driveUrl && driveUrl !== 'TOO_LARGE';
+    var hasLink    = uploaded && driveUrl !== 'UPLOADED';
+    var fileStatus = !file       ? ''
+      : hasLink  ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📎 View File ↗</a>'
+      : uploaded ? ' · <span style="color:#10b981;">☁ File uploaded ✓</span>'
+      :            ' · <span style="color:#f59e0b;font-size:11px;">⚠ Upload failed — check Supabase storage bucket "cars24-invoices"</span>';
 
     if(msg){
       msg.style.display='block';
       msg.style.background='rgba(16,185,129,.12)';
       msg.style.color='#10b981';
       msg.style.padding='8px 12px'; msg.style.borderRadius='6px';
-      msg.innerHTML = '✓ Invoice submitted for '+escH(fullMo)+'!'+driveLabel;
+      msg.innerHTML = '✓ Invoice submitted for '+escH(fullMo)+'!'+fileStatus;
       setTimeout(function(){ msg.style.display='none'; }, 7000);
     }
     if(typeof window.buildPartnerInvoices==='function') window.buildPartnerInvoices();
-    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(driveOk?' · Drive ✓':''));
-    if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · Drive:'+driveUrl:''));
+    if(typeof window.showImportToast==='function') window.showImportToast('🧾 Invoice submitted — '+invNo+' · '+fullMo+(uploaded?' · File ✓':''));
+    if(typeof window._auditLog==='function') window._auditLog('Invoice submitted', partner+' · '+invNo+' · '+fullMo+(driveUrl?' · '+driveUrl:''));
   };
 })(window.submitPartnerInvoice);
 
@@ -19580,13 +19970,14 @@ window.buildPartnerInvoices = (function(){
         : inv.status==='Rejected'
         ? '<span style="color:#ef4444;font-weight:700;">✗ Rejected'+(inv.remark?' — '+inv.remark:'')+'</span>'
         : '<span style="color:#f59e0b;font-weight:700;">⏳ Pending</span>';
-      var fileCell = inv.driveUrl && inv.driveUrl !== 'UPLOADED'
-        ? '<a href="'+inv.driveUrl+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.2);border-radius:5px;">📎 View File</a>'
-        : (inv.driveUrl === 'UPLOADED'
-          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">📂 In Drive ✓</span>'
+      var _du = inv.driveUrl || '';
+      var fileCell = (_du && _du !== 'TOO_LARGE' && _du !== 'UPLOADED')
+        ? '<a href="'+_du+'" target="_blank" style="color:var(--ac);font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.2);border-radius:5px;">📎 View File ↗</a>'
+        : (_du === 'UPLOADED'
+          ? '<span style="font-size:11px;color:#10b981;font-weight:600;">☁ Uploaded ✓</span>'
           : (inv.fileName && inv.fileName!=='—'
-            ? '<span style="font-size:11px;color:var(--t3);">📎 '+inv.fileName+'<br><span style="font-size:10px;color:#f59e0b;">Not uploaded to Drive</span></span>'
-            : '—'));
+            ? '<div><span style="font-size:12px;color:var(--t2);">📎 '+inv.fileName+'</span><br><span style="font-size:10px;color:#f59e0b;">⚠ Not uploaded — check storage</span></div>'
+            : '<span style="color:var(--t3);">—</span>'));
       return '<tr>'
         +'<td>'+(window.MLABEL&&window.MLABEL[inv.month]?window.MLABEL[inv.month]:inv.fullMonth||inv.month)+'</td>'
         +'<td style="font-size:12px;font-weight:600;">'+inv.invNo+'</td>'
@@ -19623,20 +20014,20 @@ window.savePaymentProof = async function(){
   var fname    = file ? file.name : '—';
   var driveUrl = null;
 
-  // File size guard — 3.5MB max for Apps Script base64 payload
-  if(file && file.size > 3.5 * 1024 * 1024){
-    showErr('⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Please compress to under 3.5 MB.');
+  // 10MB max — Supabase Storage
+  if(file && file.size > 10 * 1024 * 1024){
+    showErr('⚠ File too large (' + (file.size/1024/1024).toFixed(1) + ' MB). Max 10 MB.');
     return;
   }
 
   if(file){
-    showErr('⏳ Uploading to Drive…', '#f59e0b');
+    showErr('⏳ Uploading to cloud storage…', '#f59e0b');
     var ext       = fname.split('.').pop();
     var driveName = 'PROOF_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+utr+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+ext;
     window._lastProofMonth  = fullMo;
     window._lastProofAmount = amount;
     window._lastProofUtr    = utr;
-    window._lastInvNo       = '';  // clear invoice number
+    window._lastInvNo       = '';
     driveUrl = await uploadFileToDrive(file, 'Cars24_PaymentProofs', driveName);
     if(errEl) errEl.style.display = 'none';
   }
@@ -19659,8 +20050,8 @@ window.savePaymentProof = async function(){
 
   var ov = document.getElementById('proof-ov'); if(ov) ov.remove();
   if(typeof window.renderProofTable==='function') window.renderProofTable();
-  if(typeof window.showImportToast==='function') window.showImportToast('✅ Payment proof saved for '+partner+(driveOk?' · Drive ✓':(file?' · Drive upload failed':''))  );
-  if(typeof window._auditLog==='function') window._auditLog('Payment proof uploaded', partner+' · UTR:'+utr+' · ₹'+amount+(driveUrl&&driveUrl!=='UPLOADED'?' · Drive:'+driveUrl:driveOk?' · Drive:uploaded':''));
+  if(typeof window.showImportToast==='function') window.showImportToast('✅ Payment proof saved for '+partner+(driveOk?' · File ✓':(file?' · Upload failed':'')));
+  if(typeof window._auditLog==='function') window._auditLog('Payment proof uploaded', partner+' · UTR:'+utr+' · ₹'+amount+(driveUrl&&driveUrl!=='UPLOADED'?' · '+driveUrl:driveOk?' · uploaded':''));
 };
 
 // ── Patch renderProofTable to show Drive link ─────────────────────

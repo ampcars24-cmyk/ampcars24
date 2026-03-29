@@ -11,6 +11,9 @@
 <link href="https://fonts.googleapis.com/css2?family=family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
 
 
+<!-- ══ EMAILJS SDK ══ -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
 <!-- ══ SUPABASE SDK ══ -->
 <script>
 // ══════════════════════════════════════════════════════════════
@@ -33,8 +36,18 @@ const CARS24_CONFIG = {
   // ── Google Drive Upload Relay ──────────────────────────────────────────
   // Still used ONLY for file uploads (invoices, payment proofs) to Drive.
   // Cross-device DATA sync now runs through Supabase instead.
-  driveWebAppUrl: 'https://script.google.com/a/macros/cars24.com/s/AKfycbyuQV0lCs8xscLkFsRHp_Ang1pFvMSySmSv7uBsGVgfAG3TjPaNwgJ3-Sy0-80bV98BqQ/exec',
-  relayToken: 'c24_CHANGE_ME_NOW_987654'  // ⚠️ must match SECRET_TOKEN in Cars24_Relay_v4.gs
+  driveWebAppUrl: 'https://script.google.com/macros/s/AKfycby411yf9YpzAQV_RjYEutpAHgkch_b1DWkywb7iVV6Mf9IFGLGg0uIELBjfgHFxTIgM/exec',
+  relayToken: 'neel_affiliates_portal',  // ⚠️ must match SECRET_TOKEN in Cars24_Relay_v5_Drive.gs
+  // ── EmailJS — for sending credential welcome emails ──────────────
+  // Get free keys at https://www.emailjs.com (200 emails/month free)
+  // 1. Create account → Email Services → connect Gmail/Outlook
+  // 2. Email Templates → create template with variables: {{to_email}}, {{partner_name}}, {{username}}, {{password}}
+  // 3. Account → API Keys → copy Public Key
+  emailjs: {
+    publicKey:  'QOAPOz9UfNNraQnVJ',   // Account → API Keys → Public Key  e.g. 'user_xxxxxxxxxxxx'
+    serviceId:  'service_r4z0idc',   // Email Services → Service ID       e.g. 'service_xxxxxxx'
+    templateId: 'template_89ryon7',   // Email Templates → Template ID     e.g. 'template_xxxxxxx'
+  }
 };
 
 // Wire Drive URL into upload helper (file uploads only — not used for data sync)
@@ -262,11 +275,18 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
   console.log('[C24Early] localStorage.setItem intercepted for', SYNC_KEYS_EARLY.length, 'keys (sync fixes v2 applied)');
 })();
 
-// Initialise EmailJS
+// Initialise EmailJS (safe — only runs if SDK loaded AND keys configured)
 document.addEventListener('DOMContentLoaded', function () {
   try {
-    emailjs.init({ publicKey: CARS24_CONFIG.emailjs.publicKey });
-    console.log('[Cars24] EmailJS initialised OK');
+    var _ejCfg = CARS24_CONFIG.emailjs || {};
+    if(typeof emailjs !== 'undefined' && _ejCfg.publicKey && _ejCfg.publicKey.length > 4){
+      emailjs.init({ publicKey: _ejCfg.publicKey });
+      console.log('[Cars24] EmailJS initialised OK');
+    } else if(typeof emailjs === 'undefined'){
+      console.warn('[Cars24] EmailJS SDK not loaded — email features disabled. Add SDK script tag to <head>.');
+    } else {
+      console.warn('[Cars24] EmailJS keys not configured — set publicKey/serviceId/templateId in CARS24_CONFIG.emailjs');
+    }
   } catch(e) {
     console.error('[Cars24] EmailJS init failed:', e);
   }
@@ -459,6 +479,7 @@ html.light body { background: var(--dark); }
 .sidebar{width:222px;background:var(--sb);border-right:1px solid var(--bd);padding:14px 0 24px;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:background .25s;box-shadow:var(--shadow)}
 .ng{margin-bottom:16px}
 .ngl{font-size:9.5px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--t3);padding:0 14px;margin-bottom:2px}
+.c24-nb{display:inline-flex;align-items:center;justify-content:center;background:#ef4444;color:#fff;border-radius:50px;font-size:10px;font-weight:800;min-width:18px;height:18px;padding:0 5px;margin-left:auto;line-height:1;box-shadow:0 0 0 2px rgba(239,68,68,.25);}
 .ni{display:flex;align-items:center;gap:9px;padding:8px 14px;cursor:pointer;color:var(--t2);font-size:12.5px;font-weight:500;transition:all .15s;border-left:3px solid transparent;border-radius:0 6px 6px 0;margin:0 6px 1px 0}
 .ni:hover{background:var(--al);color:var(--ac);border-left-color:rgba(79,70,229,.3)}
 .ni.active{background:var(--al);color:var(--ac);border-left-color:var(--ac);font-weight:600}
@@ -3199,6 +3220,12 @@ function _dedupMonthReg(reg){
     newOrder.push(norm);
     newYearMap[norm] = yr;
   });
+  // ── Sort months in chronological order (year first, then month number) ──
+  newOrder.sort(function(a, b){
+    var ya = newYearMap[a]||2026, yb = newYearMap[b]||2026;
+    if(ya !== yb) return ya - yb;
+    return (VALID[a]||0) - (VALID[b]||0);
+  });
   reg.order = newOrder;
   reg.yearMap = newYearMap;
   return reg;
@@ -3402,6 +3429,13 @@ var c24YearFilter = (function(){
 function rebuildMonthMeta(){
   var reg = loadMonthRegistry();
   MONTHS  = reg.order.slice();
+  // ── Always sort MONTHS chronologically (in case registry was saved before sort fix) ──
+  var _VALID_SORT = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  MONTHS.sort(function(a,b){
+    var ya=(reg.yearMap[a])||2026, yb=(reg.yearMap[b])||2026;
+    if(ya!==yb) return ya-yb;
+    return (_VALID_SORT[a]||0)-(_VALID_SORT[b]||0);
+  });
   MLABELS = MONTHS.map(function(m){ return m+' '+reg.yearMap[m]; });
   MLABEL  = {};
   MONTHS.forEach(function(m,i){ MLABEL[m] = MLABELS[i]; });
@@ -3599,8 +3633,16 @@ function _rebuildMtdButtons(){
 function _rebuildFunnelButtons(){
   var wrap = document.getElementById('funnel-period-btns');
   if(!wrap) return;
+  // Sort MONTHS chronologically before building buttons
+  var _VALID_MN = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  var _reg = loadMonthRegistry();
+  var _sortedM = MONTHS.slice().sort(function(a,b){
+    var ya=(_reg.yearMap&&_reg.yearMap[a])||2026, yb=(_reg.yearMap&&_reg.yearMap[b])||2026;
+    if(ya!==yb) return ya-yb;
+    return (_VALID_MN[a]||0)-(_VALID_MN[b]||0);
+  });
   wrap.innerHTML = '<button class="rt active" onclick="setFR(\'all\',this)">All</button>';
-  MONTHS.forEach(function(m){
+  _sortedM.forEach(function(m){
     var btn = document.createElement('button');
     btn.className = 'rt';
     btn.textContent = MLABEL[m] || m;
@@ -3608,7 +3650,6 @@ function _rebuildFunnelButtons(){
     wrap.appendChild(btn);
   });
 }
-
 function _rebuildBuyerButtons(){
   // buyer-month-btns is rebuilt on-demand by buildBuyerMonthBtns() when the view opens
   // FIX: guard with typeof — _buyerMonth may not yet be declared when this is called
@@ -3655,8 +3696,15 @@ function _rebuildTrendDropdown(){
 function _rebuildPartnerFunnelTabs(){
   var wrap = document.getElementById('p-funnel-period-btns');
   if(!wrap) return;
+  var _VALID_MN2 = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  var _reg2 = loadMonthRegistry();
+  var _sortedM2 = MONTHS.slice().sort(function(a,b){
+    var ya=(_reg2.yearMap&&_reg2.yearMap[a])||2026, yb=(_reg2.yearMap&&_reg2.yearMap[b])||2026;
+    if(ya!==yb) return ya-yb;
+    return (_VALID_MN2[a]||0)-(_VALID_MN2[b]||0);
+  });
   wrap.innerHTML = '<button class="rt active" onclick="setPFR(\'all\',this)">All</button>';
-  MONTHS.forEach(function(m){
+  _sortedM2.forEach(function(m){
     var btn = document.createElement('button');
     btn.className = 'rt';
     btn.textContent = m;
@@ -4362,8 +4410,24 @@ function _syncDowButtons(wrapId, activeSet){
 // ── Date range picker helpers ────────────────────────────
 function applyDodDateRange(){
   // Clear month/window when custom range is used
-  var from = document.getElementById('dod-from-date').value;
-  var to   = document.getElementById('dod-to-date').value;
+  var fromEl = document.getElementById('dod-from-date');
+  var toEl   = document.getElementById('dod-to-date');
+  var from   = fromEl ? fromEl.value : '';
+  var to     = toEl   ? toEl.value   : '';
+  // Auto-fill: if only from set, default to end of that month
+  if(from && !to && toEl){
+    var d = new Date(from);
+    var lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    toEl.value = lastDay.toISOString().slice(0,10);
+    to = toEl.value;
+  }
+  // Auto-fill: if only to set, default from to start of that month
+  if(!from && to && fromEl){
+    var d2 = new Date(to);
+    var firstDay = new Date(d2.getFullYear(), d2.getMonth(), 1);
+    fromEl.value = firstDay.toISOString().slice(0,10);
+    from = fromEl.value;
+  }
   if(from && to){
     var sel = document.getElementById('dod-days-sel');
     if(sel) sel.value = '999';
@@ -5121,6 +5185,55 @@ function loadPartnerSidebar(){
 // ════════════════════════════════════════════════
 // PARTNER OVERVIEW
 // ════════════════════════════════════════════════
+// ── CPI Formula (matches sheet: =IFERROR(BASE_CPI * MIN(1,A2I/KPI_A2I) * MIN(1,I2SI/KPI_I2SI) * MIN(1,ASP/KPI_ASP), 0))
+// All rate inputs (a2i, i2si, kpi_a2i, kpi_i2si) are stored as decimals (e.g. 0.5 = 50%)
+// ASP and kpi_asp are stored as ₹ values
+function _calcCPI(ext){
+  if(!ext || !ext.base_cpi) return 0;
+  var baseCpi  = ext.base_cpi  || 0;
+  var a2i      = ext.a2i       || 0;  // actual A2I ratio (decimal)
+  var kpiA2i   = ext.kpi_a2i   || 0;  // KPI threshold (decimal)
+  var i2si     = ext.i2si      || 0;  // actual I2SI ratio (decimal)
+  var kpiI2si  = ext.kpi_i2si  || 0;  // KPI threshold (decimal)
+  var asp      = ext.asp        || 0;  // actual ASP (₹)
+  var kpiAsp   = ext.kpi_asp    || 0;  // KPI threshold (₹)
+  // MIN(1, actual/kpi) — if kpi is 0, cap is 1 (no penalty)
+  var a2iAdj   = kpiA2i  > 0 ? Math.min(1, a2i  / kpiA2i)  : 1;
+  var i2siAdj  = kpiI2si > 0 ? Math.min(1, i2si / kpiI2si) : 1;
+  var aspAdj   = kpiAsp  > 0 ? Math.min(1, asp  / kpiAsp)  : 1;
+  return baseCpi * a2iAdj * i2siAdj * aspAdj;
+}
+
+// Compute CPI and Payout for a set of filtered months
+// Returns { cpi, payout, baseCpi, a2iAdj, i2siAdj, aspAdj, hasData }
+function _calcPeriodCpiPayout(p, filteredMonths){
+  var totalInsps   = 0;
+  var totalPayout  = 0;
+  var weightedCpi  = 0;
+  var hasData      = false;
+
+  filteredMonths.forEach(function(m){
+    var I = (p.insps&&p.insps[m]) || 0;
+    var ext = null;
+    if(p.ext){
+      var ek = Object.keys(p.ext).find(function(k){
+        return k.toLowerCase().startsWith(m.toLowerCase()) ||
+               (window.MLABEL&&window.MLABEL[m]&&k.toLowerCase().startsWith(window.MLABEL[m].toLowerCase()));
+      });
+      if(ek) ext = p.ext[ek];
+    }
+    var cpiVal = ext ? _calcCPI(ext) : 0;
+    var monthPayout = Math.round(cpiVal * I);
+    totalInsps  += I;
+    totalPayout += monthPayout;
+    weightedCpi += cpiVal * I;  // weighted by inspections for avg
+    if(ext && ext.base_cpi) hasData = true;
+  });
+
+  var avgCpi = totalInsps > 0 ? Math.round(weightedCpi / totalInsps) : 0;
+  return { cpi: avgCpi, payout: totalPayout, hasData: hasData };
+}
+
 function buildPartnerOverview(){
   // Always sync currentPartner from latest PARTNER_SHEET before rendering
   try{ if(typeof _syncCurrentPartner==='function') _syncCurrentPartner(); }catch(e){}
@@ -5204,9 +5317,18 @@ function buildPartnerOverview(){
   var fA=filteredMonths.reduce(function(s,m){return s+(p.appts[m]||0);},0);
   var fI=filteredMonths.reduce(function(s,m){return s+(p.insps[m]||0);},0);
   var fS=filteredMonths.reduce(function(s,m){return s+(p.stocks[m]||0);},0);
-  var fP=filteredMonths.reduce(function(s,m){return s+(p.payout[m]||0);},0);
+  // Payout = sum of (CPI × Inspections) per month using formula
+  // Raw payout from sheet kept as fallback if base_cpi not available
+  var fP_raw = filteredMonths.reduce(function(s,m){return s+(p.payout&&p.payout[m]||0);},0);
+  var fP = 0;  // will be set after _calcPeriodCpiPayout (done below in extData block)
 
-  // ── Get CPI/KPI ext data for selected period ───────────────────
+  // ── Compute CPI & Payout using sheet formula ───────────────────
+  // Formula: CPI = BASE_CPI × MIN(1,A2I/KPI_A2I) × MIN(1,I2SI/KPI_I2SI) × MIN(1,ASP/KPI_ASP)
+  // Payout = CPI × Inspections (per month, then summed)
+  var _cpiResult = _calcPeriodCpiPayout(p, filteredMonths);
+  fP = _cpiResult.hasData ? _cpiResult.payout : fP_raw;
+
+  // Also grab extData from last month for KPI thresholds display
   var extData = null;
   try{
     var extMo = filteredMonths[filteredMonths.length-1];
@@ -5239,7 +5361,9 @@ function buildPartnerOverview(){
   var L2S  = fL>0?(fS/fL*100).toFixed(2):0;
   var I2SI = fI>0?(fS/fI*100).toFixed(1):0;
   var asp  = extData&&extData.asp ? '₹'+Math.round(extData.asp).toLocaleString() : '—';
-  var cpi  = extData&&extData.cpi ? '₹'+Math.round(extData.cpi).toLocaleString() : '—';
+  // Use computed CPI from formula; fall back to sheet-imported cpi if no base_cpi available
+  var _computedCpi = _cpiResult.hasData ? _cpiResult.cpi : (extData&&extData.cpi ? Math.round(extData.cpi) : 0);
+  var cpi  = _computedCpi > 0 ? '₹'+_computedCpi.toLocaleString() : '—';
   var kpiA2i  = extData&&extData.kpi_a2i ? (extData.kpi_a2i*100).toFixed(0)+'%' : '50%';
   var kpiAsp  = extData&&extData.kpi_asp  ? '₹'+Math.round(extData.kpi_asp).toLocaleString() : '₹2,75,000';
   var kpiI2si = extData&&extData.kpi_i2si ? (extData.kpi_i2si*100).toFixed(0)+'%' : '16%';
@@ -5271,7 +5395,7 @@ function buildPartnerOverview(){
       <div class="p-ov-row"><span class="p-ov-lbl">Earned CPI</span><span class="p-ov-val" style="color:#4f46e5">${cpi}</span></div>
       <div class="p-ov-row"><span class="p-ov-lbl">ASP (Avg Selling Price)</span><span class="p-ov-val">${asp}</span></div>
       <div class="p-ov-row"><span class="p-ov-lbl">I2SI%</span><span class="p-ov-val">${I2SI}%</span></div>
-      <div class="p-ov-row"><span class="p-ov-lbl">Dashboard Payout</span><span class="p-ov-val" style="color:#10b981">${fP>0?fmtL(fP):'—'}</span></div>
+      <div class="p-ov-row"><span class="p-ov-lbl">Computed Payout</span><span class="p-ov-val" style="color:#10b981">${fP>0?fmtL(fP):'—'}</span></div>
       <div class="p-ov-row">
         <span class="p-ov-lbl">Payout Status</span>
         <span class="p-ov-val" style="color:${stCol}">${payStatus}${payApproved>0?' · '+fmtL(payApproved):''}</span>
@@ -5320,9 +5444,14 @@ function buildPartnerOverview(){
       var A=m==='Total'?fA:(p.appts[m]||0);
       var I=m==='Total'?fI:(p.insps[m]||0);
       var S=m==='Total'?fS:(p.stocks[m]||0);
-      var P=m==='Total'?fP:(p.payout[m]||0);
       var moExt=null; if(m!=='Total'&&p.ext){ var ek=Object.keys(p.ext).find(function(k){return k.toLowerCase().startsWith(m.toLowerCase());}); moExt=ek?p.ext[ek]:null; }
-      var cpiV=moExt&&moExt.cpi?'₹'+Math.round(moExt.cpi).toLocaleString():'—';
+      // Compute CPI from formula per month; fallback to sheet-imported cpi
+      var _mCpi = moExt ? _calcCPI(moExt) : 0;
+      var _mCpiDisplay = _mCpi > 0 ? _mCpi : (moExt&&moExt.cpi ? moExt.cpi : 0);
+      var cpiV = _mCpiDisplay > 0 ? '₹'+Math.round(_mCpiDisplay).toLocaleString() : '—';
+      // Computed payout = CPI × Inspections for this month
+      var _mPayout = m==='Total' ? fP : (_mCpi>0 && I>0 ? Math.round(_mCpi*I) : (p.payout&&p.payout[m]||0));
+      var P = _mPayout;
       var a2iV=L>0?(I/L*100).toFixed(1)+'%':'—';
       var convV=L>0?(S/L*100).toFixed(2)+'%':'—';
       var isTot=m==='Total';
@@ -5873,6 +6002,13 @@ function addCredential(){
 // Auto-send credential welcome email via EmailJS
 async function _sendCredentialEmail(displayName, username, password, toEmail, campaignId){
   try{
+    // Guard: EmailJS must be loaded and configured
+    var _ej = CARS24_CONFIG.emailjs || {};
+    if(typeof emailjs === 'undefined' || !_ej.publicKey || !_ej.serviceId || !_ej.templateId){
+      console.warn('[Cars24] EmailJS not configured — credential email skipped for', displayName);
+      showImportToast('ℹ Credentials saved. Email skipped — configure EmailJS keys in CARS24_CONFIG to enable.');
+      return;
+    }
     if(!toEmail || !toEmail.includes('@')){
       showImportToast('⚠ No valid email for '+displayName+' — credentials saved, email skipped.');
       return;
@@ -6123,6 +6259,7 @@ function _annCard(a, showDel, isNew){
           <div style="font-size:10px;color:var(--t3);margin-top:3px;display:flex;align-items:center;gap:6px;">
             <span style="background:${col}22;color:${col};padding:1px 7px;border-radius:8px;font-weight:700;">${a.type.toUpperCase()}</span>
             <span>${a.date}</span>
+            ${a.month?`<span style="background:rgba(79,70,229,.12);color:#6366f1;padding:1px 7px;border-radius:8px;font-weight:700;">📅 ${escH(a.month)}</span>`:''}
             <span>${a.audience&&a.audience!=='all'?'→ '+escH(a.audience):'→ All Partners'}</span>
           </div>
         </div>
@@ -6242,6 +6379,10 @@ function openAnnouncementModal(){
       </select></div>
       <div style="flex:1;"><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Audience</label>
       <select id="ann-audience" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;"><option value="all">All Partners</option>${pOpts}</select></div></div>
+      <div><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Month (for update reference)</label>
+      <select id="ann-month" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;">
+        <option value="">— General (no specific month) —</option>
+      </select></select></div>
       <div><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Message *</label>
       <textarea id="ann-body" rows="5" placeholder="Write your message here…" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--bg,#131B28);color:var(--tx);outline:none;resize:vertical;box-sizing:border-box;"></textarea></div>
       <div><label style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Link (optional)</label>
@@ -6252,6 +6393,24 @@ function openAnnouncementModal(){
       <button onclick="saveAnnouncement()" style="padding:9px 22px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Publish</button>
     </div>
   </div></div>`);
+  // Populate month dropdown with registered months
+  var _annMonthSel = document.getElementById('ann-month');
+  if(_annMonthSel && typeof MONTHS !== 'undefined'){
+    var _mths = MONTHS.slice().reverse();
+    var _reg = (typeof loadMonthRegistry==='function') ? loadMonthRegistry() : {yearMap:{}};
+    var _VALID_AM = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+    _mths = MONTHS.slice().sort(function(a,b){
+      var ya=(_reg.yearMap[a])||2026, yb=(_reg.yearMap[b])||2026;
+      if(ya!==yb) return ya-yb;
+      return (_VALID_AM[a]||0)-(_VALID_AM[b]||0);
+    }).reverse(); // newest first
+    _mths.forEach(function(m){
+      var lbl = (typeof MLABEL!=='undefined' && MLABEL[m]) || m;
+      var opt = document.createElement('option');
+      opt.value = lbl; opt.textContent = lbl;
+      _annMonthSel.appendChild(opt);
+    });
+  }
 }
 function saveAnnouncement(){
   var title=(document.getElementById('ann-title').value||'').trim();
@@ -6259,8 +6418,10 @@ function saveAnnouncement(){
   if(!title||!body){alert('Title and message are required.');return;}
   var audience=document.getElementById('ann-audience').value;
   var anns=getAnnouncements();
+  var annMonth=(document.getElementById('ann-month')?document.getElementById('ann-month').value:'');
   var newAnn={id:Date.now(),title,type:document.getElementById('ann-type').value,
     audience:audience,body,
+    month:annMonth,
     link:(document.getElementById('ann-link').value||'').trim(),
     date:new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})};
   anns.push(newAnn);
@@ -11581,7 +11742,7 @@ function _integrateGSheetPartner(rows, sheetName){
     // Column detection
     function fk(patterns){ return keys.find(function(k){ return patterns.some(function(p){ return p.test ? p.test(k) : k.toLowerCase().includes(p.toLowerCase()); }); })||null; }
     var nameKey   = fk([/partner.?name/i, /^name$/i]) || keys[0];
-    var monthKey  = fk([/month.*year/i, /^month$/i, /period/i]);
+    var monthKey  = fk([/month.*year/i,/month\s*&\s*year/i,/^month$/i,/period/i]);
     var leadsKey  = fk([/^leads$/i]);
     var apptsKey  = fk([/appointments_total/i, /^appts$/i, /appointments/i]);
     var inspsKey  = fk([/inspections_total/i, /^insps$/i, /inspections/i]);
@@ -11609,30 +11770,23 @@ function _integrateGSheetPartner(rows, sheetName){
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim();
-      // "March" or "march 2026" or "Mar 2026" or "Feb-26" or "Feb-2026"
-      var word = raw.toLowerCase().split(/[\s,'\-\/0-9]/)[0];
+      // Handle Mar'26, Feb-26, Feb/26, Feb-2026, March 2026, "Month & Year" col values
+      raw = raw.replace(/(\w{3,9})'(\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
+      raw = raw.replace(/([a-zA-Z]+)[\-\/](\d{2,4})/, function(_,m,y){ return m+' '+(y.length===2?'20'+y:y); });
+      var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
       var shortM = MMAP[word]; if(!shortM) return null;
-      var yrMatch = raw.match(/20(\d{2})/);
+      var yrMatch = raw.match(/20\d{2}/);
       var yr;
       if(yrMatch){
         yr = parseInt(yrMatch[0]);
       } else {
-        // Check if month already registered — trust that year
         var reg0 = loadMonthRegistry();
         if(reg0.yearMap && reg0.yearMap[shortM]){
           yr = reg0.yearMap[shortM];
         } else {
-          // Infer year: use current fiscal year logic
-          // CARS24 fiscal year Apr-Mar. If month is Apr-Mar of previous period, assign last year.
           var now = new Date(); var curYr = now.getFullYear(); var curMo = now.getMonth()+1;
           var mNum = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
-          // If month hasn't happened yet this calendar year, it's last year
-          // Also: Apr-Dec of previous year if we're currently in Jan-Mar
-          if(mNum > curMo){
-            yr = curYr - 1; // e.g. we're in Mar 2026, sheet says "Oct" → Oct 2025
-          } else {
-            yr = curYr;
-          }
+          yr = (mNum > curMo) ? curYr - 1 : curYr;
         }
       }
       var reg = loadMonthRegistry();
@@ -11669,7 +11823,7 @@ function _integrateGSheetPartner(rows, sheetName){
       agg.stocks += rowStocks;
       // Payout_Total_000: if value >500 it's already in ₹; otherwise multiply by 1000
       var payRaw = _gN(r, payoutKey||'Payout_Total_000');
-      agg.payout += (payRaw > 500 ? payRaw : payRaw * 1000);
+      agg.payout += payRaw;  // payout already in ₹
 
       // Weighted sums — weight A2I% by appointments, ASP/I2SI/CPI by inspections
       var rowA2i  = _gN(r, a2iKey  ||'A2I_Total');
@@ -11704,7 +11858,7 @@ function _integrateGSheetPartner(rows, sheetName){
         asp:     rowAsp,
         i2si:    rowI2si,
         cpi:     rowCpi,
-        payout:  (payRaw > 500 ? payRaw : payRaw * 1000)
+        payout:  payRaw  // payout already in ₹
       });
     });
 
@@ -11759,7 +11913,7 @@ function _integrateGSheetBuyer(rows){
     var tokenKey = fk([/^token$/i]);
     var delivKey = fk([/^delivery$/i]);
     var cfKey    = fk([/^cf$/i]);
-    var monthKey = fk([/month.*year/i, /^month$/i, /period/i]);
+    var monthKey = fk([/month.*year/i,/month\s*&\s*year/i,/^month$/i,/period/i]);
 
     // Month normalizer for "March'26", "Mar 2026", "March 2026"
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
@@ -11768,13 +11922,25 @@ function _integrateGSheetBuyer(rows){
                 sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
-      raw = String(raw).trim().replace(/'/g,' ').replace(/\s+/g,' ');
+      raw = String(raw).trim();
+      raw = raw.replace(/(\w{3,9})'(\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
+      raw = raw.replace(/([a-zA-Z]+)[\-\/](\d{2,4})/, function(_,m,y){ return m+' '+(y.length===2?'20'+y:y); });
+      raw = raw.replace(/\s+/g,' ').trim();
       var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
       var shortM = MMAP[word]; if(!shortM) return null;
-      var yrRaw = raw.match(/\d{2,4}/); 
-      var yr = yrRaw ? (yrRaw[0].length===2 ? 2000+parseInt(yrRaw[0]) : parseInt(yrRaw[0])) : 2026;
+      var yrMatch = raw.match(/20\d{2}/);
+      var yr;
+      if(yrMatch){ yr = parseInt(yrMatch[0]); }
+      else {
+        var reg0 = loadMonthRegistry();
+        if(reg0.yearMap && reg0.yearMap[shortM]){ yr = reg0.yearMap[shortM]; }
+        else { var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+          var mn={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
+          yr=(mn>cm)?cy-1:cy; }
+      }
       var reg = loadMonthRegistry();
       if(!reg.order.includes(shortM)){ reg.order.push(shortM); reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
       return shortM;
     }
 
@@ -11784,8 +11950,8 @@ function _integrateGSheetBuyer(rows){
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
       if(!pName || SKIP.has(pName.toLowerCase())) return;
-      var rawMo = monthKey ? String(r[monthKey]||'').trim() : 'Mar 2026';
-      var shortM = resolveMonth(rawMo)||'Mar';
+      var rawMo = monthKey ? String(r[monthKey]||'').trim() : '';
+      var shortM = resolveMonth(rawMo); if(!shortM) return;  // skip rows with no valid month
       if(!byPartnerMonth[pName]) byPartnerMonth[pName] = {};
       if(!byPartnerMonth[pName][shortM]) byPartnerMonth[pName][shortM] = {sessions:0,bi:0,bc:0,visit:0,token:0,delivery:0,cf:0,rows:[]};
       var agg = byPartnerMonth[pName][shortM];
@@ -11834,7 +12000,7 @@ function _integrateGSheetAdmin(rows){
     function fk(patterns){ return keys.find(function(k){ return patterns.some(function(p){ return p.test ? p.test(k) : k.toLowerCase()===p.toLowerCase(); }); })||null; }
 
     var nameKey    = fk([/partner.?name/i,/^name$/i])||keys[0];
-    var monthKey   = fk([/month.*year/i,/^month$/i,/period/i]);
+    var monthKey   = fk([/month.*year/i,/month\s*&\s*year/i,/^month$/i,/period/i]);
     var leadsKey   = fk([/^leads$/i]);
     var apptsKey   = fk([/appointments_total/i]);
     var apptOKey   = fk([/appointment_o/i,/appointments_o/i,/appts_o/i]);
@@ -11862,22 +12028,23 @@ function _integrateGSheetAdmin(rows){
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim();
-      var word = raw.toLowerCase().split(/[\s,'0-9]/)[0];
+      // Normalise Mar'26 → "Mar 2026", Mar-26 → "Mar 26"
+      raw = raw.replace(/(\w{3})'(\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
+      raw = raw.replace(/([a-zA-Z]+)[\-\/](\d{2,4})/, function(_,m,y){ return m+' '+(y.length===2?'20'+y:y); });
+      var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
       var shortM = MMAP[word]; if(!shortM) return null;
       var yrMatch = raw.match(/20\d{2}/);
       var yr;
       if(yrMatch){
         yr = parseInt(yrMatch[0]);
       } else {
-        // Check if month already registered — trust that year
         var reg0 = loadMonthRegistry();
         if(reg0.yearMap && reg0.yearMap[shortM]){
           yr = reg0.yearMap[shortM];
         } else {
-          // Infer: months May-Dec likely belong to previous year if current month is Jan-Apr
           var now = new Date(); var curYr = now.getFullYear(); var curMo = now.getMonth()+1;
           var mNum = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
-          yr = (curMo <= 4 && mNum >= 5) ? curYr - 1 : curYr;
+          yr = (mNum > curMo) ? curYr - 1 : curYr;
         }
       }
       var reg = loadMonthRegistry();
@@ -11918,7 +12085,7 @@ function _integrateGSheetAdmin(rows){
       existing.kpi_i2si = _gN(r, kpiI2siKey||'KPI_I2SI');
       existing.cpi      = _gN(r, cpiKey   ||'CPI_Total');
       existing.cpi_organic    = _gN(r, cpiOKey||'CPI_o');
-      existing.payout   = payRaw > 500 ? payRaw : payRaw * 1000;
+      existing.payout   = payRaw;  // payout already in ₹
       existing.payout_organic = payO;
     });
 
@@ -11985,7 +12152,7 @@ function _integrateGSheetVHR(rows){
     var keys = Object.keys(rows[0]||{});
     var nameKey   = keys.find(function(k){ return /^partner$/i.test(k.trim())||/partner.?name/i.test(k); })||keys[0];
     var ordersKey = keys.find(function(k){ return /^orders$/i.test(k.trim())||/^count$/i.test(k.trim()); });
-    var monthKey  = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k); });
+    var monthKey  = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k)||/month\s*&\s*year/i.test(k); });
     var payKey    = keys.find(function(k){ return /^payout$/i.test(k.trim()); });
     var rateKey   = keys.find(function(k){ return /^rate$/i.test(k.trim()); });
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
@@ -11993,9 +12160,33 @@ function _integrateGSheetVHR(rows){
                 jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
-      raw = String(raw).trim().replace(/'/g,' ');
-      var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
-      return MMAP[word]||null;
+      raw = String(raw).trim();
+      // Handle Mar'26 → "Mar 26", Mar-26, Mar/26, Mar 2026, March 2026
+      raw = raw.replace(/'/g,' ').replace(/[\-\/]/g,' ');
+      var parts = raw.trim().split(/\s+/);
+      var word = parts[0].toLowerCase();
+      var shortM = MMAP[word]; if(!shortM) return null;
+      // Extract year: "26" → 2026, "2026" → 2026
+      var yrPart = parts[1] ? parts[1].replace(/\D/g,'') : '';
+      var yr;
+      if(yrPart.length === 2) yr = 2000 + parseInt(yrPart);
+      else if(yrPart.length === 4) yr = parseInt(yrPart);
+      else {
+        // No year in string — check registry, then infer
+        var reg0 = loadMonthRegistry();
+        if(reg0.yearMap && reg0.yearMap[shortM]) {
+          yr = reg0.yearMap[shortM];
+        } else {
+          var now = new Date(); var curYr = now.getFullYear(); var curMo = now.getMonth()+1;
+          var mNum = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
+          yr = (mNum > curMo) ? curYr - 1 : curYr;
+        }
+      }
+      // Register in month registry
+      var reg = loadMonthRegistry();
+      if(!reg.order.includes(shortM)){ reg.order.push(shortM); reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      return shortM;
     }
     var store = getVhrStore();
     var SKIP = new Set(['grand total','total','partner','null','']);
@@ -12022,13 +12213,34 @@ function _integrateGSheetPDI(rows){
     var keys = Object.keys(rows[0]||{});
     var nameKey   = keys.find(function(k){ return /^partner$/i.test(k.trim())||/partner.?name/i.test(k); })||keys[0];
     var ordersKey = keys.find(function(k){ return /^orders$/i.test(k.trim()); });
-    var monthKey  = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k); });
+    var monthKey  = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k)||/month\s*&\s*year/i.test(k); });
     var payKey    = keys.find(function(k){ return /^payout$/i.test(k.trim()); });
     var rateKey   = keys.find(function(k){ return /^rate$/i.test(k.trim()); });
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
                 july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',
                 jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
-    function resolveMonth(raw){ if(!raw) return null; var w=String(raw).trim().replace(/'/g,' ').toLowerCase().split(/[\s,0-9]/)[0]; return MMAP[w]||null; }
+    function resolveMonth(raw){
+      if(!raw) return null;
+      raw = String(raw).trim().replace(/'/g,' ').replace(/[\-\/]/g,' ');
+      var parts = raw.trim().split(/\s+/);
+      var word = parts[0].toLowerCase();
+      var shortM = MMAP[word]; if(!shortM) return null;
+      var yrPart = parts[1] ? parts[1].replace(/\D/g,'') : '';
+      var yr;
+      if(yrPart.length===2) yr = 2000+parseInt(yrPart);
+      else if(yrPart.length===4) yr = parseInt(yrPart);
+      else {
+        var reg0 = loadMonthRegistry();
+        if(reg0.yearMap && reg0.yearMap[shortM]){ yr = reg0.yearMap[shortM]; }
+        else { var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+          var mn={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
+          yr = (mn>cm)?cy-1:cy; }
+      }
+      var reg=loadMonthRegistry();
+      if(!reg.order.includes(shortM)){ reg.order.push(shortM); reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      return shortM;
+    }
     var store = getPdiStore();
     var SKIP = new Set(['grand total','total','partner','null','']);
     rows.forEach(function(r){
@@ -12049,11 +12261,32 @@ function _integrateGSheetChallan(rows){
     var keys = Object.keys(rows[0]||{});
     var nameKey  = keys.find(function(k){ return /^partner$/i.test(k.trim())||/partner.?name/i.test(k); })||keys[0];
     var ordKey   = keys.find(function(k){ return /^orders$/i.test(k.trim()); });
-    var monthKey = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k); });
+    var monthKey = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k)||/month\s*&\s*year/i.test(k); });
     var payKey   = keys.find(function(k){ return /^payout$/i.test(k.trim()); });
     var rateKey  = keys.find(function(k){ return /^rate$/i.test(k.trim()); });
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
-    function resolveMonth(raw){ if(!raw) return null; var w=String(raw).trim().replace(/'/g,' ').toLowerCase().split(/[\s,0-9]/)[0]; return MMAP[w]||null; }
+    function resolveMonth(raw){
+      if(!raw) return null;
+      raw = String(raw).trim().replace(/'/g,' ').replace(/[\-\/]/g,' ');
+      var parts = raw.trim().split(/\s+/);
+      var word = parts[0].toLowerCase();
+      var shortM = MMAP[word]; if(!shortM) return null;
+      var yrPart = parts[1] ? parts[1].replace(/\D/g,'') : '';
+      var yr;
+      if(yrPart.length===2) yr = 2000+parseInt(yrPart);
+      else if(yrPart.length===4) yr = parseInt(yrPart);
+      else {
+        var reg0 = loadMonthRegistry();
+        if(reg0.yearMap && reg0.yearMap[shortM]){ yr = reg0.yearMap[shortM]; }
+        else { var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+          var mn={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
+          yr = (mn>cm)?cy-1:cy; }
+      }
+      var reg=loadMonthRegistry();
+      if(!reg.order.includes(shortM)){ reg.order.push(shortM); reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      return shortM;
+    }
     var store = getChallanStore();
     var SKIP = new Set(['grand total','total','partner','null','']);
     rows.forEach(function(r){
@@ -12074,11 +12307,32 @@ function _integrateGSheetLAC(rows){
     var keys = Object.keys(rows[0]||{});
     var nameKey  = keys.find(function(k){ return /^partner$/i.test(k.trim())||/partner.?name/i.test(k); })||keys[0];
     var ordKey   = keys.find(function(k){ return /^orders$/i.test(k.trim()); });
-    var monthKey = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k); });
+    var monthKey = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k)||/month\s*&\s*year/i.test(k); });
     var payKey   = keys.find(function(k){ return /^payout$/i.test(k.trim()); });
     var rateKey  = keys.find(function(k){ return /^rate$/i.test(k.trim()); });
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
-    function resolveMonth(raw){ if(!raw) return null; var w=String(raw).trim().replace(/'/g,' ').toLowerCase().split(/[\s,0-9]/)[0]; return MMAP[w]||null; }
+    function resolveMonth(raw){
+      if(!raw) return null;
+      raw = String(raw).trim().replace(/'/g,' ').replace(/[\-\/]/g,' ');
+      var parts = raw.trim().split(/\s+/);
+      var word = parts[0].toLowerCase();
+      var shortM = MMAP[word]; if(!shortM) return null;
+      var yrPart = parts[1] ? parts[1].replace(/\D/g,'') : '';
+      var yr;
+      if(yrPart.length===2) yr = 2000+parseInt(yrPart);
+      else if(yrPart.length===4) yr = parseInt(yrPart);
+      else {
+        var reg0 = loadMonthRegistry();
+        if(reg0.yearMap && reg0.yearMap[shortM]){ yr = reg0.yearMap[shortM]; }
+        else { var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+          var mn={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
+          yr = (mn>cm)?cy-1:cy; }
+      }
+      var reg=loadMonthRegistry();
+      if(!reg.order.includes(shortM)){ reg.order.push(shortM); reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      return shortM;
+    }
     var store = getLacStore();
     var SKIP = new Set(['grand total','total','partner','null','']);
     rows.forEach(function(r){
@@ -12109,18 +12363,30 @@ function _integrateGSheetElite(rows){
     var eI2si      = keys.find(function(k){ return /^e_i2si$/i.test(k.trim())||/e_i2si/i.test(k); });
     var neI2si     = keys.find(function(k){ return /^ne_i2si$/i.test(k.trim())||/ne_i2si/i.test(k); });
     var payElKey   = keys.find(function(k){ return /payout_elite/i.test(k)||/^payout$/i.test(k.trim()); });
-    var monthKey   = keys.find(function(k){ return /month.*year/i.test(k)||/^month$/i.test(k.trim()); });
+    var monthKey   = keys.find(function(k){ return /month.*year/i.test(k)||/month\s*&\s*year/i.test(k)||/^month$/i.test(k.trim()); });
 
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
-      raw = String(raw).trim().replace(/'/g,' ').replace(/\s+/g,' ');
+      raw = String(raw).trim();
+      raw = raw.replace(/(\w{3,9})'(\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
+      raw = raw.replace(/([a-zA-Z]+)[\-\/](\d{2,4})/, function(_,m,y){ return m+' '+(y.length===2?'20'+y:y); });
+      raw = raw.replace(/\s+/g,' ').trim();
       var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
       var shortM = MMAP[word]; if(!shortM) return null;
-      var yrMatch = raw.match(/20\d{2}|\d{2}$/); 
-      var yr = yrMatch ? (yrMatch[0].length===2 ? 2000+parseInt(yrMatch[0]) : parseInt(yrMatch[0])) : 2026;
+      var yrMatch = raw.match(/20\d{2}/);
+      var yr;
+      if(yrMatch){ yr = parseInt(yrMatch[0]); }
+      else {
+        var reg0 = loadMonthRegistry();
+        if(reg0.yearMap && reg0.yearMap[shortM]){ yr = reg0.yearMap[shortM]; }
+        else { var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+          var mn={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[shortM]||1;
+          yr=(mn>cm)?cy-1:cy; }
+      }
       var reg = loadMonthRegistry();
       if(!reg.order.includes(shortM)){ reg.order.push(shortM); reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
+      else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
       return shortM;
     }
 
@@ -16272,7 +16538,15 @@ function buildFunnelMonthCheckboxes(){
     prevChecked[cb.dataset.month] = cb.checked;
   });
   wrap.innerHTML = '';
-  _M.forEach(function(m){
+  // Sort months chronologically for display
+  var _VALID_CB = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  var _regCB = (typeof loadMonthRegistry==='function') ? loadMonthRegistry() : {yearMap:{}};
+  var _M_sorted = _M.slice().sort(function(a,b){
+    var ya=(_regCB.yearMap[a])||2026, yb=(_regCB.yearMap[b])||2026;
+    if(ya!==yb) return ya-yb;
+    return (_VALID_CB[a]||0)-(_VALID_CB[b]||0);
+  });
+  _M_sorted.forEach(function(m){
     var checked = (Object.keys(prevChecked).length === 0) ? true : (prevChecked[m] !== false);
     var label = document.createElement('label');
     label.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px;cursor:pointer;user-select:none;transition:all .15s;background:' + (checked ? 'var(--al)' : 'transparent') + ';color:' + (checked ? 'var(--ac)' : 'var(--t2)') + ';border-color:' + (checked ? 'rgba(79,70,229,.35)' : 'var(--bd)') + ';';
@@ -17453,7 +17727,7 @@ console.log('[Cars24 v35] 8 fixes applied — expand ✓ data isolation ✓ DOD 
       added++;
 
       // Send welcome email
-      if(sendEmail && email && typeof emailjs !== 'undefined'){
+      if(sendEmail && email && typeof emailjs !== 'undefined' && (CARS24_CONFIG.emailjs||{}).serviceId){
         try{
           emailjs.send(CARS24_CONFIG.emailjs.serviceId, CARS24_CONFIG.emailjs.templateId, {
             to_email: email, to_name: name,
@@ -17798,76 +18072,87 @@ console.log('[Cars24 v36] All 6 fixes applied — data isolation ✓ projection 
 // Set your Apps Script URL below (deploy as "Anyone" with access).
 var DRIVE_WEBAPP_URL = window.CARS24_DRIVE_URL || '';  // set in config if available
 
-// Base64-encode a File and POST to the Apps Script relay
-// ── Supabase Storage upload (direct from browser, no Apps Script needed) ──
-// Bucket: cars24-invoices (public, org-readable)
-// Path:   folder/fileName  e.g. Cars24_Invoices/INV_Partner_Mar26.pdf
-async function uploadFileToDrive(file, folder, fileName){
-  var sbUrl = window.CARS24_SUPABASE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.url) || '';
-  var sbKey = window.CARS24_SUPABASE_ANONKEY || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.anonKey) || '';
-  var BUCKET = 'cars24-invoices';
+// ── Drive Upload via Apps Script Relay ──────────────────────────────────
+// Routes files to: Root → YYYY-Mon → Invoices|Proofs → PartnerName → file
+// Root folder: https://drive.google.com/drive/folders/15QWbdRua6O194syzdqQEK1sI4YCsJrHl
+async function uploadFileToDrive(file, folder, fileName, extraMeta){
+  var relayUrl = window.CARS24_DRIVE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.driveWebAppUrl) || '';
+  var token    = (window.CARS24_CONFIG&&window.CARS24_CONFIG.relayToken) || '';
 
-  if(!sbUrl || !sbKey){
-    console.warn('[Storage] Supabase not configured');
+  if(!relayUrl || !token){
+    console.warn('[Drive] Relay not configured — driveWebAppUrl or relayToken missing');
     return null;
   }
   if(file.size > 10 * 1024 * 1024){
-    console.warn('[Storage] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max 10MB');
+    console.warn('[Drive] File too large:', (file.size/1024/1024).toFixed(1)+'MB — max 10MB');
     return 'TOO_LARGE';
   }
 
-  var safeName    = fileName.replace(/[^a-zA-Z0-9._\-()\ ]/g, '_');
-  var storagePath = folder + '/' + safeName;
-  var uploadUrl   = sbUrl + '/storage/v1/object/' + BUCKET + '/' + encodeURIComponent(storagePath);
+  // Determine upload type and metadata from folder name
+  var isProof   = folder.toLowerCase().includes('proof');
+  var uploadType = isProof ? 'proof' : 'invoice';
+  var partner   = window.currentPartner ? (window.currentPartner.display||window.currentPartner.name||'') : 'Unknown';
+  var month     = isProof ? (window._lastProofMonth||'') : (window._lastInvMonth||'');
+  var meta      = extraMeta || {};
 
-  try{
-    var r = await fetch(uploadUrl, {
-      method : 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + sbKey,
-        'apikey'       : sbKey,
-        'Content-Type' : file.type || 'application/octet-stream',
-        'x-upsert'     : 'true'
-      },
-      body: file
-    });
+  return new Promise(function(resolve){
+    var reader = new FileReader();
+    reader.onload = async function(e){
+      var b64 = e.target.result.split(',')[1];
+      var payload = {
+        action    : 'upload',
+        token     : token,
+        type      : uploadType,
+        partner   : partner,
+        month     : month || 'Unknown',
+        fileName  : fileName,
+        mimeType  : file.type || 'application/octet-stream',
+        base64Data: b64,
+        invNo     : meta.invNo || window._lastInvNo    || '',
+        utr       : meta.utr   || window._lastProofUtr || '',
+        amount    : meta.amount|| window._lastInvAmount|| window._lastProofAmount || 0
+      };
 
-    if(!r.ok){
-      var errText = await r.text();
-      // Bucket missing → try auto-create once then retry
-      if(r.status === 404 || r.status === 400){
+      try{
+        var r = await fetch(relayUrl, {
+          method  : 'POST',
+          headers : { 'Content-Type':'text/plain;charset=utf-8' },
+          body    : JSON.stringify(payload),
+          redirect: 'follow',
+          mode    : 'cors',
+          credentials: 'omit'
+        });
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        var d = await r.json();
+        if(d.fileUrl){
+          console.log('[Drive] Upload OK →', d.folder+'/'+d.fileName);
+          resolve(d.fileUrl);
+        } else if(d.error){
+          console.warn('[Drive] Relay error:', d.error);
+          resolve(null);
+        } else {
+          resolve(null);
+        }
+      }catch(err){
+        // CORS fallback — fire no-cors if relay redirects opaquely
+        console.warn('[Drive] CORS fetch failed, trying no-cors:', err.message);
         try{
-          var cb = await fetch(sbUrl+'/storage/v1/bucket', {
-            method : 'POST',
-            headers: { 'Authorization':'Bearer '+sbKey, 'apikey':sbKey, 'Content-Type':'application/json' },
-            body   : JSON.stringify({ id:BUCKET, name:BUCKET, public:true })
+          await fetch(relayUrl, {
+            method  : 'POST',
+            headers : { 'Content-Type':'text/plain;charset=utf-8' },
+            body    : JSON.stringify(payload),
+            mode    : 'no-cors'
           });
-          if(cb.ok || cb.status===409){ // 409 = already exists
-            var r2 = await fetch(uploadUrl, {
-              method : 'POST',
-              headers: { 'Authorization':'Bearer '+sbKey, 'apikey':sbKey, 'Content-Type':file.type||'application/octet-stream', 'x-upsert':'true' },
-              body   : file
-            });
-            if(r2.ok){
-              var publicUrl2 = sbUrl+'/storage/v1/object/public/'+BUCKET+'/'+encodeURIComponent(storagePath);
-              console.log('[Storage] Upload OK (after bucket create):', publicUrl2);
-              return publicUrl2;
-            }
-          }
-        }catch(e2){ console.warn('[Storage] Bucket create failed:', e2); }
+          resolve('UPLOADED');
+        }catch(e2){
+          console.warn('[Drive] Upload failed entirely:', e2.message);
+          resolve(null);
+        }
       }
-      console.warn('[Storage] Upload failed:', r.status, errText.slice(0,120));
-      return null;
-    }
-
-    var publicUrl = sbUrl+'/storage/v1/object/public/'+BUCKET+'/'+encodeURIComponent(storagePath);
-    console.log('[Storage] Upload OK:', publicUrl);
-    return publicUrl;
-
-  }catch(err){
-    console.warn('[Storage] Upload error:', err.message||err);
-    return null;
-  }
+    };
+    reader.onerror = function(){ resolve(null); };
+    reader.readAsDataURL(file);
+  });
 }
 
 // ── OVERRIDE: submitPartnerInvoice — add Drive upload ────────────
@@ -17914,8 +18199,13 @@ window.submitPartnerInvoice = (function(_orig){
     }
 
     if(file){
-      showMsg(true,'⏳ Uploading to cloud storage…');
-      var driveName = 'INV_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+invNo+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+fname.split('.').pop();
+      showMsg(true,'⏳ Uploading to Drive…');
+      // Format: PartnerName_Month_InvoiceNo.ext  e.g. Carinfo_Mar2026_INV001.pdf
+      var _pClean = partner.replace(/[^a-zA-Z0-9]/g,'_');
+      var _mClean = fullMo.replace(/[^a-zA-Z0-9]/g,'_');
+      var _iClean = invNo.replace(/[^a-zA-Z0-9]/g,'_');
+      var _ext    = fname.split('.').pop().toLowerCase();
+      var driveName = _pClean+'_'+_mClean+'_'+_iClean+'.'+_ext;
       window._lastInvMonth  = fullMo;
       window._lastInvAmount = amount;
       window._lastInvNo     = invNo;
@@ -17947,7 +18237,7 @@ window.submitPartnerInvoice = (function(_orig){
     var fileStatus = !file       ? ''
       : hasLink  ? ' · <a href="'+driveUrl+'" target="_blank" style="color:#10b981;font-weight:700;">📎 View File ↗</a>'
       : uploaded ? ' · <span style="color:#10b981;">☁ File uploaded ✓</span>'
-      :            ' · <span style="color:#f59e0b;font-size:11px;">⚠ Upload failed — check Supabase storage bucket "cars24-invoices"</span>';
+      :            ' · <span style="color:#f59e0b;font-size:11px;">⚠ Upload failed — check relay URL and token in CARS24_CONFIG</span>';
 
     if(msg){
       msg.style.display='block';
@@ -18042,9 +18332,13 @@ window.savePaymentProof = async function(){
   }
 
   if(file){
-    showErr('⏳ Uploading to cloud storage…', '#f59e0b');
+    showErr('⏳ Uploading to Drive…', '#f59e0b');
     var ext       = fname.split('.').pop();
-    var driveName = 'PROOF_'+partner.replace(/[^a-zA-Z0-9]/g,'_')+'_'+utr+'_'+fullMo.replace(/[^a-zA-Z0-9]/g,'_')+'.'+ext;
+    // Format: PartnerName_Month_UTR.ext  e.g. Carinfo_Mar2026_UTR987654.jpg
+    var _ppClean = partner.replace(/[^a-zA-Z0-9]/g,'_');
+    var _pmClean = fullMo.replace(/[^a-zA-Z0-9]/g,'_');
+    var _puClean = utr.replace(/[^a-zA-Z0-9]/g,'_');
+    var driveName = _ppClean+'_'+_pmClean+'_'+_puClean+'.'+ext;
     window._lastProofMonth  = fullMo;
     window._lastProofAmount = amount;
     window._lastProofUtr    = utr;

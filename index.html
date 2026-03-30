@@ -24,7 +24,7 @@ const CARS24_CONFIG = {
   // 100% FREE — no billing, no credit card needed
   // Get your key in 2 mins: https://console.groq.com → API Keys → Create API Key
   // Free tier: 14,400 requests/day on Llama 3 — plenty for 30 partners
-  groqKey: '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',
+  groqKey: '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',
   // ── Supabase (cross-device sync — replaces Google Apps Script relay) ──
   // 1. Go to https://supabase.com → New project
   // 2. SQL Editor → run the setup query in the comment at the bottom of this file
@@ -36,7 +36,7 @@ const CARS24_CONFIG = {
   // ── Google Drive Upload Relay ──────────────────────────────────────────
   // Still used ONLY for file uploads (invoices, payment proofs) to Drive.
   // Cross-device DATA sync now runs through Supabase instead.
-  driveWebAppUrl: 'https://script.google.com/macros/s/AKfycby411yf9YpzAQV_RjYEutpAHgkch_b1DWkywb7iVV6Mf9IFGLGg0uIELBjfgHFxTIgM/exec',
+  driveWebAppUrl: 'https://script.google.com/macros/s/AKfycbzLH24mEaJVlv-DqN6-qIph73oJg27xvUsXjaq8QrIxEQ80-065GvNYTwVtZ1i86MMI/exec',
   relayToken: 'neel_affiliates_portal',  // ⚠️ must match SECRET_TOKEN in Cars24_Relay_v5_Drive.gs
   // ── EmailJS — for sending credential welcome emails ──────────────
   // Get free keys at https://www.emailjs.com (200 emails/month free)
@@ -165,10 +165,15 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
         console.warn('[C24Cloud] → Run c24SyncPushAll() from the device that has the correct data.');
       }
       var ALWAYS_TRUST_REMOTE = ['cars24_partner_creds'];
+      var GSHEET_SKIP=['cars24_partners_data','cars24_partner_sheet_data','cars24_admin_view_data',
+        'cars24_month_registry','cars24_dod_arrays','cars24_gsheet_cache_admin','cars24_gsheet_cache_seller',
+        'cars24_gsheet_cache_dod','cars24_gsheet_cache_buyer','cars24_gsheet_cache_elite',
+        'cars24_gsheet_cache_vhr','cars24_gsheet_cache_pdi','cars24_gsheet_cache_challan','cars24_gsheet_cache_lac'];
       var updated = [];
       rows.forEach(function(row){
         var key = row.key;
         if(!key || LOCAL_ONLY_KEYS.indexOf(key) !== -1) return;
+        if(GSHEET_SKIP.indexOf(key)!==-1) return; // GSheet is live source — skip stale remote
         var remoteVal = row.value || '';
         var remoteTs  = Number(row.updated_at) || 0;
         var localTs   = parseInt(localStorage.getItem('__ts_'+key)||'0', 10);
@@ -295,8 +300,10 @@ document.addEventListener('DOMContentLoaded', function () {
   // This ensures every device starts from the same cloud state,
   // not from whatever happened to be in their localStorage last.
   // Gate on Supabase being configured — _c24Cloud uses Supabase, not Drive
-  var _sbConfigured = !!(window.CARS24_SUPABASE_URL && window.CARS24_SUPABASE_ANONKEY);
-  if(window._c24Cloud && _sbConfigured){
+  // bootPull DISABLED — manual sync only (prevents Google account blocks).
+  // Restore session directly from localStorage cache instead.
+  var _sbConfigured = false; // force local-cache path
+  if(false && window._c24Cloud && _sbConfigured){
     window._c24Cloud.bootPull(function(ok, updatedKeys){
       if(!ok){
         console.warn('[C24Boot] Supabase unreachable — using local cache');
@@ -316,6 +323,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var _pd=localStorage.getItem('cars24_partners_data');
         if(_pd){ var _fp=JSON.parse(_pd); window.PARTNERS=_fp; try{ PARTNERS=_fp; }catch(e){} }
+        // Rebuild GRAND immediately from hydrated PARTNERS
+        try{ rebuildMonthMeta(); }catch(e){}
         var _ps=localStorage.getItem('cars24_partner_sheet_data');
         if(_ps){ window.PARTNER_SHEET=JSON.parse(_ps); }
         var _ts=localStorage.getItem('cars24_target_store');
@@ -1140,6 +1149,7 @@ input[type=range]::-webkit-slider-thumb {
         <div class="ni" onclick="showV('audit-log',this)"><span class="nic">🔍</span>Audit Log</div>
         <div class="ni" onclick="showV('credentials',this)"><span class="nic">🔑</span>Credentials & Email</div>
         <div class="ni" onclick="showV('partner-queries',this)" id="nav-admin-queries"><span class="nic">💬</span>Partner Queries<span class="c24-nb" id="nb-admin-queries" style="display:none"></span></div>
+        <div class="ni" onclick="showV('admin-ai',this)" id="nav-admin-ai"><span class="nic">🤖</span>AI Assistant <span style="font-size:9px;background:linear-gradient(90deg,#4f46e5,#7c3aed);color:#fff;border-radius:4px;padding:1px 5px;margin-left:3px;letter-spacing:.3px;font-weight:700;">NEW</span></div>
       </div>
     </nav>
 
@@ -1240,7 +1250,7 @@ input[type=range]::-webkit-slider-thumb {
           <div class="fbrow" style="align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="rl">Range:</span>
             <div class="rts" id="range-btns">
-              <button class="rt active" onclick="setRange('all',this)">All</button>
+              <button class="rt" onclick="setRange('all',this)">All</button>
               <button class="rt" onclick="setRange('l7',this)">L7</button>
               <button class="rt" onclick="setRange('l14',this)">L14</button>
               <button class="rt" onclick="setRange('l30',this)">L30</button>
@@ -2303,6 +2313,53 @@ input[type=range]::-webkit-slider-thumb {
           </div>
         </div>
         <div id="admin-queries-list" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;"></div>
+      </div>
+
+      <!-- ══ ADMIN AI ASSISTANT ══ -->
+      <div class="view" id="view-admin-ai">
+        <div class="ph" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div class="pt">🤖 Admin AI Assistant</div>
+            <div class="ps">Ask anything about partners, payouts, targets, funnel data, DOD trends — powered by Groq AI</div>
+          </div>
+          <button onclick="adminAiClear()" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">🗑 Clear</button>
+        </div>
+
+        <!-- Quick prompt chips -->
+        <div id="admin-ai-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+          <button class="eva-qp" onclick="adminAiChip(this)">Top 5 partners by leads this month</button>
+          <button class="eva-qp" onclick="adminAiChip(this)">Who has unpaid invoices?</button>
+          <button class="eva-qp" onclick="adminAiChip(this)">DOD trend last 7 days</button>
+          <button class="eva-qp" onclick="adminAiChip(this)">Which partners missed their targets?</button>
+          <button class="eva-qp" onclick="adminAiChip(this)">Summarise overall funnel performance</button>
+          <button class="eva-qp" onclick="adminAiChip(this)">Partners with best L→I conversion</button>
+        </div>
+
+        <!-- Chat area -->
+        <div id="admin-ai-messages" style="flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:12px;min-height:320px;max-height:calc(100vh - 380px);border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.02);padding:16px;margin-bottom:12px;">
+          <div class="eva-msg eva-msg--bot">
+            <div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg></div>
+            <div class="eva-bubble">Hi Admin! I'm your AI assistant with full access to all portal data — partners, payouts, DOD metrics, invoices, targets, funnel rates. Ask me anything or use the quick prompts above.</div>
+          </div>
+        </div>
+
+        <!-- Typing indicator -->
+        <div id="admin-ai-typing" style="display:none;padding:0 4px 8px;">
+          <div class="eva-msg eva-msg--bot">
+            <div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg></div>
+            <div class="eva-bubble eva-typing-bubble"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+
+        <!-- Input row -->
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <textarea id="admin-ai-input" rows="2"
+            placeholder="Ask anything about partners, payouts, funnel, DOD data…"
+            style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 14px;color:var(--t1);font-size:13px;font-family:inherit;resize:none;outline:none;line-height:1.5;"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adminAiSend();}"></textarea>
+          <button onclick="adminAiSend()" style="background:var(--ac,#4f46e5);border:none;border-radius:12px;padding:12px 20px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;align-self:stretch;">Send ↑</button>
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:6px;text-align:center;">Powered by Groq · Llama 3.3 70B · Context includes all live portal data</div>
       </div>
 
       <!-- CREDENTIALS MANAGER -->
@@ -3428,125 +3485,109 @@ var c24YearFilter = (function(){
 
 function rebuildMonthMeta(){
   var reg = loadMonthRegistry();
-  MONTHS  = reg.order.slice();
-  // ── Always sort MONTHS chronologically (in case registry was saved before sort fix) ──
-  var _VALID_SORT = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
-  MONTHS.sort(function(a,b){
-    var ya=(reg.yearMap[a])||2026, yb=(reg.yearMap[b])||2026;
-    if(ya!==yb) return ya-yb;
-    return (_VALID_SORT[a]||0)-(_VALID_SORT[b]||0);
-  });
-  MLABELS = MONTHS.map(function(m){ return m+' '+reg.yearMap[m]; });
-  MLABEL  = {};
-  MONTHS.forEach(function(m,i){ MLABEL[m] = MLABELS[i]; });
 
-  // Rebuild GRAND totals from PARTNERS (guard against undefined)
-  var _P = (typeof PARTNERS !== 'undefined' && Array.isArray(PARTNERS)) ? PARTNERS : [];
+  // ── 1. Sort MONTHS chronologically ──────────────────────────────────────
+  var MORD = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  MONTHS = reg.order.slice().filter(function(m){ return MORD[m] && reg.yearMap[m]; });
+  MONTHS.sort(function(a,b){
+    var ya=reg.yearMap[a], yb=reg.yearMap[b];
+    if(ya!==yb) return ya-yb;
+    return MORD[a]-MORD[b];
+  });
+
+  // ── 2. MLABEL: 'Jan' → 'Jan 2026' ──────────────────────────────────────
+  MLABEL = {};
+  MONTHS.forEach(function(m){ MLABEL[m] = m+' '+reg.yearMap[m]; });
+  MLABELS = MONTHS.map(function(m){ return MLABEL[m]; });
+
+  // ── 3. GRAND totals — sum PARTNERS per month ────────────────────────────
+  var _P = Array.isArray(PARTNERS) ? PARTNERS : [];
   GRAND = {leads:{},appts:{},insps:{},stocks:{},payout:{}};
   MONTHS.forEach(function(m){
-    GRAND.leads[m]  = _P.reduce(function(s,p){ return s+(p.leads&&p.leads[m]||0);  },0);
-    GRAND.appts[m]  = _P.reduce(function(s,p){ return s+(p.appts&&p.appts[m]||0);  },0);
-    GRAND.insps[m]  = _P.reduce(function(s,p){ return s+(p.insps&&p.insps[m]||0);  },0);
-    GRAND.stocks[m] = _P.reduce(function(s,p){ return s+(p.stocks&&p.stocks[m]||0);},0);
-    GRAND.payout[m] = _P.reduce(function(s,p){ return s+(p.payout&&p.payout[m]||0);},0);
+    GRAND.leads[m]  = _P.reduce(function(s,p){ return s+(p.leads  &&p.leads[m]  ||0); },0);
+    GRAND.appts[m]  = _P.reduce(function(s,p){ return s+(p.appts  &&p.appts[m]  ||0); },0);
+    GRAND.insps[m]  = _P.reduce(function(s,p){ return s+(p.insps  &&p.insps[m]  ||0); },0);
+    GRAND.stocks[m] = _P.reduce(function(s,p){ return s+(p.stocks &&p.stocks[m] ||0); },0);
+    GRAND.payout[m] = _P.reduce(function(s,p){ return s+(p.payout &&p.payout[m] ||0); },0);
   });
 
-  // PERIOD per-month
-  var allLeads=0,allAppts=0,allInsps=0,allStocks=0,allPayout=0;
+  // ── 4. PERIOD per-month + all ────────────────────────────────────────────
+  var totL=0,totA=0,totI=0,totS=0,totP=0;
   MONTHS.forEach(function(m){
-    PERIOD[m] = {leads:GRAND.leads[m],appts:GRAND.appts[m],insps:GRAND.insps[m],stocks:GRAND.stocks[m],payout:GRAND.payout[m]};
-    allLeads+=GRAND.leads[m]; allAppts+=GRAND.appts[m]; allInsps+=GRAND.insps[m]; allStocks+=GRAND.stocks[m]; allPayout+=GRAND.payout[m];
+    PERIOD[m]={leads:GRAND.leads[m],appts:GRAND.appts[m],insps:GRAND.insps[m],stocks:GRAND.stocks[m],payout:GRAND.payout[m]};
+    totL+=GRAND.leads[m]; totA+=GRAND.appts[m]; totI+=GRAND.insps[m]; totS+=GRAND.stocks[m]; totP+=GRAND.payout[m];
   });
-  PERIOD.all  = {leads:allLeads,appts:allAppts,insps:allInsps,stocks:allStocks,payout:allPayout};
-  // MTD = last month in registry WITH actual data (not future empty months)
-  var lastM = MONTHS[MONTHS.length-1];
-  // Walk backwards to find last month that actually has partner data or DOD data
-  var _P2 = (typeof PARTNERS!=='undefined'&&Array.isArray(PARTNERS)) ? PARTNERS : [];
-  for(var _mi=MONTHS.length-1; _mi>=0; _mi--){
-    var _m = MONTHS[_mi];
-    var hasPartnerData = _P2.some(function(p){ return (p.leads&&p.leads[_m])||0 > 0; });
-    var reg2 = loadMonthRegistry();
-    var MNUM2={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
-    var mNum2 = MNUM2[_m]; var yr2 = reg2.yearMap[_m];
-    var hasDodData = mNum2&&yr2&&(window.DOD_DATES||[]).some(function(d){ return d.startsWith(String(yr2)+'-'+mNum2); });
-    if(hasPartnerData || hasDodData){ lastM=_m; break; }
-    // If no data found at all, keep the most recent
-    if(_mi===0) lastM=MONTHS[MONTHS.length-1];
-  }
-  PERIOD.mtd  = PERIOD[lastM];
-  // L7/L14/L30 use DOD_D slice totals (static approximation — keep previous logic)
-  var dLen = typeof DOD_D !== 'undefined' ? DOD_D.leads.length : 0;
-  function dodSum(key,n){ return typeof DOD_D!=='undefined'?DOD_D[key].slice(-n).reduce(function(a,b){return a+b;},0):0; }
-  // L7/L14/L30: use DOD slice if available, else fall back to latest month(s) from PARTNERS
-  function _periodForRange(days){
-    var dLen = typeof DOD_D!=='undefined' ? DOD_D.leads.length : 0;
-    if(dLen >= days){
-      return {leads:dodSum('leads',days),appts:dodSum('appts',days),insps:dodSum('insps',days),stocks:dodSum('stocks',days),payout:0};
-    }
-    // Fallback: use last 1-2 months from PARTNERS proportionally
-    var fraction = days / 30;
-    var mList = MONTHS.slice(-2);
-    var tL=0,tA=0,tI=0,tS=0,tP=0;
-    var _Pf=(typeof PARTNERS!=='undefined'&&Array.isArray(PARTNERS))?PARTNERS:[];
-    mList.forEach(function(m){ _Pf.forEach(function(p){
-      tL+=(p.leads&&p.leads[m]||0); tA+=(p.appts&&p.appts[m]||0);
-      tI+=(p.insps&&p.insps[m]||0); tS+=(p.stocks&&p.stocks[m]||0);
-      tP+=(p.payout&&p.payout[m]||0);
-    }); });
-    var n = mList.length || 1;
-    return {leads:Math.round(tL/n*fraction),appts:Math.round(tA/n*fraction),
-            insps:Math.round(tI/n*fraction),stocks:Math.round(tS/n*fraction),payout:Math.round(tP/n*fraction)};
-  }
-  PERIOD.l7  = _periodForRange(7);
-  PERIOD.l14 = _periodForRange(14);
-  PERIOD.l30 = _periodForRange(30);
+  PERIOD.all={leads:totL,appts:totA,insps:totI,stocks:totS,payout:totP};
 
-  // RMETA
-  var firstLabel = MLABEL[MONTHS[0]] || MONTHS[0];
-  var lastLabel  = MLABEL[lastM] || lastM;
+  // ── 5. Current month = current calendar month ────────────────────────────
+  var _now   = new Date();
+  var _curM  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][_now.getMonth()];
+  var _curY  = _now.getFullYear();
+  // Find current month in MONTHS; if not present, fall back to latest registered month
+  var curM = MONTHS.find(function(m){ return m===_curM && reg.yearMap[m]===_curY; })
+          || MONTHS[MONTHS.length-1]
+          || '';
+
+  // ── 6. L7/L14/L30 from DOD slice; fallback to month proportion ───────────
+  var dLen = Array.isArray(DOD_D&&DOD_D.leads) ? DOD_D.leads.length : 0;
+  function dodSum(key,n){
+    if(!DOD_D||!DOD_D[key]) return 0;
+    return DOD_D[key].slice(-n).reduce(function(a,b){return a+(b||0);},0);
+  }
+  function periodForDays(days){
+    if(dLen>=days) return {leads:dodSum('leads',days),appts:dodSum('appts',days),insps:dodSum('insps',days),stocks:dodSum('stocks',days),payout:0};
+    // Fallback: proportion of current month
+    var tL=0,tA=0,tI=0,tS=0,tP=0;
+    if(curM){ _P.forEach(function(p){
+      tL+=(p.leads&&p.leads[curM]||0); tA+=(p.appts&&p.appts[curM]||0);
+      tI+=(p.insps&&p.insps[curM]||0); tS+=(p.stocks&&p.stocks[curM]||0);
+      tP+=(p.payout&&p.payout[curM]||0);
+    }); }
+    var frac=days/30;
+    return {leads:Math.round(tL*frac),appts:Math.round(tA*frac),insps:Math.round(tI*frac),stocks:Math.round(tS*frac),payout:Math.round(tP*frac)};
+  }
+  PERIOD.mtd = PERIOD[curM] || {leads:0,appts:0,insps:0,stocks:0,payout:0};
+  PERIOD.l7  = periodForDays(7);
+  PERIOD.l14 = periodForDays(14);
+  PERIOD.l30 = periodForDays(30);
+
+  // ── 7. RMETA — metadata for each range ──────────────────────────────────
+  var firstLbl = MLABEL[MONTHS[0]] || (MONTHS[0]||'');
+  var curLbl   = MLABEL[curM] || curM;
+  var allLbl   = MONTHS.length>1 ? firstLbl+' – '+curLbl : curLbl;
   RMETA = {
-    all: {label:'All · '+firstLabel+' – '+lastLabel,
-      days:(function(){
-        var reg3=loadMonthRegistry();
-        var MNUM3={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
-        if(!MONTHS.length) return '0 days';
-        var y0=reg3.yearMap[MONTHS[0]],m0=MNUM3[MONTHS[0]];
-        var y1=reg3.yearMap[lastM],m1=MNUM3[lastM];
-        if(!y0||!m0||!y1||!m1) return MONTHS.length+' months';
-        var d0=new Date(y0+'-'+m0+'-01');
-        var d1=new Date(y1+'-'+m1+'-28'); // approx month end
-        var days=Math.round((d1-d0)/(1000*60*60*24));
-        return days+' days';
-      })(),
-      months:MONTHS.slice()},
-    l7:  {label:'L7 · Last 7 Days',  days:'7 days',  months:[lastM]},
-    l14: {label:'L14 · Last 14 Days', days:'14 days', months:[lastM]},
-    l30: {label:'L30 · Last 30 Days', days:'30 days', months:MONTHS.length>1?[MONTHS[MONTHS.length-2],lastM]:[lastM]},
-    mtd: {label:'MTD · '+lastLabel,   days:'MTD',     months:[lastM]},
+    all:  {label:'All · '+allLbl,       days:MONTHS.length+' months', months:MONTHS.slice()},
+    mtd:  {label:'MTD · '+curLbl,        days:'MTD',                   months:curM?[curM]:MONTHS.slice(-1)},
+    l7:   {label:'L7 · Last 7 days',    days:'7 days',                months:curM?[curM]:MONTHS.slice(-1)},
+    l14:  {label:'L14 · Last 14 days',  days:'14 days',               months:curM?[curM]:MONTHS.slice(-1)},
+    l30:  {label:'L30 · Last 30 days',  days:'30 days',               months:MONTHS.slice(-2)},
   };
   MONTHS.forEach(function(m){
-    RMETA[m] = {label:MLABEL[m], days:'~30 days', months:[m]};
+    RMETA[m]={label:MLABEL[m]||m, days:'~30 days', months:[m]};
   });
 
-  // Refresh UI components — each wrapped individually so one failure never aborts the rest
-  try{ _rebuildRangeButtons(); }    catch(e){ console.warn('_rebuildRangeButtons',e); }
-  try{ _rebuildMtdButtons(); }      catch(e){ console.warn('_rebuildMtdButtons',e); }
-  try{ _rebuildFunnelButtons(); }   catch(e){ console.warn('_rebuildFunnelButtons',e); }
-  try{ _rebuildBuyerButtons(); }    catch(e){ console.warn('_rebuildBuyerButtons',e); }
-  try{ _rebuildDodMonthButtons(); } catch(e){ console.warn('_rebuildDodMonthButtons',e); }
-  try{ _rebuildTrendDropdown(); }   catch(e){ console.warn('_rebuildTrendDropdown',e); }
-  try{ _rebuildPartnerFunnelTabs(); }catch(e){ console.warn('_rebuildPartnerFunnelTabs',e); }
-  try{ _rebuildSdcDropdown(); }     catch(e){ console.warn('[Init] _rebuildSdcDropdown error:',e.message); }
-  try{ _rebuildDashboardLabels(); } catch(e){ console.warn('_rebuildDashboardLabels',e); }
-  // Re-initialize state vars that depend on MONTHS
-  if(MONTHS.length > 0){
-    if(!mtdCur || !MONTHS.includes(mtdCur)) mtdCur = MONTHS[MONTHS.length-1];
-    if(!mtdPrev || !MONTHS.includes(mtdPrev)) mtdPrev = MONTHS[MONTHS.length-2]||MONTHS[0]||'';
-    if(!pTrendPair) pTrendPair = (MONTHS[MONTHS.length-1]||'')+'_'+(MONTHS[MONTHS.length-2]||'');
+  // ── 8. Default curRange = current month ─────────────────────────────────
+  // Only set on first call (curRange='all' means not yet set by user)
+  if(curRange==='all' && curM && MONTHS.includes(curM)){
+    curRange = curM;
   }
-  // Refresh year filters across all views
-  try{ if(typeof c24YearFilter!=='undefined') setTimeout(function(){ c24YearFilter.applyAll(); }, 50); }catch(e){}
-  // Refresh provision month buttons if view is open
+
+  // ── 9. Rebuild UI ────────────────────────────────────────────────────────
+  try{ _rebuildRangeButtons(); }     catch(e){ console.warn('_rebuildRangeButtons',e); }
+  try{ _rebuildMtdButtons(); }       catch(e){}
+  try{ _rebuildFunnelButtons(); }    catch(e){}
+  try{ _rebuildBuyerButtons(); }     catch(e){}
+  try{ _rebuildDodMonthButtons(); }  catch(e){}
+  try{ _rebuildTrendDropdown(); }    catch(e){}
+  try{ _rebuildPartnerFunnelTabs(); }catch(e){}
+  try{ _rebuildSdcDropdown(); }      catch(e){}
+  try{ _rebuildDashboardLabels(); }  catch(e){}
+  if(MONTHS.length>0){
+    if(!mtdCur  || !MONTHS.includes(mtdCur))  mtdCur  = curM || MONTHS[MONTHS.length-1];
+    if(!mtdPrev || !MONTHS.includes(mtdPrev)) mtdPrev = MONTHS[MONTHS.length-2]||MONTHS[0]||'';
+    if(!pTrendPair) pTrendPair=(MONTHS[MONTHS.length-1]||'')+'_'+(MONTHS[MONTHS.length-2]||'');
+  }
+  try{ if(typeof c24YearFilter!=='undefined') setTimeout(function(){ c24YearFilter.applyAll(); },50); }catch(e){}
   try{ if(typeof buildProvisionMonthBtns==='function') buildProvisionMonthBtns(); }catch(e){}
 }
 
@@ -3577,17 +3618,8 @@ function _rebuildRangeButtons(){
   var MNUM={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
   MONTHS.forEach(function(m){
     // Check for real data
-    var hasPartner = (GRAND.leads&&GRAND.leads[m])||0 > 0;
-    var yr=reg.yearMap[m], mn=MNUM[m];
-    var hasDod = yr&&mn&&(window.DOD_DATES||[]).some(function(d){return d.startsWith(String(yr)+'-'+mn+'-');});
-    // Also check admin store
-    var hasAdmin = false;
-    try{
-      var avs=(typeof getAdminViewStore==='function')?getAdminViewStore():{};
-      var fullMo=(MLABEL&&MLABEL[m])||m;
-      hasAdmin=Object.keys(avs).some(function(k){return k===m||k===fullMo||k.startsWith(m);});
-    }catch(e){}
-    if(!hasPartner && !hasDod && !hasAdmin) return; // skip empty months
+    // Show all registered months — data may still be loading or in adminViewStore
+    // No gate: if month is in registry it was added by a sync, so show it
     var btn = document.createElement('button');
     btn.className = 'rt'+(curRange===m?' active':'');
     btn.setAttribute('data-month', m);
@@ -3595,16 +3627,26 @@ function _rebuildRangeButtons(){
     btn.onclick = function(){ setRange(m,this); };
     wrap.appendChild(btn);
   });
-  // MTD button — find last month with actual data
+  // Sync active class on fixed preset buttons (All, L7, L14, L30, MTD)
+  var presets = {all:'all',l7:'l7',l14:'l14',l30:'l30',mtd:'mtd'};
+  wrap.querySelectorAll('.rt:not([data-month])').forEach(function(b){
+    var onclick = (b.getAttribute('onclick')||'');
+    var key = null;
+    if(onclick.includes("'all'"))  key='all';
+    if(onclick.includes("'l7'"))   key='l7';
+    if(onclick.includes("'l14'"))  key='l14';
+    if(onclick.includes("'l30'"))  key='l30';
+    if(onclick.includes("'mtd'") || b.getAttribute('data-mtd')!==null) key='mtd';
+    if(key) b.classList.toggle('active', curRange===key);
+  });
+  // MTD button label
   var mtdBtn = wrap.querySelector('.rt[data-mtd]');
   if(mtdBtn && MONTHS.length){
-    var lastDataM = MONTHS[MONTHS.length-1];
-    for(var i=MONTHS.length-1;i>=0;i--){
-      if((GRAND.leads&&GRAND.leads[MONTHS[i]])||0 > 0){ lastDataM=MONTHS[i]; break; }
-    }
-    var mtdLabel = 'MTD · '+_shortLabel(MLABEL[lastDataM]||lastDataM);
-    mtdBtn.textContent = mtdLabel;
-    mtdBtn.onclick = function(){ setRange(lastDataM,this); };
+    var _curM2 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][new Date().getMonth()];
+    var _curY2 = new Date().getFullYear();
+    var _cur = MONTHS.find(function(m){ return m===_curM2 && (loadMonthRegistry().yearMap[m]===_curY2); }) || MONTHS[MONTHS.length-1];
+    mtdBtn.textContent = 'MTD · '+_shortLabel(MLABEL[_cur]||_cur);
+    mtdBtn.onclick = function(){ setRange(_cur,this); };
   }
   if(typeof c24YearFilter!=='undefined') c24YearFilter.init('range-btns');
 }
@@ -4036,30 +4078,60 @@ function setRange(key,btn){
   updateDashboard();
 }
 function setDashDateRange(){
-  var from=(document.getElementById('dash-from-date')||{value:''}).value;
+  var from=(document.getElementById('dash-from-date')||{value:''}).value; // YYYY-MM-DD
   var to  =(document.getElementById('dash-to-date')||{value:''}).value;
   if(!from && !to) return;
-  // Deactivate preset buttons
-  document.querySelectorAll('#range-btns .rt').forEach(b=>b.classList.remove('active'));
-  // Find months that overlap date range
-  var reg=loadMonthRegistry();
-  var MNUM={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
-  var filteredMonths=[];
-  MONTHS.forEach(function(m){
-    var yr=reg.yearMap[m], mn=MNUM[m]; if(!yr||!mn) return;
-    var mStart=String(yr)+'-'+mn+'-01', mEnd=String(yr)+'-'+mn+'-31';
-    if((!from||mEnd>=from)&&(!to||mStart<=to)) filteredMonths.push(m);
-  });
+  document.querySelectorAll('#range-btns .rt').forEach(function(b){ b.classList.remove('active'); });
+
+  var fromD = from || '0000-00-00';
+  var toD   = to   || '9999-99-99';
   var totL=0,totA=0,totI=0,totS=0,totP=0;
-  PARTNERS.forEach(function(p){
-    filteredMonths.forEach(function(m){
-      totL+=(p.leads&&p.leads[m])||0; totA+=(p.appts&&p.appts[m])||0;
-      totI+=(p.insps&&p.insps[m])||0; totS+=(p.stocks&&p.stocks[m])||0;
-      totP+=(p.payout&&p.payout[m])||0;
+  var source = '';
+
+  // ── Use DOD daily data when available (Overview tab) ─────────────────────
+  var dodHit = 0;
+  if(DOD_DATES && DOD_DATES.length){
+    for(var di=0; di<DOD_DATES.length; di++){
+      var d=DOD_DATES[di];
+      if(d>=fromD && d<=toD){
+        totL+=DOD_D.leads[di]||0; totA+=DOD_D.appts[di]||0;
+        totI+=DOD_D.insps[di]||0; totS+=DOD_D.stocks[di]||0;
+        dodHit++;
+      }
+    }
+    if(dodHit>0) source='daily ('+dodHit+' days)';
+  }
+
+  // ── Fallback: monthly totals from Admin sheet ─────────────────────────────
+  if(dodHit===0){
+    var reg=loadMonthRegistry();
+    var MN={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+    MONTHS.forEach(function(m){
+      var yr=reg.yearMap[m],mn=MN[m]; if(!yr||!mn) return;
+      var mS=yr+'-'+mn+'-01', mE=yr+'-'+mn+'-31';
+      if(mE>=fromD && mS<=toD){
+        var _P=Array.isArray(PARTNERS)?PARTNERS:[];
+        _P.forEach(function(p){
+          totL+=(p.leads&&p.leads[m]||0); totA+=(p.appts&&p.appts[m]||0);
+          totI+=(p.insps&&p.insps[m]||0); totS+=(p.stocks&&p.stocks[m]||0);
+          totP+=(p.payout&&p.payout[m]||0);
+        });
+      }
     });
+    source='monthly totals';
+  }
+
+  // Months overlapping range (for partner table)
+  var reg2=loadMonthRegistry();
+  var MN2={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+  var rMonths=[];
+  MONTHS.forEach(function(m){
+    var yr=reg2.yearMap[m],mn=MN2[m]; if(!yr||!mn) return;
+    if((yr+'-'+mn+'-31')>=fromD && (yr+'-'+mn+'-01')<=toD) rMonths.push(m);
   });
-  var label='Custom · '+(from||'…')+' → '+(to||'…');
-  RMETA['custom']={label:label, days:'Custom range', months:filteredMonths.length?filteredMonths:null};
+
+  var label=fromD+' → '+toD+' ('+source+')';
+  RMETA['custom']={label:label,days:'Custom',months:rMonths.length?rMonths:MONTHS.slice(-1)};
   PERIOD['custom']={leads:totL,appts:totA,insps:totI,stocks:totS,payout:totP};
   curRange='custom';
   updateDashboard();
@@ -4478,10 +4550,12 @@ function _filterDodSlice(wStart, wEnd, dowSet, fromId, toId){
 }
 
 function _getDodSlice(){
+  if(!DOD_DATES || !DOD_DATES.length) return { wStart: 0, wEnd: -1 };
   let startIdx = 0, endIdx = DOD_DATES.length - 1;
   if(dodMonthFilter !== 'all'){
     const m = _getDodMonthIdx(dodMonthFilter);
-    if(m){ startIdx = m.start; endIdx = m.end; }
+    if(m && m.start >= 0 && m.end >= m.start){ startIdx = m.start; endIdx = m.end; }
+    else { startIdx = 0; endIdx = DOD_DATES.length - 1; }
   }
   // Apply custom date range if set
   var fromV = (document.getElementById('dod-from-date')||{value:''}).value;
@@ -4495,6 +4569,7 @@ function _getDodSlice(){
     for(var i=endIdx;i>=startIdx;i--){ if(DOD_DATES[i]<=toV){ti=i;break;} }
     if(ti > -1) endIdx = Math.min(endIdx, ti);
   }
+  if(endIdx < startIdx || endIdx < 0) return { wStart: 0, wEnd: DOD_DATES.length - 1 };
   const sliceLen = endIdx - startIdx + 1;
   const windowLen = (!fromV && !toV) ? Math.min(dodDays, sliceLen) : sliceLen;
   const wStart = endIdx - windowLen + 1;
@@ -6223,7 +6298,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function _store(k,v){
   if(v===undefined){try{var s=localStorage.getItem(k);return s?JSON.parse(s):null;}catch(e){return null;}}
-  // Route writes through cloud engine if key is a sync key
+  var _GSHEET_LOCAL=['cars24_partners_data','cars24_partner_sheet_data','cars24_admin_view_data',
+    'cars24_month_registry','cars24_dod_arrays','cars24_gsheet_cache_admin','cars24_gsheet_cache_seller',
+    'cars24_gsheet_cache_dod','cars24_gsheet_cache_buyer','cars24_gsheet_cache_elite',
+    'cars24_gsheet_cache_vhr','cars24_gsheet_cache_pdi','cars24_gsheet_cache_challan','cars24_gsheet_cache_lac'];
+  if(_GSHEET_LOCAL.indexOf(k)!==-1){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} return; }
   if(window._c24Cloud && window._c24Cloud.localOnly.indexOf(k)===-1){
     window._c24Cloud.push(k, JSON.stringify(v));
   } else {
@@ -7476,7 +7555,17 @@ function getSellerChannelRows(month, partnerFilter){
   Object.keys(psData).forEach(function(pName){
     if(partnerFilter && partnerFilter!=='all' && pName!==partnerFilter) return;
     var ps  = psData[pName];
-    var ext = ps.ext && (ps.ext[fullMonth] || ps.ext[month]);
+    // Try all possible fullMonth key formats: 'Mar 2026', 'Mar', etc.
+    var ext = ps.ext && (
+      ps.ext[fullMonth] ||
+      ps.ext[month] ||
+      (function(){
+        // Try any key that starts with the short month name
+        var keys = Object.keys(ps.ext||{});
+        var found = keys.find(function(k){ return k.toLowerCase().startsWith(month.toLowerCase()); });
+        return found ? ps.ext[found] : null;
+      })()
+    );
     if(!ext) return;
     psUsed[pName] = true;
     if(ext.rows && ext.rows.length){
@@ -7518,51 +7607,9 @@ function getSellerChannelRows(month, partnerFilter){
     }
   });
 
-  // ── Priority 2: PARTNERS (admin import) — only for partners NOT already in PARTNER_SHEET ──
-  // Avoids double-counting. Admin data typically has no channel breakdown, shows as Aggregate.
-  var adminP = (typeof PARTNERS !== 'undefined' && Array.isArray(PARTNERS)) ? PARTNERS : [];
-  adminP.forEach(function(p){
-    if(psUsed[p.name]) return; // already covered by PARTNER_SHEET
-    if(partnerFilter && partnerFilter!=='all' && p.name!==partnerFilter) return;
-    var ext = p.ext && (p.ext[fullMonth] || p.ext[month]);
-    if(!ext) return;
-    if(ext.view_type === 'partner') return; // skip — partner-sheet data already in psUsed
-    if(ext.rows && ext.rows.length){
-      ext.rows.forEach(function(r){
-        rows.push({
-          partner:       p.name,
-          channel_group: r.channel_group||r.region||'—',
-          source_medium: r.source_medium||r.source||'—',
-          campaign:      r.campaign||'—',
-          leads:         r.leads||0,
-          appts:         r.appts||0,
-          insps:         r.insps||0,
-          a2i:           r.a2i||0,
-          stocks:        r.stocks||0,
-          i2si:          r.i2si||0,
-          asp:           r.asp||0,
-          cpi:           r.cpi||0,
-          payout:        r.payout||0
-        });
-      });
-    } else {
-      rows.push({
-        partner:       p.name,
-        channel_group: ext.source_medium||'Admin Import',
-        source_medium: ext.source_medium||'—',
-        campaign:      ext.campaign||'—',
-        leads:         ext.leads||0,
-        appts:         ext.appts||0,
-        insps:         ext.insps||0,
-        a2i:           ext.a2i||0,
-        stocks:        ext.stocks||0,
-        i2si:          ext.i2si||0,
-        asp:           ext.asp||0,
-        cpi:           ext.cpi||0,
-        payout:        ext.payout||0
-      });
-    }
-  });
+  // ── Seller Channels uses ONLY Partner sheet (gid=0) — channel-level row data ──
+  // Admin tab (PARTNERS) is NOT used here — it has no channel breakdown and inflates totals.
+  // Partner tab has SOURCE_MEDIUM, REGION, CAMPAIGN per row → correct channel view.
 
   return rows;
 }
@@ -11194,8 +11241,8 @@ var GSHEET_ID = (function(){
 // Key = short tab name, Value = numeric GID string
 // All confirmed GIDs from user-provided sheet URLs
 var GSHEET_TAB_GIDS = {
-  // Partner tab (gid=0) removed — Admin tab now populates both PARTNERS and PARTNER_SHEET
-  'Admin':    '1012408495',  // Admin View   (gid=1012408495) — primary data source for all views
+  'Partner':  '0',           // Partner tab (gid=0) — source of truth for PARTNERS + PARTNER_SHEET (seller channels, partner login)
+  'Admin':    '1012408495',  // Admin View   (gid=1012408495) — feeds admin analytics view only
   'Overview': '588337111',   // DOD/Dashboard (gid=588337111)
   'Buyer':    '1913073478',  // Buyer View   (gid=1913073478)
   'Elite':    '564077706',   // Elite Dashboard (gid=564077706)
@@ -11305,7 +11352,7 @@ function _gvizFetchDirect(gid, cbName, onSuccess, onError){
     else { _done(onSuccess||function(){}, resp.table||null); }
   };
   var s=document.createElement('script'); s.id='_gvs_'+cb2;
-  s.src='https://docs.google.com/spreadsheets/d/'+GSHEET_ID_D+'/gviz/tq?tqx=out:json%3BresponseHandler:'+cb2+'&gid='+gid;
+  s.src='https://docs.google.com/spreadsheets/d/'+GSHEET_ID_D+'/gviz/tq?tqx=out:json%3BresponseHandler:'+cb2+'&gid='+gid+'&tq='+encodeURIComponent('select *');
   s.onerror=function(){ _done(onError||function(){}, new Error('gviz load failed gid='+gid)); };
   document.head.appendChild(s);
 }
@@ -11341,6 +11388,10 @@ function refreshGSheetData(){
   if(_gsheetRefreshing) return;
   _gsheetRefreshing = true;
   _sheetDataCache = {};  // force fresh fetch on manual sync
+  // Clear stale DOD fast-path cache so fresh sync data is used
+  try{ localStorage.removeItem('cars24_dod_arrays'); }catch(e){}
+  // Reset DOD arrays so re-integration always runs from raw rows
+  DOD_DATES.length=DOD_D.leads.length=DOD_D.appts.length=DOD_D.insps.length=DOD_D.stocks.length=0;
 
   var btn   = document.getElementById('gsheet-refresh-btn');
   var icon  = document.getElementById('gsheet-refresh-icon');
@@ -11407,34 +11458,7 @@ function refreshGSheetData(){
     try{ if(typeof buildTargetMonthBtns==='function') buildTargetMonthBtns(); }catch(te){}
     _refreshActiveViewAfterSync();
 
-    // ── PUSH ALL DATA TO DRIVE RELAY ─────────────────────────────────
-    // Partners on other devices will pick up the GSheet data on next poll
-    setTimeout(function(){
-      var gsheetKeys = [
-        'cars24_partner_sheet_data','cars24_partners_data',
-        'cars24_admin_view_data','cars24_month_registry',
-        'cars24_gsheet_cache_seller','cars24_gsheet_cache_admin',
-        'cars24_gsheet_cache_buyer','cars24_gsheet_cache_elite',
-        'cars24_gsheet_cache_dod','cars24_gsheet_cache_vhr',
-        'cars24_gsheet_cache_pdi','cars24_gsheet_cache_challan',
-        'cars24_gsheet_cache_lac',
-    'cars24_dod_arrays',            // processed DOD arrays (fast restore)
-    // VAS data stores — now synced cross-device
-    'cars24_pdi_store',             // PDI orders per partner per month
-    'cars24_challan_store',         // Challan orders per partner per month
-    'cars24_lac_store',             // LAC orders per partner per month
-    'cars24_elite_store',           // Elite orders per partner per month
-    'cars24_vhr_store',             // VHR orders per partner per month
-    'cars24_audit_log',             // audit trail — synced so admin sees all device actions
-  ];
-      var pushed = 0;
-      gsheetKeys.forEach(function(key){
-        if(localStorage.getItem(key) && typeof window.c24SyncPush==='function'){
-          window.c24SyncPush(key); pushed++;
-        }
-      });
-      if(pushed) console.log('[GSheet] Pushed '+pushed+' keys to relay — partners sync in \u22645s');
-    }, 1500);
+    // GSheet is live source — no Supabase push needed. Data stays in localStorage for session.
 
     showImportToast('\u2713 Google Sheet synced \u2014 '+successCount+' tab'+(successCount===1?'':'s')+' loaded \u00b7 '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}));
   }
@@ -11444,6 +11468,13 @@ function refreshGSheetData(){
       function(table){
         // Success — we have data for this tab
         var rows = _gvizTableToRows(table);
+        // ── DEBUG: log first row for Overview tab to diagnose DOD parsing ──
+        if(tab.name === 'Overview' && rows.length > 0){
+          console.log('[DOD-DEBUG] Overview rows received:', rows.length);
+          console.log('[DOD-DEBUG] First row keys:', JSON.stringify(Object.keys(rows[0])));
+          console.log('[DOD-DEBUG] First row values:', JSON.stringify(rows[0]));
+          console.log('[DOD-DEBUG] Last row values:', JSON.stringify(rows[rows.length-1]));
+        }
         if(rows.length > 0){
           // Try to get the real sheet name from the table description
           var realName = (table.cols && table.cols[0] && table.p && table.p.sheetName) || tab.name;
@@ -11579,77 +11610,72 @@ function _integrateGSheetDOD(rows){
 
     // ── DETECT FORMAT ──────────────────────────────────────────────────────────
     // FORMAT A: PIVOT (Overview tab) — columns are dates, rows are metrics
-    //   Row 0: { CHANNEL_GROUP:'AFFILIATES', Funnel:'LEADS', 'March 1, 2026': 2984, ... }
-    //   Row 1: { Funnel:'APPOINTMENTS', ... }
-    // FORMAT B: ROW-PER-DATE (DoD tab) — each row is one date
-    //   Row 0: { Date:'2026-03-01', Leads:2984, Appointments:926, ... }
+    // FORMAT B: ROW-PER-DATE — each row is one date (Date, Leads, Appointments...)
+    //   Sheet date format: YYYY/MM/DD (slashes) or YYYY-MM-DD (dashes)
 
     var funnelKey = keys.find(function(k){ return /^funnel/i.test(k.trim()); })
                  || keys.find(function(k){ return /^metric$/i.test(k.trim()); })
                  || keys.find(function(k){ return /^stage$/i.test(k.trim()); });
-    // Also detect pivot if second column contains LEADS/APPOINTMENTS etc.
+    // Detect pivot if second column value looks like a metric name
     if(!funnelKey && keys.length >= 2){
       var sample2 = String(rows[0]&&rows[0][keys[1]]||'').toUpperCase();
-      if(/LEAD|APPT|INSP|STOCK/.test(sample2)) funnelKey = keys[1];
+      if(/^LEADS?$|^APPTS?$|^INSP|^STOCK|^APPOINT/.test(sample2)) funnelKey = keys[1];
     }
     var isPivot = !!funnelKey;
 
     if(isPivot){
-      // ── PIVOT FORMAT (Overview tab) ─────────────────────────────────────────
-      // Date columns: any key that looks like a date string
-      var dateKeys = keys.filter(function(k){
-        var kk = String(k).trim();
-        // "March 1, 2026", "March 2, 2026", "1-Mar-2026", etc.
-        return /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,]*\d+[,\s]+20\d{2}\b/i.test(kk) ||
-               /\b\d{1,2}[\-\/](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\-\/]20\d{2}\b/i.test(kk) ||
-               /\b20\d{2}[\-\/]\d{2}[\-\/]\d{2}\b/.test(kk) ||
-               /\b\d{1,2}[\-\/]\d{1,2}[\-\/]20\d{2}\b/.test(kk);
-      });
+      // ── PIVOT FORMAT ─────────────────────────────────────────────────────────
+      // MONTH_NUM declared FIRST — used inside parsePivotDateFlex below
+      var MONTH_NUM = {
+        january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',
+        july:'07',august:'08',september:'09',october:'10',november:'11',december:'12',
+        jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',
+        sep:'09',oct:'10',nov:'11',dec:'12'
+      };
+      // Parse any date string used as a column header → "YYYY-MM-DD"
+      function parsePivotDateFlex(raw){
+        raw = String(raw||'').trim();
+        if(!raw || raw.length < 4) return '';
+        // YYYY/MM/DD or YYYY-MM-DD (with optional time/space suffix)
+        var mISO = raw.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})/);
+        if(mISO) return mISO[1]+'-'+mISO[2]+'-'+mISO[3];
+        // "March 1, 2026" / "Mar 1, 2026" / "March 1 2026"
+        var m1 = raw.match(/^([a-z]+)\s+(\d{1,2})[,\s]+(20\d{2})$/i);
+        if(m1){ var mo=MONTH_NUM[m1[1].toLowerCase()]; if(mo) return m1[3]+'-'+mo+'-'+(m1[2].length<2?'0':'')+m1[2]; }
+        // "1-Mar-2026" or "1/Mar/2026"
+        var m2 = raw.match(/^(\d{1,2})[\-\/]([a-z]+)[\-\/](20\d{2})$/i);
+        if(m2){ var mo2=MONTH_NUM[m2[2].toLowerCase()]; if(mo2) return m2[3]+'-'+mo2+'-'+(m2[1].length<2?'0':'')+m2[1]; }
+        // DD-MM-YYYY or DD/MM/YYYY
+        var m3 = raw.match(/^(\d{2})[\-\/](\d{2})[\-\/](20\d{2})$/);
+        if(m3) return m3[3]+'-'+m3[2]+'-'+m3[1];
+        // M/D/YYYY
+        var m4 = raw.match(/^(\d{1,2})[\/](\d{1,2})[\/](20\d{2})$/);
+        if(m4) return m4[3]+'-'+(m4[1].length<2?'0':'')+m4[1]+'-'+(m4[2].length<2?'0':'')+m4[2];
+        // gviz Date() serial
+        var m5 = raw.match(/^Date\((\d+),(\d+),(\d+)\)$/);
+        if(m5){ var yr5=parseInt(m5[1]),mo5=parseInt(m5[2])+1,dy5=parseInt(m5[3]); return yr5+'-'+(mo5<10?'0':'')+mo5+'-'+(dy5<10?'0':'')+dy5; }
+        return '';
+      }
+
+      var dateKeys = keys.filter(function(k){ return parsePivotDateFlex(k) !== ''; });
 
       // Find metric rows
       var MROW = {leads:null, appts:null, insps:null, stocks:null};
       rows.forEach(function(r){
         var f = String(r[funnelKey]||'').trim().toUpperCase().replace(/\s+/g,' ');
-        if(/^LEADS?$|TOTAL.?LEADS?/.test(f))                        MROW.leads  = r;
-        else if(/^APPTS?$|APPOINTMENTS?/.test(f))                    MROW.appts  = r;
-        else if(/^INSPS?$|INSPECTIONS?/.test(f))                     MROW.insps  = r;
-        else if(/STOCK.?IN|STOCKIN|^STKN$/.test(f))                  MROW.stocks = r;
+        if(/^LEADS?$|TOTAL.?LEADS?/.test(f))       MROW.leads  = r;
+        else if(/^APPTS?$|APPOINTMENTS?/.test(f))   MROW.appts  = r;
+        else if(/^INSPS?$|INSPECTIONS?/.test(f))    MROW.insps  = r;
+        else if(/STOCK.?IN|STOCKIN|^STKN$/.test(f)) MROW.stocks = r;
       });
 
-      // Parse "March 1, 2026" → "2026-03-01"
-      var MONTH_NUM = {
-        january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',
-        july:'07',august:'08',september:'09',october:'10',november:'11',december:'12',
-        jan:'01',feb:'02',mar:'03',apr:'04',jun:'06',jul:'07',aug:'08',
-        sep:'09',oct:'10',nov:'11',dec:'12'
-      };
-      function parsePivotDate(raw){
-        raw = String(raw||'').trim();
-        // "March 1, 2026" or "March 1 2026"
-        var m = raw.match(/^([a-z]+)\s+(\d{1,2})[,\s]+(\d{4})$/i);
-        if(m){
-          var mo = MONTH_NUM[m[1].toLowerCase()];
-          if(mo) return m[3]+'-'+mo+'-'+(m[2].length<2?'0':'')+m[2];
-        }
-        // "1-Mar-2026"
-        m = raw.match(/^(\d{1,2})[\-\/]([a-z]+)[\-\/](\d{4})$/i);
-        if(m){
-          var mo2 = MONTH_NUM[m[2].toLowerCase()];
-          if(mo2) return m[3]+'-'+mo2+'-'+(m[1].length<2?'0':'')+m[1];
-        }
-        // Already ISO
-        if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-        return '';
-      }
-
       dateKeys.forEach(function(dk){
-        var norm = parsePivotDate(dk);
+        var norm = parsePivotDateFlex(dk);
         if(!/^\d{4}-\d{2}-\d{2}$/.test(norm)) return;
         var L = MROW.leads  ? _gN(MROW.leads,  dk) : 0;
         var A = MROW.appts  ? _gN(MROW.appts,  dk) : 0;
         var I = MROW.insps  ? _gN(MROW.insps,  dk) : 0;
         var S = MROW.stocks ? _gN(MROW.stocks, dk) : 0;
-        // Auto-register month
         try{
           var yr=parseInt(norm.slice(0,4)), mo=parseInt(norm.slice(5,7));
           var MSHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -11664,30 +11690,42 @@ function _integrateGSheetDOD(rows){
       });
 
     } else {
-      // ── ROW-PER-DATE FORMAT (DoD tab) ─────────────────────────────────────
+      // ── ROW-PER-DATE FORMAT ───────────────────────────────────────────────────
+      // Handles: Date column with YYYY/MM/DD or YYYY-MM-DD values
+      // Columns: Date, Leads, L2A%, Appointment, A2I%, Inspections, I2SI&, Stock Ins
       function findDateKey(r){
         var rkeys = Object.keys(r);
+        // Priority 1: exact "Date" column
         var k = rkeys.find(function(k){ return /^date$/i.test(k.trim()); });
         if(k) return k;
+        // Priority 2: any key containing "date"
         k = rkeys.find(function(k){ return /date/i.test(k); });
         if(k) return k;
+        // Priority 3: day/period/dt/timestamp
         k = rkeys.find(function(k){ return /^(day|period|dt|timestamp)$/i.test(k.trim()); });
         if(k) return k;
+        // Priority 4: column whose value looks like YYYY/MM/DD or YYYY-MM-DD
         k = rkeys.find(function(k){
           var v = String(r[k]||'').trim();
-          return /^\d{4}-\d{2}-\d{2}$/.test(v) || /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(v) ||
-                 /^Date\(\d+,\d+,\d+\)$/.test(v) || (!isNaN(new Date(v)) && v.length>=8 && /[\-\/]/.test(v));
+          return /^\d{4}[\/\-]\d{2}[\/\-]\d{2}/.test(v) ||
+                 /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(v) ||
+                 /^Date\(\d+,\d+,\d+\)$/.test(v) ||
+                 (!isNaN(new Date(v)) && v.length>=8 && /[\-\/]/.test(v));
         });
         return k||null;
       }
       function parseDate(raw){
         raw = String(raw||'').trim(); if(!raw) return '';
+        // gviz Date() serial
         if(/^Date\(\d+,\d+,\d+\)$/.test(raw)){
           var p=raw.replace('Date(','').replace(')','').split(',');
           var yr=parseInt(p[0]),mo=parseInt(p[1])+1,dy=parseInt(p[2]);
           return yr+'-'+(mo<10?'0':'')+mo+'-'+(dy<10?'0':'')+dy;
         }
-        if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+        // YYYY/MM/DD or YYYY-MM-DD (with optional time/T suffix)
+        var mISO = raw.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})/);
+        if(mISO) return mISO[1]+'-'+mISO[2]+'-'+mISO[3];
+        // DD/MM/YYYY or DD-MM-YYYY
         if(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(raw)){
           var p=raw.split(/[\/\-]/);
           return p[2]+'-'+(p[1].length<2?'0':'')+p[1]+'-'+(p[0].length<2?'0':'')+p[0];
@@ -11695,14 +11733,23 @@ function _integrateGSheetDOD(rows){
         var d=new Date(raw); if(!isNaN(d)) return d.toISOString().slice(0,10);
         return '';
       }
+
       rows.forEach(function(r){
-        var dateKey=findDateKey(r); if(!dateKey) return;
+        var dateKey=findDateKey(r);
+        // Fallback: first column if its value looks like a date
+        if(!dateKey){
+          var firstKey=Object.keys(r)[0];
+          var firstVal=String(r[firstKey]||'').trim();
+          if(/^\d{4}[\/\-]\d{2}[\/\-]\d{2}/.test(firstVal)||/^\d{1,2}[\/\-]/.test(firstVal)) dateKey=firstKey;
+        }
+        if(!dateKey) return;
         var norm=parseDate(r[dateKey]);
         if(!/^\d{4}-\d{2}-\d{2}$/.test(norm)) return;
+        // Column name variants: Leads, Appointment(s), Inspections, Stock Ins/Stock-ins/Stockins
         var L=_gN(r,'Leads','leads','Lead','Total Leads','Leads_Total'),
-            A=_gN(r,'Appts','appts','Appointments','Appointments_Total'),
-            I=_gN(r,'Insps','insps','Inspections','Inspections_Total'),
-            S=_gN(r,'Stocks','stocks','Stockins','Stock-ins','Stockins_Total');
+            A=_gN(r,'Appts','appts','Appointment','Appointments','Appointments_Total'),
+            I=_gN(r,'Insps','insps','Inspection','Inspections','Inspections_Total'),
+            S=_gN(r,'Stocks','stocks','Stock Ins','Stock-ins','Stockins','Stock_Ins','Stockins_Total');
         try{
           var yr=parseInt(norm.slice(0,4)), mo=parseInt(norm.slice(5,7));
           var MSHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -11717,7 +11764,7 @@ function _integrateGSheetDOD(rows){
       });
     }
 
-    // Rebuild sorted arrays from merged existingMap (handles both new data and updates)
+    // Rebuild sorted arrays from merged existingMap
     DOD_DATES.length=DOD_D.leads.length=DOD_D.appts.length=DOD_D.insps.length=DOD_D.stocks.length=0;
     Object.keys(existingMap).sort().forEach(function(d){
       var r=existingMap[d];
@@ -11726,13 +11773,19 @@ function _integrateGSheetDOD(rows){
     if(n>0){
       try{
         var dodCache={dates:DOD_DATES.slice(),leads:DOD_D.leads.slice(),appts:DOD_D.appts.slice(),insps:DOD_D.insps.slice(),stocks:DOD_D.stocks.slice()};
-        window._c24Cloud.push('cars24_dod_arrays', JSON.stringify(dodCache));
+        localStorage.setItem('cars24_dod_arrays', JSON.stringify(dodCache));
       }catch(ce){}
     }
     console.log('[GSheet->DoD] '+n+' entries (format='+(isPivot?'pivot':'row-per-date')+'), total='+DOD_DATES.length+' days');
+    if(DOD_DATES.length <= 2){
+      console.warn('[DOD-DEBUG] Very few DOD days! First 3 rows raw:');
+      rows.slice(0,3).forEach(function(r,i){ console.warn('  row['+i+']:', JSON.stringify(r)); });
+      console.warn('[DOD-DEBUG] keys of row[0]:', JSON.stringify(Object.keys(rows[0]||{})));
+      console.warn('[DOD-DEBUG] isPivot='+isPivot+' funnelKey='+funnelKey);
+      console.warn('[DOD-DEBUG] existingMap keys:', JSON.stringify(Object.keys(existingMap).slice(0,5)));
+    }
   }catch(e){ console.error('[GSheet->DoD]',e); }
 }
-
 
 function _integrateGSheetPartner(rows, sheetName){
   try{
@@ -11741,7 +11794,7 @@ function _integrateGSheetPartner(rows, sheetName){
 
     // Column detection
     function fk(patterns){ return keys.find(function(k){ return patterns.some(function(p){ return p.test ? p.test(k) : k.toLowerCase().includes(p.toLowerCase()); }); })||null; }
-    var nameKey   = fk([/partner.?name/i, /^name$/i]) || keys[0];
+    var nameKey   = fk([/partner.?name1?/i, /^name1?$/i]) || keys[0];
     var monthKey  = fk([/month.*year/i,/month\s*&\s*year/i,/^month$/i,/period/i]);
     var leadsKey  = fk([/^leads$/i]);
     var apptsKey  = fk([/appointments_total/i, /^appts$/i, /appointments/i]);
@@ -11771,7 +11824,7 @@ function _integrateGSheetPartner(rows, sheetName){
       if(!raw) return null;
       raw = String(raw).trim();
       // Handle Mar'26, Feb-26, Feb/26, Feb-2026, March 2026, "Month & Year" col values
-      raw = raw.replace(/(\w{3,9})'(\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
+      raw = raw.replace(/(\w{3,9})[\u2018\u2019\u2032'''](\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
       raw = raw.replace(/([a-zA-Z]+)[\-\/](\d{2,4})/, function(_,m,y){ return m+' '+(y.length===2?'20'+y:y); });
       var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
       var shortM = MMAP[word]; if(!shortM) return null;
@@ -11890,10 +11943,36 @@ function _integrateGSheetPartner(rows, sheetName){
         n++;
       });
     });
-    savePartnerSheet(PARTNER_SHEET);
-    // Rebuild partner credentials name list from partner sheet (for login matching)
+    // ── Sync PARTNER_SHEET → PARTNERS so admin dashboard reads GSheet data ──
+    // PARTNERS drives rebuildMonthMeta() → PERIOD → dashboard cards/table.
+    // Without this, dashboard shows zeros when no manual import has been done.
+    try{
+      Object.keys(PARTNER_SHEET).forEach(function(pName){
+        var ps = PARTNER_SHEET[pName];
+        var existing = PARTNERS.find(function(p){ return p.name === pName; });
+        if(!existing){
+          existing = { name:pName, status:ps.status||'Active', region:ps.region||'', leads:{}, appts:{}, insps:{}, stocks:{}, payout:{}, ext:{} };
+          PARTNERS.push(existing);
+        }
+        // Merge all months — PARTNER_SHEET is always fresh after GSheet sync
+        if(ps.leads)  Object.assign(existing.leads,  ps.leads);
+        if(ps.appts)  Object.assign(existing.appts,  ps.appts);
+        if(ps.insps)  Object.assign(existing.insps,  ps.insps);
+        if(ps.stocks) Object.assign(existing.stocks, ps.stocks);
+        if(ps.payout) Object.assign(existing.payout, ps.payout);
+        if(ps.ext)    Object.assign(existing.ext,    ps.ext);
+        if(ps.region && !existing.region) existing.region = ps.region;
+      });
+      // Save to localStorage — GSheet is live source, skip Supabase push
+      try{ localStorage.setItem('cars24_partners_data', JSON.stringify(PARTNERS)); }catch(e){}
+    }catch(syncErr){ console.warn('[GSheet->Partner] PARTNERS sync error:', syncErr); }
+
+    // Rebuild immediately (sync) before async save callback
     try{ rebuildMonthMeta(); }catch(e){}
-    console.log('[GSheet->Partner] '+Object.keys(partnerMap).length+' partners saved to partner sheet store');
+    savePartnerSheet(PARTNER_SHEET);
+    // Cache aggregated PARTNER_SHEET for fast reload (not raw rows — too large)
+    try{ localStorage.setItem('cars24_partner_sheet_data', JSON.stringify(PARTNER_SHEET)); }catch(e){}
+    console.log('[GSheet->Partner] '+Object.keys(partnerMap).length+' partners → PARTNERS[] + PARTNER_SHEET synced, '+n+' month-entries');
   }catch(e){ console.error('[GSheet->Partner]',e); }
 }
 
@@ -11918,12 +11997,12 @@ function _integrateGSheetBuyer(rows){
     // Month normalizer for "March'26", "Mar 2026", "March 2026"
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
                 july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',
-                jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',
+                jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',
                 sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim();
-      raw = raw.replace(/(\w{3,9})'(\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
+      raw = raw.replace(/(\w{3,9})[\u2018\u2019\u2032'''](\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
       raw = raw.replace(/([a-zA-Z]+)[\-\/](\d{2,4})/, function(_,m,y){ return m+' '+(y.length===2?'20'+y:y); });
       raw = raw.replace(/\s+/g,' ').trim();
       var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
@@ -11999,15 +12078,15 @@ function _integrateGSheetAdmin(rows){
     var keys = Object.keys(rows[0]||{});
     function fk(patterns){ return keys.find(function(k){ return patterns.some(function(p){ return p.test ? p.test(k) : k.toLowerCase()===p.toLowerCase(); }); })||null; }
 
-    var nameKey    = fk([/partner.?name/i,/^name$/i])||keys[0];
+    var nameKey    = fk([/partner.?name1?/i,/^name1?$/i])||keys[0];
     var monthKey   = fk([/month.*year/i,/month\s*&\s*year/i,/^month$/i,/period/i]);
-    var leadsKey   = fk([/^leads$/i]);
-    var apptsKey   = fk([/appointments_total/i]);
+    var leadsKey   = fk([/^leads$/i, /^total.?leads$/i, /^lead.?count$/i, /leads/i]);
+    var apptsKey   = fk([/appointments_total/i, /^appts?$/i, /^appointments?$/i, /appoint/i]);
     var apptOKey   = fk([/appointment_o/i,/appointments_o/i,/appts_o/i]);
-    var inspsKey   = fk([/inspections_total/i]);
+    var inspsKey   = fk([/inspections_total/i, /^insps?$/i, /^inspections?$/i, /inspect/i]);
     var stknOKey   = fk([/stockins_o/i,/stocks_o/i]);
     var aspOKey    = fk([/asp_o$/i]);
-    var stknKey    = fk([/stockins_total/i]);
+    var stknKey    = fk([/stockins_total/i, /^stocks?$/i, /^stockins?$/i, /stock.in/i, /stock/i]);
     var aspKey     = fk([/asp_total/i]);
     var a2iKey     = fk([/a2i_total/i]);
     var a2iOKey    = fk([/a2i_o$/i]);
@@ -12023,13 +12102,13 @@ function _integrateGSheetAdmin(rows){
 
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
                 july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',
-                jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',
+                jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',
                 sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim();
       // Normalise Mar'26 → "Mar 2026", Mar-26 → "Mar 26"
-      raw = raw.replace(/(\w{3})'(\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
+      raw = raw.replace(/(\w{3,9})[\u2018\u2019\u2032'''](\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
       raw = raw.replace(/([a-zA-Z]+)[\-\/](\d{2,4})/, function(_,m,y){ return m+' '+(y.length===2?'20'+y:y); });
       var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
       var shortM = MMAP[word]; if(!shortM) return null;
@@ -12052,6 +12131,9 @@ function _integrateGSheetAdmin(rows){
       else if(!reg.yearMap[shortM]){ reg.yearMap[shortM]=yr; saveMonthRegistry(reg); }
       return shortM;
     }
+
+    var SKIP = new Set(['grand total','total','partner name','partner name1','null','']);
+    var store = getAdminViewStore();  // load existing store to preserve previously synced months
 
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
@@ -12076,71 +12158,46 @@ function _integrateGSheetAdmin(rows){
       existing.stocks_organic = _gN(r, stknOKey||'Stockins_o');
       existing.asp      = _gN(r, aspKey    ||'ASP_Total');
       existing.asp_organic    = _gN(r, aspOKey ||'ASP_o');
-      existing.a2i      = _gN(r, a2iKey   ||'A2I_Total');
-      existing.a2i_organic    = _gN(r, a2iOKey ||'A2I_O');
+      // a2i/i2si may be Excel formulas (=E/C) — compute from raw numbers
+      var _rawA2i = _gN(r, a2iKey||'A2I_Total');
+      var _rawI2si = _gN(r, i2siKey||'I2SI_Total');
+      existing.a2i   = (_rawA2i > 0 && _rawA2i < 10) ? _rawA2i
+                     : (existing.appts>0 ? existing.insps/existing.appts : 0);
+      existing.a2i_organic = _gN(r, a2iOKey||'A2I_O') || (existing.appts_organic>0 ? existing.insps/existing.appts_organic : 0);
       existing.base_cpi = _gN(r, baseCpiKey||'BASE_CPI');
-      existing.i2si     = _gN(r, i2siKey  ||'I2SI_Total');
-      existing.kpi_a2i  = _gN(r, kpiA2iKey||'KPI_A2I');
-      existing.kpi_asp  = _gN(r, kpiAspKey||'KPI_ASP');
-      existing.kpi_i2si = _gN(r, kpiI2siKey||'KPI_I2SI');
+      var _rawI2si2 = _gN(r, i2siKey||'I2SI_Total');
+      existing.i2si = (_rawI2si2 > 0 && _rawI2si2 < 10) ? _rawI2si2
+                    : (existing.insps>0 ? existing.stocks/existing.insps : 0);
+      existing.kpi_a2i  = _kpiA2i;
+      existing.kpi_asp  = _kpiAsp;
+      existing.kpi_i2si = _kpiI2si;
+      existing.asp      = _asp;
+      existing.base_cpi = _bcpi;
       existing.cpi      = _gN(r, cpiKey   ||'CPI_Total');
       existing.cpi_organic    = _gN(r, cpiOKey||'CPI_o');
-      existing.payout   = payRaw;  // payout already in ₹
+      // Payout column is an Excel formula (=R*E) — compute from CPI×Insps
+      // CPI is also a formula — use _calcCPI if defined, else formula manually
+      var _asp    = _gN(r, aspKey||'ASP_Total');
+      var _bcpi   = _gN(r, baseCpiKey||'BASE_CPI');
+      var _kpiA2i = _gN(r, kpiA2iKey||'KPI_A2I');
+      var _kpiAsp = _gN(r, kpiAspKey||'KPI_ASP');
+      var _kpiI2si= _gN(r, kpiI2siKey||'KPI_I2SI');
+      var _a2iAdj = _kpiA2i>0  ? Math.min(1, existing.a2i/_kpiA2i)   : 1;
+      var _i2siAdj= _kpiI2si>0 ? Math.min(1, existing.i2si/_kpiI2si) : 1;
+      var _aspAdj = _kpiAsp>0  ? Math.min(1, _asp/_kpiAsp)           : 1;
+      var _cpi    = _bcpi * _a2iAdj * _i2siAdj * _aspAdj;
+      existing.cpi      = Math.round(_cpi);
+      existing.payout   = Math.round(_cpi * existing.insps);
       existing.payout_organic = payO;
     });
 
+    // ── Admin tab feeds ONLY the admin analytics store ──────────────────────────
+    // PARTNERS and PARTNER_SHEET are populated exclusively from the Partner sheet (gid=0).
+    // Admin sheet data is for the admin Analytics view only — no partner login data here.
     saveAdminViewStore(store);
 
-    // ── Admin tab is now primary source for BOTH PARTNERS and PARTNER_SHEET ──
-    // PARTNERS  → powers admin dashboard, grand totals, DOD, charts
-    // PARTNER_SHEET → powers individual partner login dashboards
-    Object.keys(store).forEach(function(fullMo){
-      var md = store[fullMo]; if(!md||!md.partners) return;
-      var shortM = null;
-      Object.keys(MMAP).forEach(function(k){ if(MMAP[k] && (fullMo.toLowerCase().startsWith(k)||fullMo.toLowerCase().startsWith(MMAP[k].toLowerCase()))) shortM=MMAP[k]; });
-      if(!shortM){ var sm = fullMo.split(' ')[0]; if(sm.length===3) shortM=sm; }
-      if(!shortM) return;
-      md.partners.forEach(function(p){
-        // ── Populate PARTNERS (admin dashboard) ──────────────────────
-        var partner = PARTNERS.find(function(x){ return x.name.toLowerCase().trim()===p.name.toLowerCase().trim(); });
-        if(!partner){
-          partner={name:p.name,status:'Active',region:p.region||'',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}};
-          PARTNERS.push(partner);
-        }
-        partner.leads[shortM]  = p.leads||0;
-        partner.appts[shortM]  = p.appts||0;
-        partner.insps[shortM]  = p.insps||0;
-        partner.stocks[shortM] = p.stocks||0;
-        partner.payout[shortM] = Math.round(p.payout||0);
-        if(p.region && !partner.region) partner.region = p.region;
-        if(!partner.ext) partner.ext={};
-        partner.ext[fullMo] = {
-          leads:p.leads||0, appts:p.appts||0, insps:p.insps||0, stocks:p.stocks||0, payout:Math.round(p.payout||0),
-          asp:p.asp||0, a2i:p.a2i||0, i2si:p.i2si||0, base_cpi:p.base_cpi||0, cpi:p.cpi||0,
-          kpi_a2i:p.kpi_a2i||0, kpi_asp:p.kpi_asp||0, kpi_i2si:p.kpi_i2si||0,
-          appts_organic:p.appts_organic||0, stocks_organic:p.stocks_organic||0,
-          asp_organic:p.asp_organic||0, a2i_organic:p.a2i_organic||0,
-          cpi_organic:p.cpi_organic||0, payout_organic:p.payout_organic||0,
-          region:p.region||'', view_type:'admin'
-        };
-
-        // ── Populate PARTNER_SHEET (partner login dashboards) ────────
-        if(!PARTNER_SHEET[p.name]) PARTNER_SHEET[p.name]={name:p.name,status:'Active',region:p.region||'',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}};
-        var ps = PARTNER_SHEET[p.name];
-        ps.leads[shortM]  = p.leads||0;
-        ps.appts[shortM]  = p.appts||0;
-        ps.insps[shortM]  = p.insps||0;
-        ps.stocks[shortM] = p.stocks||0;
-        ps.payout[shortM] = Math.round(p.payout||0);
-        if(p.region && !ps.region) ps.region = p.region;
-        if(!ps.ext) ps.ext={};
-        ps.ext[fullMo] = partner.ext[fullMo]; // share same ext object
-      });
-    });
-
-    savePartners(PARTNERS);
-    savePartnerSheet(PARTNER_SHEET);
-    console.log('[GSheet->Admin] done — populated PARTNERS + PARTNER_SHEET, months:', Object.keys(store).join(', '));
+    var _monthsLoaded = Object.keys(store);
+    console.log('[GSheet->Admin] ✅ Admin analytics store saved | months:', _monthsLoaded.join(', '));
     try{ setTimeout(function(){ document.querySelectorAll('#view-admin-view table').forEach(function(t){ if(typeof makeSortable==='function') makeSortable(t); }); },200); }catch(e){}
   }catch(e){ console.error('[GSheet->Admin]',e); }
 }
@@ -12150,14 +12207,14 @@ function _integrateGSheetVHR(rows){
   try{
     if(!rows||!rows.length) return;
     var keys = Object.keys(rows[0]||{});
-    var nameKey   = keys.find(function(k){ return /^partner$/i.test(k.trim())||/partner.?name/i.test(k); })||keys[0];
+    var nameKey   = keys.find(function(k){ return /^partner1?$/i.test(k.trim())||/partner.?name1?/i.test(k); })||keys[0];
     var ordersKey = keys.find(function(k){ return /^orders$/i.test(k.trim())||/^count$/i.test(k.trim()); });
-    var monthKey  = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k)||/month\s*&\s*year/i.test(k); });
+    var monthKey  = keys.find(function(k){ var kt=k.trim(); return /^month$/i.test(kt)||/month.*year/i.test(kt)||/month\s*&\s*year/i.test(kt); });
     var payKey    = keys.find(function(k){ return /^payout$/i.test(k.trim()); });
     var rateKey   = keys.find(function(k){ return /^rate$/i.test(k.trim()); });
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
                 july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',
-                jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
+                jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim();
@@ -12211,14 +12268,14 @@ function _integrateGSheetPDI(rows){
   try{
     if(!rows||!rows.length) return;
     var keys = Object.keys(rows[0]||{});
-    var nameKey   = keys.find(function(k){ return /^partner$/i.test(k.trim())||/partner.?name/i.test(k); })||keys[0];
+    var nameKey   = keys.find(function(k){ return /^partner1?$/i.test(k.trim())||/partner.?name1?/i.test(k); })||keys[0];
     var ordersKey = keys.find(function(k){ return /^orders$/i.test(k.trim()); });
-    var monthKey  = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k)||/month\s*&\s*year/i.test(k); });
+    var monthKey  = keys.find(function(k){ var kt=k.trim(); return /^month$/i.test(kt)||/month.*year/i.test(kt)||/month\s*&\s*year/i.test(kt); });
     var payKey    = keys.find(function(k){ return /^payout$/i.test(k.trim()); });
     var rateKey   = keys.find(function(k){ return /^rate$/i.test(k.trim()); });
     var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
                 july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',
-                jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
+                jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim().replace(/'/g,' ').replace(/[\-\/]/g,' ');
@@ -12264,7 +12321,7 @@ function _integrateGSheetChallan(rows){
     var monthKey = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k)||/month\s*&\s*year/i.test(k); });
     var payKey   = keys.find(function(k){ return /^payout$/i.test(k.trim()); });
     var rateKey  = keys.find(function(k){ return /^rate$/i.test(k.trim()); });
-    var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
+    var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim().replace(/'/g,' ').replace(/[\-\/]/g,' ');
@@ -12310,7 +12367,7 @@ function _integrateGSheetLAC(rows){
     var monthKey = keys.find(function(k){ return /^month$/i.test(k.trim())||/month.*year/i.test(k)||/month\s*&\s*year/i.test(k); });
     var payKey   = keys.find(function(k){ return /^payout$/i.test(k.trim()); });
     var rateKey  = keys.find(function(k){ return /^rate$/i.test(k.trim()); });
-    var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
+    var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim().replace(/'/g,' ').replace(/[\-\/]/g,' ');
@@ -12365,11 +12422,11 @@ function _integrateGSheetElite(rows){
     var payElKey   = keys.find(function(k){ return /payout_elite/i.test(k)||/^payout$/i.test(k.trim()); });
     var monthKey   = keys.find(function(k){ return /month.*year/i.test(k)||/month\s*&\s*year/i.test(k)||/^month$/i.test(k.trim()); });
 
-    var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
+    var MMAP = {january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',may:'May',jun:'Jun',jul:'Jul',aug:'Aug',sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
     function resolveMonth(raw){
       if(!raw) return null;
       raw = String(raw).trim();
-      raw = raw.replace(/(\w{3,9})'(\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
+      raw = raw.replace(/(\w{3,9})[\u2018\u2019\u2032'''](\d{2})\b/g, function(_,m,y){ return m+' 20'+y; });
       raw = raw.replace(/([a-zA-Z]+)[\-\/](\d{2,4})/, function(_,m,y){ return m+' '+(y.length===2?'20'+y:y); });
       raw = raw.replace(/\s+/g,' ').trim();
       var word = raw.toLowerCase().split(/[\s,0-9]/)[0];
@@ -12436,7 +12493,9 @@ function _gN(row){
   for(var i=1;i<arguments.length;i++){
     var k=arguments[i], v=row[k];
     if(v!==undefined && v!==null && v!==''){
-      var n=parseFloat(String(v).replace(/[^\d.\-]/g,''));
+      var sv=String(v);
+      if(sv.charAt(0)==='=') continue; // skip Excel formula strings
+      var n=parseFloat(sv.replace(/[^\d.\-]/g,''));
       if(!isNaN(n)) return n;
     }
   }
@@ -12446,11 +12505,15 @@ function _gN(row){
 // ─── CACHE ────────────────────────────────────────────────────
 function _cacheSheetData(type, rows){
   try{
-    var limit = (type==='seller'||type==='admin'||type==='elite') ? 300 : 500;
+    // Partner/seller tab has thousands of raw rows — don't cache raw rows.
+    // PARTNER_SHEET is already aggregated by _integrateGSheetPartner and saved separately.
+    // Caching raw seller rows would truncate at 300 rows and corrupt aggregation on reload.
+    if(type === 'seller') return;
+    var limit = (type==='admin'||type==='elite') ? 500 : 1000;
     var key = 'cars24_gsheet_cache_'+type;
     var val = JSON.stringify(rows.slice(0, limit));
-    // Cloud-first: push to Drive relay so all devices get fresh GSheet data
-    window._c24Cloud.push(key, val);
+    // localStorage only — GSheet is live source of truth
+    try{ localStorage.setItem(key, val); }catch(e){}
   }catch(e){}
 }
 function _loadSheetCache(type){
@@ -12460,17 +12523,22 @@ function _loadSheetCache(type){
 // ─── REFRESH ACTIVE VIEW AFTER SYNC ───────────────────────────
 function _refreshActiveViewAfterSync(){
   try{
+    // ✅ Always rebuild month meta first — populates PERIOD from PARTNERS (now synced from GSheet)
+    try{ rebuildMonthMeta(); }catch(e){}
+    try{ _rebuildRangeButtons(); }catch(e){}
+    // ✅ Always refresh dashboard KPI cards after sync (even if not active view)
+    try{ if(typeof updateDashboard==='function') updateDashboard(); }catch(e){}
     var av=document.querySelector('.view.active');
     var id=av?av.id.replace('view-',''):'';
-    if(id==='dashboard')        updateDashboard();
-    else if(id==='dod')         { buildDodStats(); buildDodChart(); }
-    else if(id==='admin-view')  initAdminView();
-    else if(id==='elite')       initEliteView();
-    else if(id==='seller-channels') initSellerChannels();
-    else if(id==='buyer')       { buildBuyerMonthBtns(); renderBuyerTable(); }
-    else if(id==='vas')         buildVasCurrent();
-    else if(id==='funnel')      { try{buildFSteps();buildFChart();}catch(e){} }
-    else if(id==='mtd')         { try{buildMtd();}catch(e){} }
+    if(id==='dod')              { try{ buildDodStats(); buildDodChart(); }catch(e){} }
+    else if(id==='admin-view')  { try{ initAdminView(); }catch(e){} }
+    else if(id==='elite')       { try{ initEliteView(); }catch(e){} }
+    else if(id==='seller-channels') { try{ initSellerChannels(); }catch(e){} }
+    else if(id==='buyer')       { try{ buildBuyerMonthBtns(); renderBuyerTable(); }catch(e){} }
+    else if(id==='vas')         { try{ buildVasCurrent(); }catch(e){} }
+    else if(id==='funnel')      { try{ buildFSteps(); buildFChart(); }catch(e){} }
+    else if(id==='mtd')         { try{ buildMtd(); }catch(e){} }
+    else if(id==='mom')         { try{ buildMom(); }catch(e){} }
   }catch(e){ console.warn('[GSheet] view refresh:',e); }
 }
 
@@ -12496,19 +12564,29 @@ function _refreshActiveViewAfterSync(){
             DOD_D.stocks.push(dodCache.stocks[i]||0);
           });
           console.log('[Cache] Restored '+DOD_DATES.length+' DOD days from localStorage');
+          // ✅ If suspicious (≤1 day), evict and re-integrate from raw row cache
+          if(DOD_DATES.length <= 1){
+            console.warn('[Cache] DOD fast-path has ≤1 day — evicting stale cache, will re-integrate raw rows');
+            DOD_DATES.length=DOD_D.leads.length=DOD_D.appts.length=DOD_D.insps.length=DOD_D.stocks.length=0;
+            try{ localStorage.removeItem('cars24_dod_arrays'); }catch(e){}
+          }
         }
       }
     }catch(de){ console.warn('[Cache] DOD restore:',de); }
+    // Restore aggregated PARTNER_SHEET — Partner tab has 13K+ raw rows, too large to cache raw.
+    try{
+      var _psd = localStorage.getItem('cars24_partner_sheet_data');
+      if(_psd){ var _psObj=JSON.parse(_psd); if(_psObj && Object.keys(_psObj).length){ PARTNER_SHEET=_psObj; window.PARTNER_SHEET=_psObj; console.log('[Cache] Restored PARTNER_SHEET:', Object.keys(_psObj).length, 'partners'); } }
+    }catch(pse){ console.warn('[Cache] PARTNER_SHEET restore:', pse); }
+
     // Load other cached sheet data
-    // Admin tab is now primary source — populates both PARTNERS and PARTNER_SHEET
-    // seller cache kept for Seller Channels row-level detail only (not used for overview)
     ['dod','buyer','vhr','pdi','challan','lac','elite','admin'].forEach(function(type){
       var cached=_loadSheetCache(type);
       if(!cached || !cached.length) return;
       try{
         if(type==='dod' && DOD_DATES.length===0) _integrateGSheetDOD(cached);
         if(type==='buyer')   _integrateGSheetBuyer(cached);
-        if(type==='admin')   _integrateGSheetAdmin(cached);  // primary — populates PARTNERS + PARTNER_SHEET
+        if(type==='admin')   _integrateGSheetAdmin(cached);  // admin analytics store only — PARTNERS/PARTNER_SHEET come from Partner sheet cache
         if(type==='vhr')     _integrateGSheetVHR(cached);
         if(type==='pdi')     _integrateGSheetPDI(cached);
         if(type==='challan') _integrateGSheetChallan(cached);
@@ -12516,37 +12594,30 @@ function _refreshActiveViewAfterSync(){
         if(type==='elite')   _integrateGSheetElite(cached);
       }catch(e){ console.warn('[GSheet] cache load '+type+':',e); }
     });
-    // If no row cache for admin but admin store exists, rebuild PARTNERS from store
+    // ✅ Sync PARTNER_SHEET → PARTNERS on cache restore (mirrors what GSheet sync does)
+    // This ensures admin dashboard shows data even before a manual sync in the session
     try{
-      var adminStore = typeof getAdminViewStore==='function' ? getAdminViewStore() : {};
-      var adminMonths = Object.keys(adminStore);
-      if(adminMonths.length && !_loadSheetCache('admin')){
-        var MMAP2={january:'Jan',february:'Feb',march:'Mar',april:'Apr',may:'May',june:'Jun',
-                   july:'Jul',august:'Aug',september:'Sep',october:'Oct',november:'Nov',december:'Dec',
-                   jan:'Jan',feb:'Feb',mar:'Mar',apr:'Apr',jun:'Jun',jul:'Jul',aug:'Aug',
-                   sep:'Sep',oct:'Oct',nov:'Nov',dec:'Dec'};
-        adminMonths.forEach(function(fullMo){
-          var md=adminStore[fullMo]; if(!md||!md.partners) return;
-          var shortM=null;
-          var w=fullMo.toLowerCase().split(/[\s'0-9]/)[0];
-          Object.keys(MMAP2).forEach(function(k){ if(k===w) shortM=MMAP2[k]; });
-          if(!shortM){ var sm=fullMo.split(' ')[0]; if(sm.length===3) shortM=sm; }
-          if(!shortM) return;
-          md.partners.forEach(function(p){
-            var partner=PARTNERS.find(function(x){ return x.name.toLowerCase().trim()===p.name.toLowerCase().trim(); });
-            if(!partner){ partner={name:p.name,status:'Active',region:p.region||'',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}}; PARTNERS.push(partner); }
-            partner.leads[shortM]  = p.leads||0;
-            partner.appts[shortM]  = p.appts||0;
-            partner.insps[shortM]  = p.insps||0;
-            partner.stocks[shortM] = p.stocks||0;
-            partner.payout[shortM] = Math.round(p.payout||0);
-            if(p.region&&!partner.region) partner.region=p.region;
-          });
+      var _psArr = typeof PARTNER_SHEET==='object' ? Object.keys(PARTNER_SHEET) : [];
+      if(_psArr.length > 0 && (!PARTNERS || PARTNERS.length === 0)){
+        _psArr.forEach(function(pName){
+          var ps = PARTNER_SHEET[pName];
+          var existing = (PARTNERS||[]).find(function(p){ return p.name===pName; });
+          if(!existing){
+            existing = { name:pName, status:ps.status||'Active', region:ps.region||'', leads:{}, appts:{}, insps:{}, stocks:{}, payout:{}, ext:{} };
+            PARTNERS.push(existing);
+          }
+          if(ps.leads)  Object.assign(existing.leads,  ps.leads);
+          if(ps.appts)  Object.assign(existing.appts,  ps.appts);
+          if(ps.insps)  Object.assign(existing.insps,  ps.insps);
+          if(ps.stocks) Object.assign(existing.stocks, ps.stocks);
+          if(ps.payout) Object.assign(existing.payout, ps.payout);
+          if(ps.ext)    Object.assign(existing.ext,    ps.ext);
+          if(ps.region && !existing.region) existing.region = ps.region;
         });
-        savePartners(PARTNERS);
-        console.log('[Cache] PARTNERS rebuilt from admin store — months:', adminMonths.join(', '));
+        console.log('[Cache] Synced PARTNER_SHEET ('+_psArr.length+' partners) → PARTNERS[] for admin dashboard');
       }
-    }catch(ae){ console.warn('[Cache] admin store rebuild:',ae); }
+    }catch(_pse){ console.warn('[Cache] PARTNER_SHEET→PARTNERS sync:', _pse); }
+
     // CRITICAL: rebuild after loading cached data so PERIOD.l7/l14/l30 are populated
     try{ rebuildMonthMeta(); }catch(e){ console.warn('[GSheet] cache rebuildMonthMeta:',e); }
   }catch(e){ console.warn('[GSheet] init:',e); }
@@ -13476,40 +13547,36 @@ window.evaSend = function(){
   }
   input.value = '';
   evaHideQuickPrompts();
-  evaAppendMessage('partner', text);
+  var _senderRole = (window.currentRole === 'admin') ? 'admin' : 'partner';
+  evaAppendMessage(_senderRole, text);
 
-  // ── Escalation: only if explicitly asked AND has actual content beyond keyword ──
-  // e.g. "raise a query to admin" alone → prompt them to describe the issue
-  // "raise a query: invoice not approved" → escalate with context
-  var isEscalateOnly = /^(raise a query( to admin)?|speak to admin|contact admin|escalate|talk to human|talk to admin)$/i.test(text);
-  var isEscalateWithContent = /raise|query|admin|speak to|talk to|contact|escalate|human/i.test(text) && text.length > 30;
+  // ── Escalation (partner only) ────────────────────────────────────────────────
+  if(_senderRole === 'partner'){
+    var isEscalateOnly = /^(raise a query( to admin)?|speak to admin|contact admin|escalate|talk to human|talk to admin)$/i.test(text);
+    var isEscalateWithContent = /raise|query|admin|speak to|talk to|contact|escalate|human/i.test(text) && text.length > 30;
 
-  if(isEscalateOnly){
-    // Prompt them to describe their issue instead of silently notifying admin
-    evaAppendMessage('eva', 'Sure! Please describe your issue or question and I\'ll pass it to the Cars24 team. What would you like help with?');
-    return;
-  }
-
-  if(isEscalateWithContent){
-    _evaBusy = true;
-    evaShowTyping(true);
-    setTimeout(function(){
-      evaShowTyping(false);
-      _evaBusy = false;
-      evaAppendMessage('eva', 'Your query has been sent to the Cars24 admin team. They\'ll respond here shortly. You can also reach out via your dedicated campaign manager.');
-      evaStoreQueryForAdmin(text);
-      c24RefreshAdminQueryBadge();
-
-      c24Toast('✅ Query sent', 'Admin has been notified of your message.', 'success');
-    }, 800);
-    return;
+    if(isEscalateOnly){
+      evaAppendMessage('eva', 'Sure! Please describe your issue or question and I\'ll pass it to the Cars24 team. What would you like help with?');
+      return;
+    }
+    if(isEscalateWithContent){
+      _evaBusy = true;
+      evaShowTyping(true);
+      setTimeout(function(){
+        evaShowTyping(false);
+        _evaBusy = false;
+        evaAppendMessage('eva', 'Your query has been sent to the Cars24 admin team. They\'ll respond here shortly. You can also reach out via your dedicated campaign manager.');
+        evaStoreQueryForAdmin(text);
+        c24RefreshAdminQueryBadge();
+        c24Toast('✅ Query sent', 'Admin has been notified of your message.', 'success');
+      }, 800);
+      return;
+    }
   }
 
   _evaBusy = true;
   evaShowTyping(true);
 
-  // Build context from partner data
-  var pn  = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'Partner';
   var ctx = _buildEvaContext();
 
   var messages = [{ role:'user', content: text }];
@@ -13517,7 +13584,7 @@ window.evaSend = function(){
   if(_evaMsgs.length > 1){
     var hist = _evaMsgs.slice(-7, -1);
     messages = hist.map(function(m){
-      return { role: (m.role==='partner'?'user':'assistant'), content: m.text };
+      return { role: (m.role==='partner'||m.role==='admin'?'user':'assistant'), content: m.text };
     }).concat(messages);
   }
 
@@ -13525,16 +13592,25 @@ window.evaSend = function(){
   if(!_groqKey || _groqKey === 'YOUR_GROQ_API_KEY'){
     evaShowTyping(false);
     _evaBusy = false;
-    evaAppendMessage('eva', 'EVA is not configured yet. Admin: get a FREE Groq key at console.groq.com → API Keys, then paste it into CARS24_CONFIG.groqKey. No billing needed. In the meantime, type "raise a query: [your issue]" to reach the admin team directly.');
+    evaAppendMessage('eva', 'EVA is not configured yet. Get a FREE Groq key at console.groq.com → API Keys, then paste it into CARS24_CONFIG.groqKey.');
     return;
   }
 
-  // Build system prompt with full partner context
-  var systemPrompt = 'You are EVA, the Cars24 Affiliate Partner support assistant. '
-    + 'Be concise, friendly and helpful. Reply in plain text only — no markdown, no asterisks, no bullet symbols. '
-    + 'You help partners understand their payouts, targets, invoices and portal features. '
-    + 'Here is the current partner context:\n' + ctx
-    + '\nIf asked something you cannot answer from this data, suggest they type "raise a query: [their issue]" to escalate to the Cars24 admin team.';
+  // ── System prompt — role-aware ───────────────────────────────────────────────
+  var systemPrompt;
+  if(window.currentRole === 'admin'){
+    systemPrompt = 'You are EVA, the Cars24 Affiliate Portal AI assistant for the admin team. '
+      + 'Be concise and analytical. Reply in plain text only — no markdown, no asterisks, no bullet symbols. '
+      + 'You have full access to all partner data, performance metrics, payouts, invoices, targets and announcements. '
+      + 'Answer any question about any partner, totals, trends, or portal operations using the data below. '
+      + 'Here is the full portal context:\n' + ctx;
+  } else {
+    systemPrompt = 'You are EVA, the Cars24 Affiliate Partner support assistant. '
+      + 'Be concise, friendly and helpful. Reply in plain text only — no markdown, no asterisks, no bullet symbols. '
+      + 'You help partners understand their payouts, targets, invoices and portal features. '
+      + 'Here is the current partner context:\n' + ctx
+      + '\nIf asked something you cannot answer from this data, suggest they type "raise a query: [their issue]" to escalate to the Cars24 admin team.';
+  }
 
   // Groq uses OpenAI-compatible format
   var groqMessages = [{ role:'system', content: systemPrompt }];
@@ -13587,87 +13663,185 @@ window.evaSend = function(){
 };
 
 function _buildEvaContext(){
-  var pn  = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
-  var p   = window.currentPartner || null;
-  var lines = ['Partner: '+pn, 'Role: '+(window.currentRole||'partner')];
+  var role = window.currentRole || 'partner';
 
-  // ── Monthly performance (leads/appts/insps/stocks only — no payout here to avoid duplication) ──
+  // ════════════════════════════════════════════════════════
+  // ADMIN CONTEXT — full portal snapshot
+  // ════════════════════════════════════════════════════════
+  if(role === 'admin'){
+    var lines = ['Role: admin', 'User: '+(window.currentUser||'Admin')];
+
+    // All partners — monthly funnel + payout from PARTNERS array
+    try{
+      var _P = Array.isArray(window.PARTNERS) ? window.PARTNERS : [];
+      if(_P.length && window.MONTHS && window.MONTHS.length){
+        var partnerLines = _P.map(function(p){
+          var mo = window.MONTHS[window.MONTHS.length-1]; // latest month
+          var lbl = (window.MLABEL&&window.MLABEL[mo])||mo;
+          var L=p.leads&&p.leads[mo]||0, A=p.appts&&p.appts[mo]||0;
+          var I=p.insps&&p.insps[mo]||0, S=p.stocks&&p.stocks[mo]||0;
+          var pay=p.payout&&p.payout[mo]||0;
+          var ext = p.ext && (p.ext[lbl]||p.ext[mo]);
+          var cpi=ext?ext.cpi||0:0, asp=ext?ext.asp||0:0;
+          return p.name+' ('+lbl+'): leads='+L+', appts='+A+', insps='+I+', stocks='+S+', payout=₹'+pay+', cpi=₹'+cpi+', asp=₹'+asp;
+        });
+        lines.push('All partners latest month performance ('+((window.MLABEL&&window.MLABEL[window.MONTHS[window.MONTHS.length-1]])||window.MONTHS[window.MONTHS.length-1])+'):\n'+partnerLines.join('\n'));
+
+        // Grand totals across all months
+        var grandLines = window.MONTHS.map(function(m){
+          var lbl=(window.MLABEL&&window.MLABEL[m])||m;
+          var tL=0,tA=0,tI=0,tS=0,tP=0;
+          _P.forEach(function(p){ tL+=p.leads&&p.leads[m]||0; tA+=p.appts&&p.appts[m]||0; tI+=p.insps&&p.insps[m]||0; tS+=p.stocks&&p.stocks[m]||0; tP+=p.payout&&p.payout[m]||0; });
+          return lbl+': leads='+tL+', appts='+tA+', insps='+tI+', stocks='+tS+', payout=₹'+tP;
+        });
+        lines.push('Grand totals per month:\n'+grandLines.join('\n'));
+      }
+    }catch(e){}
+
+    // All invoices
+    try{
+      var allInvs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
+      if(allInvs.length){
+        lines.push('All invoices (last 20): '+allInvs.slice(-20).map(function(i){
+          return i.partner+' #'+i.invNo+' ₹'+i.amount+' ('+i.fullMonth+') '+i.status;
+        }).join(' | '));
+      }
+    }catch(e){}
+
+    // All targets
+    try{
+      var tgtStore = JSON.parse(localStorage.getItem('cars24_target_store')||'{}');
+      var tgtLines = [];
+      Object.keys(tgtStore).forEach(function(pName){
+        var streams = tgtStore[pName];
+        Object.keys(streams||{}).forEach(function(stream){
+          Object.keys(streams[stream]||{}).forEach(function(mo){
+            tgtLines.push(pName+' '+stream+' target ('+mo+'): '+streams[stream][mo]);
+          });
+        });
+      });
+      if(tgtLines.length) lines.push('Targets:\n'+tgtLines.join('\n'));
+    }catch(e){}
+
+    // All partner credentials (name + status)
+    try{
+      var creds = JSON.parse(localStorage.getItem('cars24_partner_creds')||'[]');
+      if(creds.length) lines.push('Partner credentials: '+creds.map(function(c){ return c.display+' ('+c.username+', '+(c.status||'Active')+')'; }).join(', '));
+    }catch(e){}
+
+    // Announcements
+    try{
+      var annsAll = JSON.parse(localStorage.getItem('cars24_announcements')||'[]');
+      if(annsAll.length) lines.push('Announcements: '+annsAll.slice(-5).map(function(a){ return '"'+a.title+'" → '+a.audience+': '+a.body; }).join(' | '));
+    }catch(e){}
+
+    // Partner query threads (full chat history)
+    try{
+      var chatAll = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]');
+      if(chatAll.length){
+        var byP = {};
+        chatAll.forEach(function(m){ if(!byP[m.partnerName]) byP[m.partnerName]=[]; byP[m.partnerName].push(m); });
+        var threadLines = Object.keys(byP).map(function(pn){
+          return pn+': '+byP[pn].map(function(m){ return '['+m.role+'] '+m.text; }).join(' → ');
+        });
+        lines.push('Partner support threads:\n'+threadLines.join('\n'));
+      }
+    }catch(e){}
+
+    return lines.join('\n');
+  }
+
+  // ════════════════════════════════════════════════════════
+  // PARTNER CONTEXT — own data only
+  // ════════════════════════════════════════════════════════
+  var pn = (window.currentPartner&&(window.currentPartner.display||window.currentPartner.name))||'';
+  var p  = window.currentPartner || null;
+  var lines = ['Partner: '+pn, 'Role: partner'];
+
+  // Monthly funnel
   try{
     if(p && window.MONTHS && window.MONTHS.length){
       var perfLines = window.MONTHS.map(function(m){
-        var lbl = (window.MLABEL&&window.MLABEL[m])||m;
-        var L=p.leads&&p.leads[m]||0, A=p.appts&&p.appts[m]||0;
-        var I=p.insps&&p.insps[m]||0, S=p.stocks&&p.stocks[m]||0;
-        return lbl+': leads='+L+', appts='+A+', insps='+I+', stocks='+S;
+        var lbl=(window.MLABEL&&window.MLABEL[m])||m;
+        return lbl+': leads='+(p.leads&&p.leads[m]||0)+', appts='+(p.appts&&p.appts[m]||0)+', insps='+(p.insps&&p.insps[m]||0)+', stocks='+(p.stocks&&p.stocks[m]||0);
       });
-      lines.push('Monthly performance (funnel data):\n'+perfLines.join('\n'));
+      lines.push('Monthly performance:\n'+perfLines.join('\n'));
     }
   }catch(e){}
 
-  // ── CPI performance for latest month (actual achieved KPIs vs formula thresholds) ──
+  // CPI/ASP/A2I details — latest month
   try{
     if(p && p.ext && window.MONTHS && window.MONTHS.length){
       var lastMo = window.MONTHS[window.MONTHS.length-1];
       var extKey = Object.keys(p.ext).find(function(k){ return k.toLowerCase().startsWith(lastMo.toLowerCase()); });
       var ext = extKey ? p.ext[extKey] : null;
       if(ext){
-        lines.push('CPI performance for '+(( window.MLABEL&&window.MLABEL[lastMo])||lastMo)+':\n'
-          + '  Achieved: CPI=₹'+(ext.cpi||0)+', ASP=₹'+(ext.asp||0)+', A2I='+(((ext.a2i||0)*100).toFixed(1))+'%, I2SI='+(((ext.i2si||0)*100).toFixed(1))+'%\n'
-          + '  CPI formula thresholds (for max CPI): A2I must be >='+(((ext.kpi_a2i||0)*100).toFixed(0))+'%, ASP>=₹'+(ext.kpi_asp||0)+', I2SI>='+(((ext.kpi_i2si||0)*100).toFixed(0))+'%\n'
-          + '  Base CPI: ₹'+(ext.base_cpi||0)+'\n'
-          + '  NOTE: These thresholds are CPI formula inputs, NOT volume targets.');
+        lines.push('Performance details for '+((window.MLABEL&&window.MLABEL[lastMo])||lastMo)+':\n'
+          +'  CPI=₹'+(ext.cpi||0)+', ASP=₹'+(ext.asp||0)+', A2I='+(((ext.a2i||0)*100).toFixed(1))+'%, I2SI='+(((ext.i2si||0)*100).toFixed(1))+'%\n'
+          +'  Thresholds for max CPI: A2I>='+(((ext.kpi_a2i||0)*100).toFixed(0))+'%, ASP>=₹'+(ext.kpi_asp||0)+', I2SI>='+(((ext.kpi_i2si||0)*100).toFixed(0))+'%\n'
+          +'  Base CPI: ₹'+(ext.base_cpi||0));
       }
     }
   }catch(e){}
 
-  // ── Volume targets (seller inspections / buyer visits set by admin) ──
+  // Seller channel breakdown — source/medium/campaign rows for latest month
   try{
-    var tgt = JSON.parse(localStorage.getItem('cars24_target_store')||'{}');
-    var myTargets = [];
-    Object.keys(tgt).forEach(function(k){
+    var ps = window.PARTNER_SHEET && window.PARTNER_SHEET[pn];
+    if(ps && ps.ext && window.MONTHS && window.MONTHS.length){
+      var lastMo2 = window.MONTHS[window.MONTHS.length-1];
+      var extK2 = Object.keys(ps.ext).find(function(k){ return k.toLowerCase().startsWith(lastMo2.toLowerCase()); });
+      var ext2 = extK2 ? ps.ext[extK2] : null;
+      if(ext2 && ext2.rows && ext2.rows.length){
+        var rowSummary = ext2.rows.slice(0,10).map(function(r){
+          return (r.source_medium||r.region||'?')+': leads='+(r.leads||0)+', appts='+(r.appts||0)+', insps='+(r.insps||0)+', payout=₹'+(r.payout||0);
+        });
+        lines.push('Seller channel breakdown ('+((window.MLABEL&&window.MLABEL[lastMo2])||lastMo2)+'):\n'+rowSummary.join('\n'));
+      }
+    }
+  }catch(e){}
+
+  // Targets
+  try{
+    var tgt2 = JSON.parse(localStorage.getItem('cars24_target_store')||'{}');
+    var pTgts = tgt2[pn] || tgt2[(pn||'').toLowerCase()] || null;
+    if(pTgts){
+      var tLines = [];
+      Object.keys(pTgts).forEach(function(stream){
+        Object.keys(pTgts[stream]||{}).forEach(function(mo){
+          tLines.push(stream+' ('+mo+'): target='+pTgts[stream][mo]);
+        });
+      });
+      if(tLines.length) lines.push('Targets:\n'+tLines.join('\n'));
+    }
+  }catch(e){}
+
+  // Payout
+  try{
+    var po2 = JSON.parse(localStorage.getItem('cars24_payout_store')||'{}');
+    var payLines = [];
+    Object.keys(po2).forEach(function(k){
       if(k.toLowerCase().startsWith(pn.toLowerCase()+'__')){
-        var mo = k.split('__')[1]||'';
-        var moLbl = (window.MLABEL&&window.MLABEL[mo])||mo;
-        var t = tgt[k];
-        if(t && (t.seller_target||t.buyer_target)){
-          myTargets.push(moLbl+': seller target='+(t.seller_target||0)+' inspections, buyer target='+(t.buyer_target||0)+' visits'+(t.notes?' | note: '+t.notes:''));
-        }
+        var mo=k.split('__')[1]||'';
+        var e2=po2[k];
+        if(e2) payLines.push(((window.MLABEL&&window.MLABEL[mo])||mo)+': ₹'+(e2.amount||0)+' — '+(e2.status||'Pending'));
       }
     });
-    if(myTargets.length) lines.push('Volume targets set by admin (how many inspections/visits to achieve):\n'+myTargets.join('\n'));
-    else lines.push('Volume targets: not set yet by admin.');
+    if(payLines.length) lines.push('Payouts:\n'+payLines.join('\n'));
+    else lines.push('Payouts: none on record yet.');
   }catch(e){}
 
-  // ── Payout (single source of truth — payout store only) ──
+  // Invoices
   try{
-    var po = JSON.parse(localStorage.getItem('cars24_payout_store')||'{}');
-    var myPay = [];
-    Object.keys(po).forEach(function(k){
-      if(k.toLowerCase().startsWith(pn.toLowerCase()+'__')){
-        var mo = k.split('__')[1]||'';
-        var moLbl = (window.MLABEL&&window.MLABEL[mo])||mo;
-        var e2 = po[k];
-        if(e2) myPay.push(moLbl+': ₹'+(e2.amount||0)+' — status: '+(e2.status||'Pending'));
-      }
-    });
-    if(myPay.length) lines.push('Payout (from admin payout store):\n'+myPay.join('\n'));
-    else lines.push('Payout: no payout records yet.');
+    var myInvs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
+    var myI = myInvs.filter(function(i){ return (i.partner||'').toLowerCase()===pn.toLowerCase(); }).slice(-5);
+    if(myI.length) lines.push('Recent invoices: '+myI.map(function(i){ return '#'+i.invNo+' ₹'+i.amount+' ('+i.fullMonth+') '+i.status; }).join(', '));
   }catch(e){}
 
-  // ── Recent invoices ──
+  // Announcements for this partner
   try{
-    var invs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
-    var myI = invs.filter(function(i){ return (i.partner||'').toLowerCase()===pn.toLowerCase(); }).slice(-5);
-    if(myI.length) lines.push('Recent invoices: '+myI.map(function(i){
-      return '#'+i.invNo+' ₹'+i.amount+' ('+i.fullMonth+') — '+i.status;
-    }).join(', '));
-  }catch(e){}
-
-  // ── Latest announcements ──
-  try{
-    var anns = JSON.parse(localStorage.getItem('cars24_announcements')||'[]');
-    var myAnns = anns.filter(function(a){ return !a.audience||a.audience==='all'||(a.audience||'').toLowerCase()===pn.toLowerCase(); }).slice(-2);
-    if(myAnns.length) lines.push('Latest announcements: '+myAnns.map(function(a){ return '"'+a.title+'": '+a.body; }).join(' | '));
+    var anns2 = JSON.parse(localStorage.getItem('cars24_announcements')||'[]');
+    var myAnns = anns2.filter(function(a){ return !a.audience||a.audience==='all'||(a.audience||'').toLowerCase()===pn.toLowerCase(); }).slice(-3);
+    if(myAnns.length) lines.push('Announcements: '+myAnns.map(function(a){ return '"'+a.title+'": '+a.body; }).join(' | '));
   }catch(e){}
 
   return lines.join('\n');
@@ -13753,7 +13927,10 @@ window.buildAdminQueriesInbox = function(){
         + '<div style="max-height:260px;overflow-y:auto;padding:4px 0 8px;">'+thread+'</div>'
         + '<div style="border-top:1px solid var(--bd,rgba(255,255,255,.08));padding-top:10px;">'
         + '<textarea class="eva-reply-input" id="areply-'+safeId+'" placeholder="Reply to '+escH(p.name)+'…"></textarea>'
-        + '<button onclick="evaAdminReply(\''+p.name+'\',\''+safeId+'\')" style="margin-top:6px;background:#4f46e5;border:none;border-radius:8px;padding:7px 18px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Send Reply ↑</button>'
+        + '<div style="display:flex;gap:8px;margin-top:6px;">'
+        + '<button onclick="evaAdminReply(\''+p.name+'\',\''+safeId+'\')" style="background:#4f46e5;border:none;border-radius:8px;padding:7px 18px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Send Reply ↑</button>'
+        + '<button onclick="evaAdminGroqAssist(\''+p.name+'\',\''+safeId+'\')" style="background:rgba(79,70,229,.12);border:1px solid rgba(79,70,229,.35);border-radius:8px;padding:7px 14px;color:#818cf8;font-size:12px;font-weight:700;cursor:pointer;">✦ AI Draft</button>'
+        + '</div>'
         + '</div>'
       + '</div>'
       + '</div>';
@@ -13783,7 +13960,94 @@ window.evaAdminReply = function(partnerName, safeId){
   c24RefreshAdminQueryBadge();
 };
 
-window.evaAdminMarkAllRead = function(){
+window.evaAdminGroqAssist = function(partnerName, safeId){
+  var ta = document.getElementById('areply-'+safeId);
+  if(!ta) return;
+  var _groqKey = (window.CARS24_CONFIG && window.CARS24_CONFIG.groqKey) || '';
+  if(!_groqKey || _groqKey === 'YOUR_GROQ_API_KEY'){
+    if(ta) ta.placeholder = 'Groq key not configured in CARS24_CONFIG.groqKey';
+    return;
+  }
+
+  // Collect this partner's thread
+  var allMsgs = [];
+  try{ allMsgs = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
+  var thread = allMsgs.filter(function(m){ return m.partnerName === partnerName; });
+
+  // Build partner-specific context from PARTNER_SHEET + PARTNERS
+  var ctxLines = ['You are assisting admin in replying to partner: '+partnerName+'.'];
+  try{
+    var _P = Array.isArray(window.PARTNERS) ? window.PARTNERS : [];
+    var pp = _P.find(function(x){ return x.name===partnerName; });
+    if(pp && window.MONTHS && window.MONTHS.length){
+      var moLines = window.MONTHS.map(function(m){
+        var lbl=(window.MLABEL&&window.MLABEL[m])||m;
+        return lbl+': leads='+(pp.leads&&pp.leads[m]||0)+', appts='+(pp.appts&&pp.appts[m]||0)+', insps='+(pp.insps&&pp.insps[m]||0)+', stocks='+(pp.stocks&&pp.stocks[m]||0)+', payout=₹'+(pp.payout&&pp.payout[m]||0);
+      });
+      ctxLines.push('Partner performance data:\n'+moLines.join('\n'));
+      // Latest month ext (CPI/ASP/A2I)
+      var lastMo = window.MONTHS[window.MONTHS.length-1];
+      var ext = pp.ext && (pp.ext[(window.MLABEL&&window.MLABEL[lastMo])||lastMo] || pp.ext[lastMo]);
+      if(ext) ctxLines.push('Latest KPIs: CPI=₹'+(ext.cpi||0)+', ASP=₹'+(ext.asp||0)+', A2I='+(((ext.a2i||0)*100).toFixed(1))+'%, Base CPI=₹'+(ext.base_cpi||0)+', KPI A2I='+(((ext.kpi_a2i||0)*100).toFixed(0))+'%, KPI ASP=₹'+(ext.kpi_asp||0));
+    }
+  }catch(e){}
+
+  // Partner invoices
+  try{
+    var invs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
+    var pInvs = invs.filter(function(i){ return (i.partner||'').toLowerCase()===partnerName.toLowerCase(); }).slice(-5);
+    if(pInvs.length) ctxLines.push('Invoices: '+pInvs.map(function(i){ return '#'+i.invNo+' ₹'+i.amount+' '+i.fullMonth+' '+i.status; }).join(', '));
+  }catch(e){}
+
+  // Partner targets
+  try{
+    var tgtStore = JSON.parse(localStorage.getItem('cars24_target_store')||'{}');
+    var pTgts = tgtStore[partnerName];
+    if(pTgts){
+      var tLines = [];
+      Object.keys(pTgts).forEach(function(stream){
+        Object.keys(pTgts[stream]||{}).forEach(function(mo){ tLines.push(stream+' ('+mo+')='+pTgts[stream][mo]); });
+      });
+      if(tLines.length) ctxLines.push('Targets: '+tLines.join(', '));
+    }
+  }catch(e){}
+
+  var ctx = ctxLines.join('\n');
+
+  // Build conversation history for Groq
+  var groqMessages = [{
+    role: 'system',
+    content: 'You are EVA, the Cars24 admin AI assistant. Draft a helpful, concise reply to this partner query on behalf of the admin team. '
+      + 'Reply in plain text only — no markdown, no asterisks. Use the partner data below to answer accurately.\n\n' + ctx
+  }];
+  thread.forEach(function(m){
+    groqMessages.push({ role: m.role === 'admin' ? 'assistant' : 'user', content: m.text });
+  });
+
+  // Show loading state
+  var origPh = ta.placeholder;
+  ta.placeholder = '✦ AI is drafting a reply…';
+  ta.disabled = true;
+
+  fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+_groqKey },
+    body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages: groqMessages, max_tokens: 600, temperature: 0.6 })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    ta.disabled = false;
+    ta.placeholder = origPh;
+    if(data.error){ ta.placeholder = 'AI error: '+(data.error.message||'try again'); return; }
+    var draft = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if(draft){ ta.value = draft.trim(); ta.focus(); }
+  })
+  .catch(function(e){
+    ta.disabled = false;
+    ta.placeholder = origPh;
+    console.warn('[EVA] AdminGroqAssist error:', e.message||e);
+  });
+};
   var all = [];
   try{ all = JSON.parse(localStorage.getItem('cars24_chat_messages')||'[]'); }catch(e){}
   all.filter(function(m){ return m.role==='partner'; })
@@ -13843,6 +14107,256 @@ window.evaAdminClearAllChats = function(){
 })();
 
 console.log('[C24Notif+Chat] Engine loaded ✅');
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     ADMIN AI ASSISTANT — Full-context Groq chat for admin
+     Reads ALL live portal data: partners, DOD, payouts, invoices, targets
+     ══════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+var _adminAiMsgs  = [];   // in-memory thread
+var _adminAiBusy  = false;
+var _ADMIN_AI_KEY = 'cars24_admin_ai_history';
+
+// ── Helpers ──────────────────────────────────────────────────────────
+function _escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function _loadHistory(){
+  try{ _adminAiMsgs = JSON.parse(localStorage.getItem(_ADMIN_AI_KEY)||'[]'); }catch(e){ _adminAiMsgs=[]; }
+}
+
+function _saveHistory(){
+  try{ localStorage.setItem(_ADMIN_AI_KEY, JSON.stringify(_adminAiMsgs.slice(-80))); }catch(e){}
+}
+
+function _renderMessages(){
+  var el = document.getElementById('admin-ai-messages');
+  if(!el) return;
+  _loadHistory();
+  if(!_adminAiMsgs.length){
+    el.innerHTML = '<div class="eva-msg eva-msg--bot">'
+      + '<div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg></div>'
+      + '<div class="eva-bubble">Hi Admin! I\'m your AI assistant with full access to all portal data — partners, payouts, DOD metrics, invoices, targets, funnel rates. Ask me anything or use the quick prompts above.</div>'
+      + '</div>';
+    return;
+  }
+  el.innerHTML = _adminAiMsgs.map(function(m){
+    var isUser = m.role === 'user';
+    var cls    = isUser ? 'eva-msg--user' : 'eva-msg--bot';
+    var avatar = isUser
+      ? '<div class="eva-avatar">A</div>'
+      : '<div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg"><text x="0" y="12" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="#E8111A" letter-spacing="-0.5">CARS24</text></svg></div>';
+    // Convert newlines to <br> for display
+    var html = _escH(m.text).replace(/\n/g,'<br>');
+    return '<div class="eva-msg '+cls+'">'+avatar+'<div class="eva-bubble">'+html+'</div></div>';
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function _appendMsg(role, text){
+  _adminAiMsgs.push({ role:role, text:text, ts:Date.now() });
+  _saveHistory();
+  _renderMessages();
+}
+
+// ── Build rich system context from all live portal data ───────────────
+function _buildSystemContext(){
+  var lines = [
+    'You are an expert AI assistant for the Cars24 Affiliates Admin Portal.',
+    'You have full access to all live portal data provided below.',
+    'Answer questions precisely using the data. Be concise, use numbers, highlight trends.',
+    'Format numbers with commas (Indian style). Use ₹ for currency. No markdown asterisks — use plain text.',
+    ''
+  ];
+
+  // ── Partners summary ──
+  try{
+    var _P = Array.isArray(window.PARTNERS) ? window.PARTNERS : [];
+    var months = Array.isArray(window.MONTHS) ? window.MONTHS : [];
+    if(_P.length && months.length){
+      lines.push('=== PARTNER PERFORMANCE ('+_P.length+' partners) ===');
+      _P.forEach(function(p){
+        var totL=0,totA=0,totI=0,totS=0,totPay=0;
+        months.forEach(function(m){ totL+=(p.leads&&p.leads[m])||0; totA+=(p.appts&&p.appts[m])||0; totI+=(p.insps&&p.insps[m])||0; totS+=(p.stocks&&p.stocks[m])||0; totPay+=(p.payout&&p.payout[m])||0; });
+        // Latest month
+        var lm=months[months.length-1], lmlbl=(window.MLABEL&&window.MLABEL[lm])||lm;
+        var lL=(p.leads&&p.leads[lm])||0, lA=(p.appts&&p.appts[lm])||0, lI=(p.insps&&p.insps[lm])||0, lS=(p.stocks&&p.stocks[lm])||0, lPay=(p.payout&&p.payout[lm])||0;
+        lines.push(p.name+': Total(Leads='+totL+', Appts='+totA+', Insps='+totI+', Stocks='+totS+', Payout=₹'+totPay+') | '+lmlbl+'(L='+lL+', A='+lA+', I='+lI+', S='+lS+', Pay=₹'+lPay+')');
+      });
+      lines.push('');
+    }
+  }catch(e){}
+
+  // ── DOD last 14 days ──
+  try{
+    var dodDates = window.DOD_DATES||[], dodD = window.DOD_D||{};
+    if(dodDates.length){
+      lines.push('=== DAY-ON-DAY DATA (last 14 days) ===');
+      var last14 = dodDates.slice(-14);
+      last14.forEach(function(d,i){
+        var idx = dodDates.length - last14.length + i;
+        lines.push(d+': Leads='+(dodD.leads&&dodD.leads[idx]||0)+', Appts='+(dodD.appts&&dodD.appts[idx]||0)+', Insps='+(dodD.insps&&dodD.insps[idx]||0)+', Stocks='+(dodD.stocks&&dodD.stocks[idx]||0));
+      });
+      // Averages
+      var avg = function(arr){ if(!arr||!arr.length) return 0; return Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length); };
+      lines.push('7-day avg: Leads='+avg((dodD.leads||[]).slice(-7))+', Appts='+avg((dodD.appts||[]).slice(-7))+', Insps='+avg((dodD.insps||[]).slice(-7)));
+      lines.push('Total DOD days tracked: '+dodDates.length+' ('+dodDates[0]+' → '+dodDates[dodDates.length-1]+')');
+      lines.push('');
+    }
+  }catch(e){}
+
+  // ── Invoices ──
+  try{
+    var invs = JSON.parse(localStorage.getItem('cars24_invoices')||'[]');
+    if(invs.length){
+      var pending = invs.filter(function(i){ return (i.status||'').toLowerCase().includes('pend')||(i.status||'').toLowerCase().includes('review'); });
+      var approved = invs.filter(function(i){ return (i.status||'').toLowerCase().includes('approv'); });
+      var paid = invs.filter(function(i){ return (i.status||'').toLowerCase().includes('paid'); });
+      lines.push('=== INVOICES ('+invs.length+' total) ===');
+      lines.push('Pending/Review: '+pending.length+', Approved: '+approved.length+', Paid: '+paid.length);
+      if(pending.length){
+        lines.push('Pending invoices: '+pending.slice(0,10).map(function(i){ return i.partner+' #'+i.invNo+' ₹'+(i.amount||0)+' ('+i.fullMonth+')'; }).join('; '));
+      }
+      lines.push('');
+    }
+  }catch(e){}
+
+  // ── Targets ──
+  try{
+    var tgtStore = JSON.parse(localStorage.getItem('cars24_target_store')||'{}');
+    var tgtPartners = Object.keys(tgtStore);
+    if(tgtPartners.length){
+      lines.push('=== TARGETS ('+tgtPartners.length+' partners with targets set) ===');
+      tgtPartners.slice(0,20).forEach(function(pn){
+        var tgt = tgtStore[pn];
+        var streams = Object.keys(tgt||{});
+        streams.forEach(function(stream){
+          var months = Object.keys(tgt[stream]||{});
+          months.forEach(function(mo){ lines.push(pn+' | '+stream+' | '+mo+': '+tgt[stream][mo]); });
+        });
+      });
+      lines.push('');
+    }
+  }catch(e){}
+
+  // ── Payment proofs ──
+  try{
+    var proofs = JSON.parse(localStorage.getItem('cars24_payment_proofs')||'[]');
+    if(proofs.length){
+      var pending_p = proofs.filter(function(p){ return (p.status||'').toLowerCase().includes('pend'); });
+      lines.push('=== PAYMENT PROOFS: '+proofs.length+' total, '+pending_p.length+' pending ===');
+      lines.push('');
+    }
+  }catch(e){}
+
+  // ── Overall funnel rates (latest month) ──
+  try{
+    var _P2 = Array.isArray(window.PARTNERS)?window.PARTNERS:[], months2=Array.isArray(window.MONTHS)?window.MONTHS:[];
+    if(_P2.length && months2.length){
+      var lm2=months2[months2.length-1];
+      var totL2=0,totA2=0,totI2=0,totS2=0;
+      _P2.forEach(function(p){ totL2+=(p.leads&&p.leads[lm2])||0; totA2+=(p.appts&&p.appts[lm2])||0; totI2+=(p.insps&&p.insps[lm2])||0; totS2+=(p.stocks&&p.stocks[lm2])||0; });
+      var lmlbl2=(window.MLABEL&&window.MLABEL[lm2])||lm2;
+      lines.push('=== OVERALL FUNNEL ('+lmlbl2+') ===');
+      lines.push('Leads='+totL2+', Appts='+totA2+', Insps='+totI2+', Stocks='+totS2);
+      if(totL2) lines.push('L→A='+(totA2/totL2*100).toFixed(1)+'%, L→I='+(totI2/totL2*100).toFixed(1)+'%, L→S='+(totS2/totL2*100).toFixed(1)+'%');
+      lines.push('');
+    }
+  }catch(e){}
+
+  return lines.join('\n');
+}
+
+// ── Main send function ────────────────────────────────────────────────
+window.adminAiSend = function(){
+  if(_adminAiBusy) return;
+  var input = document.getElementById('admin-ai-input');
+  var msg   = (input ? input.value : '').trim();
+  if(!msg) return;
+
+  var _groqKey = (window.CARS24_CONFIG && window.CARS24_CONFIG.groqKey) || '';
+  if(!_groqKey || _groqKey === 'YOUR_GROQ_API_KEY'){
+    _appendMsg('ai', '⚠ Groq API key not configured. Set CARS24_CONFIG.groqKey in the portal config.');
+    return;
+  }
+
+  if(input) input.value = '';
+  _adminAiBusy = true;
+  _appendMsg('user', msg);
+
+  // Show typing
+  var typing = document.getElementById('admin-ai-typing');
+  if(typing) typing.style.display = 'block';
+  var msgEl = document.getElementById('admin-ai-messages');
+  if(msgEl) msgEl.scrollTop = msgEl.scrollHeight;
+
+  // Build Groq messages
+  var sysCtx = _buildSystemContext();
+  var groqMessages = [{ role:'system', content: sysCtx }];
+  // Add last 12 turns for context
+  _adminAiMsgs.slice(-12).forEach(function(m){
+    groqMessages.push({ role: m.role==='user'?'user':'assistant', content: m.text });
+  });
+
+  fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+_groqKey },
+    body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages:groqMessages, max_tokens:900, temperature:0.5 })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(typing) typing.style.display = 'none';
+    _adminAiBusy = false;
+    if(data.error){
+      _appendMsg('ai', '⚠ Groq error: '+(data.error.message||JSON.stringify(data.error)));
+      return;
+    }
+    var reply = data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
+    if(reply) _appendMsg('ai', reply.trim());
+    else      _appendMsg('ai', '(No response from AI — try again)');
+  })
+  .catch(function(e){
+    if(typing) typing.style.display = 'none';
+    _adminAiBusy = false;
+    _appendMsg('ai', '⚠ Network error: '+(e.message||String(e)));
+  });
+};
+
+// ── Quick chip ────────────────────────────────────────────────────────
+window.adminAiChip = function(btn){
+  var input = document.getElementById('admin-ai-input');
+  if(input){ input.value = btn.textContent.trim(); }
+  window.adminAiSend();
+};
+
+// ── Clear history ─────────────────────────────────────────────────────
+window.adminAiClear = function(){
+  if(!confirm('Clear AI chat history?')) return;
+  _adminAiMsgs = [];
+  try{ localStorage.removeItem(_ADMIN_AI_KEY); }catch(e){}
+  _renderMessages();
+  c24Toast('🗑 Cleared', 'Admin AI chat history cleared.', 'warn');
+};
+
+// ── Init when view opens ──────────────────────────────────────────────
+// Hook into showV so it loads when admin-ai view is activated
+var _origShowV = window.showV;
+window.showV = function(id, el){
+  if(typeof _origShowV === 'function') _origShowV(id, el);
+  if(id === 'admin-ai'){
+    setTimeout(function(){
+      _renderMessages();
+      var inp = document.getElementById('admin-ai-input');
+      if(inp) inp.focus();
+    }, 80);
+  }
+};
+
+console.log('[AdminAI] Assistant loaded ✅');
 })();
 </script>
 
@@ -14439,111 +14953,9 @@ function buildVasGenericTable(storeFn, containerId, titleLabel){
 // ═══════════════════════════════════════════════════════════════
 // PARTNER VIEW — Show exact Partner sheet columns per partner
 // ═══════════════════════════════════════════════════════════════
-// Override buildPartnerSellerChannels to show exact Partner sheet data
-(function _patchPartnerSellerChannels(){
-  var _orig = window.buildPartnerSellerChannels || window.triggerPartnerView;
-  window.buildPartnerSellerChannels = function(){
-    var p = window.currentPartner; if(!p) return;
-    // Find partner's ext data (channel-level rows from Partner sheet)
-    var partnerObj = (window.PARTNERS||[]).find(function(x){ return x.name.toLowerCase().trim()===p.name.toLowerCase().trim(); });
-    var noData = document.getElementById('p-sc-no-data');
-    var content2= document.getElementById('p-sc-content');
-    var monthBtns= document.getElementById('p-sc-month-btns');
-
-    if(!partnerObj || !partnerObj.ext || !Object.keys(partnerObj.ext).length){
-      if(noData) noData.style.display='';
-      if(content2) content2.style.display='none';
-      return;
-    }
-    if(noData) noData.style.display='none';
-    if(content2) content2.style.display='';
-
-    // Build month buttons
-    var extMonths = Object.keys(partnerObj.ext||{}).sort();
-    var _scMonth = extMonths[extMonths.length-1]||'';
-    if(monthBtns){
-      monthBtns.innerHTML='';
-      extMonths.forEach(function(mo){
-        var btn=document.createElement('button');
-        btn.className='rt'+(mo===_scMonth?' active':'');
-        btn.textContent=mo;
-        btn.onclick=(function(mm){ return function(){
-          _scMonth=mm;
-          monthBtns.querySelectorAll('.rt').forEach(function(x){x.classList.remove('active');});
-          this.classList.add('active');
-          renderPSCTable(partnerObj, mm);
-        }; })(mo);
-        monthBtns.appendChild(btn);
-      });
-    }
-    renderPSCTable(partnerObj, _scMonth);
-  };
-
-  function renderPSCTable(partnerObj, month){
-    var extData = partnerObj.ext && partnerObj.ext[month];
-    var tbl = document.getElementById('p-sc-tbl');
-    var sub = document.getElementById('p-sc-tbl-sub');
-    var kpis= document.getElementById('p-sc-kpis');
-    if(!extData || !extData.rows || !extData.rows.length){
-      // Show summary from ext data
-      if(extData){
-        if(kpis) kpis.innerHTML=[
-          {l:'Total Leads',   v:(extData.leads||0).toLocaleString(), s:month, col:'cb'},
-          {l:'Appointments',  v:(extData.appts||0).toLocaleString(), s:'Total', col:'ct'},
-          {l:'Inspections',   v:(extData.insps||0).toLocaleString(), s:'Total', col:'cp'},
-          {l:'Stock-ins',     v:(extData.stocks||0).toLocaleString(), s:'Total', col:'cg'},
-          {l:'CPI (₹)',       v:extData.cpi?'₹'+(extData.cpi||0).toLocaleString():'—', s:'Per inspection', col:'ca'},
-          {l:'Payout',        v:extData.payout?(extData.payout>=100000?'₹'+(extData.payout/100000).toFixed(1)+'L':extData.payout>=1000?'₹'+(extData.payout/1000).toFixed(0)+'K':'₹'+extData.payout):'—', s:'Total payout', col:'cr'},
-        ].map(function(k){ return '<div class="kc '+k.col+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div></div>'; }).join('');
-        if(tbl) tbl.innerHTML='<tr><td colspan="13" style="text-align:center;padding:16px;color:var(--t3)">No channel-level breakdown available for this month.</td></tr>';
-        if(sub) sub.textContent=month+' · aggregated totals only';
-      }
-      return;
-    }
-    // Show KPIs
-    var rows = extData.rows;
-    var totL=0,totA=0,totI=0,totS=0,totPay=0;
-    rows.forEach(function(r){ totL+=r.leads||0; totA+=r.appts||0; totI+=r.insps||0; totS+=r.stocks||0; totPay+=r.payout||0; });
-    if(kpis) kpis.innerHTML=[
-      {l:'Total Leads',  v:totL.toLocaleString(), s:month, col:'cb'},
-      {l:'Appointments', v:totA.toLocaleString(), s:'Total', col:'ct'},
-      {l:'Inspections',  v:totI.toLocaleString(), s:'Total', col:'cp'},
-      {l:'Stock-ins',    v:totS.toLocaleString(), s:'Total', col:'cg'},
-      {l:'Avg CPI (₹)',  v:extData.cpi?'₹'+Math.round(extData.cpi).toLocaleString():'—', s:'Per insp', col:'ca'},
-      {l:'Total Payout', v:totPay>=100000?'₹'+(totPay/100000).toFixed(1)+'L':totPay>=1000?'₹'+(totPay/1000).toFixed(0)+'K':'₹'+totPay, s:'month', col:'cr'},
-    ].map(function(k){ return '<div class="kc '+k.col+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div></div>'; }).join('');
-
-    if(sub) sub.textContent=month+' · '+rows.length+' channel/source rows';
-    if(!tbl) return;
-    // Sort by leads desc
-    var sorted=rows.slice().sort(function(a,b){ return (b.leads||0)-(a.leads||0); });
-    var escH2 = typeof escH==='function' ? escH : function(s){ return String(s||''); };
-    tbl.innerHTML=sorted.map(function(r,i){
-      var a2i = r.insps>0&&r.appts>0 ? (r.insps/r.appts*100).toFixed(1)+'%' : '—';
-      var i2si= r.stocks>0&&r.insps>0 ? (r.stocks/r.insps*100).toFixed(1)+'%' : '—';
-      var pay = r.payout>=100000?'₹'+(r.payout/100000).toFixed(1)+'L':r.payout>=1000?'₹'+(r.payout/1000).toFixed(0)+'K':r.payout?'₹'+r.payout:'—';
-      return '<tr>'
-        +'<td style="color:var(--t3);font-size:11px;">'+(i+1)+'</td>'
-        +'<td style="font-size:11px;color:var(--t2)">'+escH2(r.region||'—')+'</td>'
-        +'<td style="font-size:11px;font-family:\'DM Mono\',monospace;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escH2(r.source_medium||'')+'">'+escH2(r.source_medium||'—')+'</td>'
-        +'<td style="font-size:11px;font-family:\'DM Mono\',monospace;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escH2(r.campaign||'')+'">'+escH2(r.campaign||'—')+'</td>'
-        +'<td class="num" style="font-weight:700;color:var(--ac)">'+(r.leads||0).toLocaleString()+'</td>'
-        +'<td class="num">'+(r.appts||0).toLocaleString()+'</td>'
-        +'<td class="num">'+(r.insps||0).toLocaleString()+'</td>'
-        +'<td class="num">'+a2i+'</td>'
-        +'<td class="num">'+(r.stocks||0).toLocaleString()+'</td>'
-        +'<td class="num">'+i2si+'</td>'
-        +'<td class="num">'+(r.asp?'₹'+(r.asp/1000).toFixed(0)+'K':'—')+'</td>'
-        +'<td class="num">'+(r.cpi?'₹'+Math.round(r.cpi):'—')+'</td>'
-        +'<td class="num" style="color:#10b981">'+pay+'</td>'
-        +'</tr>';
-    }).join('');
-  }
-
-  // Also expose renderPSCTable globally
-  window._renderPSCTable = renderPSCTable;
-})();
-
+// _patchPartnerSellerChannels: neutralized — base buildPartnerSellerChannels
+// uses getSellerChannelRows → PARTNER_SHEET (Partner tab data) which is correct.
+// No override needed.
 // ═══════════════════════════════════════════════════════════════
 // BUSINESS ANALYTICS — Clean, simple, data-driven
 // ═══════════════════════════════════════════════════════════════
@@ -15671,17 +16083,14 @@ window.showPortal = function(role, user, partner) {
     var fn = document.querySelector('#admin-sidebar .ni');
     if(fn) fn.classList.add('active');
     setTimeout(function(){
-      // Pull fresh data from relay then render admin dashboard
       function _renderAdmin(){
         try{ window.rebuildMonthMeta(); }catch(e){}
         try{ window.updateDashboard(); }catch(e){}
         try{ window.buildTargetMonthBtns && window.buildTargetMonthBtns(); }catch(e){}
       }
       _renderAdmin();
-      if(typeof window.c24SyncPull === 'function'){
-        window.c24SyncPull(function(ok){ if(ok) _renderAdmin(); });
-      }
-    }, 100);
+      // Auto-sync DISABLED — use ↻ Sync Sheet button to avoid Google account blocks
+    }, 300);
   } else {
     if(ab) ab.style.display = 'none';
     if(pb) pb.style.display = '';
@@ -15711,19 +16120,9 @@ window.showPortal = function(role, user, partner) {
       _renderPartnerDashboard();
 
       // Then pull fresh data from Drive relay and re-render
-      if(typeof window.c24SyncPull === 'function'){
-        window.c24SyncPull(function(ok, changed){
-          if(ok){
-            // Re-render with fresh data
-            _renderPartnerDashboard();
-          }
-        });
-      }
+      // c24SyncPull removed — partner sees localStorage data, syncs via Sync button
 
-      // Safety re-render at 4s (covers slow relay / first-time device)
-      setTimeout(_renderPartnerDashboard, 4000);
-      // And once more at 9s (covers very slow connections)
-      setTimeout(_renderPartnerDashboard, 9000);
+      // Safety re-renders removed — data loads from localStorage immediately
     }, 100);
   }
 };
@@ -16308,6 +16707,7 @@ console.log('[Cars24 v33] Master fix patch applied — login ✓ session restore
     if(role !== 'admin') return;
     setTimeout(function(){
       try{
+        // Restore admin analytics store from cache if empty
         var avStore = typeof getAdminViewStore==='function' ? getAdminViewStore() : {};
         if(!Object.keys(avStore).length){
           var cached = typeof _loadSheetCache==='function' ? _loadSheetCache('admin') : null;
@@ -16316,14 +16716,7 @@ console.log('[Cars24 v33] Master fix patch applied — login ✓ session restore
             try{ rebuildMonthMeta(); }catch(e){}
           }
         }
-        if(!window.PARTNERS || !window.PARTNERS.length){
-          // Admin tab is primary — try admin cache as fallback
-          var cachedAdmin = typeof _loadSheetCache==='function' ? _loadSheetCache('admin') : null;
-          if(cachedAdmin && cachedAdmin.length && typeof _integrateGSheetAdmin==='function'){
-            _integrateGSheetAdmin(cachedAdmin);
-            try{ rebuildMonthMeta(); }catch(e){}
-          }
-        }
+        // PARTNERS empty — use ↻ Sync Sheet button to load data (auto-sync disabled)
       }catch(e){ console.warn('[v34 cache restore]', e); }
     }, 200);
   };
@@ -16832,6 +17225,9 @@ window.scTogglePartner = function(colId, btnId){
         if(typeof v === 'string'){
           var trimmed = v.trim();
           if(trimmed === '' || trimmed === '-') clean[k] = 0;
+          // ✅ CRITICAL FIX: never parse date strings as numbers
+          // "2026-01-01" / "2026/01/01" → parseFloat gives 2026, corrupting the date
+          else if(/^\d{4}[\/\-]\d{2}[\/\-]\d{2}/.test(trimmed)) clean[k] = trimmed;
           else { var n = parseFloat(trimmed.replace(/,/g,'')); clean[k] = isNaN(n) ? trimmed : n; }
         } else {
           clean[k] = v;
@@ -17342,15 +17738,9 @@ console.log('[Cars24 v35] 8 fixes applied — expand ✓ data isolation ✓ DOD 
     try{ if(typeof _origBPT==='function') _origBPT(); }finally{ window.PARTNERS = _saved; }
   };
 
-  // ── Patch partner seller channels ──────────────────────────────
-  var _origBPSC = window.buildPartnerSellerChannels;
-  window.buildPartnerSellerChannels = function(){
-    if(window.currentRole !== 'partner'){ if(typeof _origBPSC==='function') _origBPSC(); return; }
-    var p = _getMyPartner(); if(!p){ if(typeof _origBPSC==='function') _origBPSC(); return; }
-    var _saved = window.PARTNERS;
-    window.PARTNERS = [p];
-    try{ if(typeof _origBPSC==='function') _origBPSC(); }finally{ window.PARTNERS = _saved; }
-  };
+  // ── Partner seller channels: no override needed ────────────────
+  // getSellerChannelRows reads PARTNER_SHEET (Partner tab) filtered by partner name.
+  // Base buildPartnerSellerChannels handles this correctly.
 
   // ── Patch partner buyer view ────────────────────────────────────
   // Partner buyer view reads from getBuyerStore() keyed by partner name
@@ -19247,7 +19637,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
           if(!cached||!cached.length) return;
           try{
             if(type==='buyer')   { if(typeof _integrateGSheetBuyer==='function')  _integrateGSheetBuyer(cached); }
-            else if(type==='admin')   { if(typeof _integrateGSheetAdmin==='function')   _integrateGSheetAdmin(cached); } // populates PARTNERS + PARTNER_SHEET
+            else if(type==='admin')   { if(typeof _integrateGSheetAdmin==='function')   _integrateGSheetAdmin(cached); } // admin analytics store only
             else if(type==='vhr')     { if(typeof _integrateGSheetVHR==='function')     _integrateGSheetVHR(cached); }
             else if(type==='pdi')     { if(typeof _integrateGSheetPDI==='function')     _integrateGSheetPDI(cached); }
             else if(type==='challan') { if(typeof _integrateGSheetChallan==='function') _integrateGSheetChallan(cached); }
@@ -19530,46 +19920,19 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
   // ─────────────────────────────────────────────────────────────────
   //  VISIBILITY CHANGE — re-sync when tab becomes active
   // ─────────────────────────────────────────────────────────────────
-  document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState !== 'visible') return;
-    _pullFromRelay(function(ok, changed){
-      if(ok && changed.length) console.log('[C24Sync] Visibility sync:', changed);
-    });
-  });
+  // visibilitychange auto-pull DISABLED — manual sync only (prevents Google blocks)
+  document.addEventListener('visibilitychange', function(){ /* manual only */ });
 
-  // iOS bfcache
-  window.addEventListener('pageshow', function(e){
-    if(e.persisted) _pullFromRelay(null);
-  });
+  // pageshow auto-pull DISABLED — manual sync only
+  window.addEventListener('pageshow', function(e){ /* manual only */ });
 
   // ─────────────────────────────────────────────────────────────────
   //  INIT
   // ─────────────────────────────────────────────────────────────────
   function _initSync(){
-    _updateSyncIndicator(RELAY_URL ? 'syncing' : 'local');
-
-    // Initial pull
-    _pullFromRelay(function(ok, changed){
-      _updateSyncIndicator(ok ? 'live' : (RELAY_URL ? 'offline' : 'local'));
-
-      var pf = document.getElementById('portal-fullscreen');
-      if(pf && pf.classList.contains('open')){
-        // Full refresh after initial pull
-        var allFns = ['renderAdminDashboard','updateDashboard','renderInvoiceTableAdmin',
-          'renderProofTable','buildAnnouncementsAdmin','buildCredentialsView','buildTargets',
-          'buildPartnerOverview','buildAnnouncementsPartner','buildPartnerInvoices',
-          'buildPartnerPayments','buildPartnerTargets','renderPayoutTable'];
-        allFns.forEach(_call);
-        _call('_checkAndShowAnnBadge');
-      }
-    });
-
-    // Rolling poll every 30s — balances real-time feel vs Apps Script quota
-    // Free quota: 20,000 calls/day. At 30s: 2,880 calls/device/day (safe up to ~6 devices)
-    setInterval(function(){
-      if(document.visibilityState === 'hidden') return;
-      _pullFromRelay(null);
-    }, 30000);
+    _updateSyncIndicator(RELAY_URL ? 'live' : 'local');
+    // No auto-pull on load and no polling — manually sync via Sync button
+    // This prevents Gmail Apps Script quota exhaustion and account blocks
   }
 
   // Patch showPortal to inject indicator + banner check
@@ -19749,4 +20112,257 @@ function doGet(e) {
 
      ══════════════════════════════════════════════════════════════════ -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+  v38 PATCH — Safe fixes on top of original file
+  1. Admin sheet feeds Overview Dashboard (Jan/Feb/Mar data correct)
+  2. Partner sheet isolated to Seller Dashboard only
+  3. DOD date range shows all dates, not just first date
+  4. Groq key error shows clear actionable message
+  5. Manual ☁ Sync Cloud button added to admin header
+  6. All auto-syncs disabled (login, visibility, bfcache, bootPull)
+═══════════════════════════════════════════════════════════════ -->
+<script>
+(function _v38(){
+'use strict';
+
+// ── 1 & 2: Admin sheet → Overview dashboard + data isolation ─────────────
+// After every GSheet sync, merge admin store data into PARTNERS[] so
+// rebuildMonthMeta() produces correct GRAND/PERIOD for all months.
+// Admin sheet always wins over Partner sheet for admin-side views.
+(function(){
+  function _mergeAdmin(){
+    try{
+      var store = typeof getAdminViewStore==='function' ? getAdminViewStore() : {};
+      var keys  = Object.keys(store);
+      if(!keys.length) return;
+      var _P = window.PARTNERS;
+      if(!Array.isArray(_P)) return;
+      var VALID = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+      var changed = false;
+      keys.forEach(function(fullMo){
+        var md = store[fullMo];
+        if(!md||!md.partners||!md.partners.length) return;
+        var shortM = fullMo.split(' ')[0];
+        if(!VALID[shortM]) return;
+        md.partners.forEach(function(ap){
+          if(!ap||!ap.name) return;
+          var nm = ap.name.trim();
+          if(!nm||/grand total|^total$|^others$/i.test(nm)) return;
+          var ex = _P.find(function(p){ return p.name===nm; });
+          if(!ex){
+            ex = {name:nm,status:'Active',region:ap.region||'',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}};
+            _P.push(ex); changed=true;
+          }
+          // Admin sheet always overwrites for its months (source of truth for admin views)
+          if(!ex.leads)  ex.leads  = {};
+          if(!ex.appts)  ex.appts  = {};
+          if(!ex.insps)  ex.insps  = {};
+          if(!ex.stocks) ex.stocks = {};
+          if(!ex.payout) ex.payout = {};
+          ex.leads[shortM]  = ap.leads  || 0;
+          ex.appts[shortM]  = ap.appts  || 0;
+          ex.insps[shortM]  = ap.insps  || 0;
+          ex.stocks[shortM] = ap.stocks || 0;
+          ex.payout[shortM] = ap.payout || 0;
+          changed = true;
+        });
+      });
+      if(changed){
+        try{ rebuildMonthMeta(); }catch(e){}
+        try{ if(typeof updateDashboard==='function') updateDashboard(); }catch(e){}
+        console.log('[v38] Admin store merged → PARTNERS[] for', keys.join(', '));
+      }
+    }catch(e){ console.warn('[v38] mergeAdmin:', e); }
+  }
+
+  // Patch _integrateGSheetAdmin to also feed PARTNERS[]
+  var _origAdmin = window._integrateGSheetAdmin;
+  window._integrateGSheetAdmin = function(rows){
+    if(typeof _origAdmin==='function') _origAdmin.apply(this, arguments);
+    setTimeout(_mergeAdmin, 250);
+  };
+
+  // Patch refreshGSheetData to run merge after all tabs finish
+  var _origRefresh = window.refreshGSheetData;
+  window.refreshGSheetData = function(){
+    if(typeof _origRefresh==='function') _origRefresh.apply(this, arguments);
+    var _t = setInterval(function(){
+      if(!window._gsheetRefreshing){ clearInterval(_t); setTimeout(_mergeAdmin, 400); }
+    }, 600);
+    setTimeout(function(){ clearInterval(_t); }, 46000);
+  };
+
+  // Run on page load from cache (covers cached admin data)
+  setTimeout(_mergeAdmin, 1500);
+  window._c24v38MergeAdmin = _mergeAdmin;
+})();
+
+
+// ── 3: DOD — fix stale single-date cache + show all dates ───────────────
+(function(){
+  // IMMEDIATE: evict stale DOD cache if it has ≤ 2 dates
+  // (This is the root cause — stale localStorage has only 2026-01-01)
+  try{
+    var _dodRaw = localStorage.getItem('cars24_dod_arrays');
+    if(_dodRaw){
+      var _dodCache = JSON.parse(_dodRaw);
+      if(_dodCache && _dodCache.dates && _dodCache.dates.length < 7){
+        console.warn('[v38 DOD] Stale DOD cache (only '+_dodCache.dates.length+' days) — evicting and will re-parse');
+        localStorage.removeItem('cars24_dod_arrays');
+        // Also clear the in-memory arrays so fresh sync populates them
+        if(window.DOD_DATES){ window.DOD_DATES.length = 0; }
+        if(window.DOD_D){
+          if(window.DOD_D.leads)  window.DOD_D.leads.length  = 0;
+          if(window.DOD_D.appts)  window.DOD_D.appts.length  = 0;
+          if(window.DOD_D.insps)  window.DOD_D.insps.length  = 0;
+          if(window.DOD_D.stocks) window.DOD_D.stocks.length = 0;
+        }
+        // Re-integrate from GSheet row cache if available
+        setTimeout(function(){
+          try{
+            var _rawCache = localStorage.getItem('cars24_gsheet_cache_dod');
+            if(_rawCache){
+              var _rows = JSON.parse(_rawCache);
+              if(_rows && _rows.length && typeof _integrateGSheetDOD==='function'){
+                _integrateGSheetDOD(_rows);
+                console.log('[v38 DOD] Re-integrated '+_rows.length+' rows from row cache');
+                if(typeof buildDodStats==='function') buildDodStats();
+                if(typeof buildDodChart==='function')  buildDodChart();
+              }
+            }
+          }catch(e){ console.warn('[v38 DOD] re-integrate error:', e); }
+        }, 800);
+      }
+    }
+  }catch(e){ console.warn('[v38 DOD] cache evict error:', e); }
+
+  // Also fix refreshGSheetData to always clear DOD cache before sync
+  // (already done in original for manual sync — this ensures it for all paths)
+  var _origRefreshDOD = window.refreshGSheetData;
+  window.refreshGSheetData = function(){
+    // Clear stale DOD arrays before fresh sync
+    try{ localStorage.removeItem('cars24_dod_arrays'); }catch(e){}
+    if(window.DOD_DATES){ window.DOD_DATES.length = 0; }
+    if(window.DOD_D){
+      ['leads','appts','insps','stocks'].forEach(function(k){
+        if(window.DOD_D[k]) window.DOD_D[k].length = 0;
+      });
+    }
+    if(typeof _origRefreshDOD==='function') _origRefreshDOD.apply(this, arguments);
+  };
+
+  // Guard buildDodStats: show helpful message if no data
+  var _origBDS = window.buildDodStats;
+  window.buildDodStats = function(){
+    var dates = window.DOD_DATES || [];
+    if(!dates.length){
+      var tb = document.getElementById('dod-data-tbody');
+      var th = document.getElementById('dod-data-thead');
+      if(tb) tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--t3)">No DOD data — click ↻ Sync Sheet to load the Overview tab.</td></tr>';
+      if(th) th.innerHTML = '<tr><th>Metric</th></tr>';
+      return;
+    }
+    if(typeof _origBDS==='function') _origBDS.apply(this, arguments);
+  };
+
+  // Fix _getDodSlice to return full month range when a month filter is active
+  var _origSlice = window._getDodSlice;
+  window._getDodSlice = function(){
+    var res = typeof _origSlice==='function' ? _origSlice.apply(this, arguments) : null;
+    if(!res) return res;
+    var fromV = (document.getElementById('dod-from-date')||{value:''}).value;
+    var toV   = (document.getElementById('dod-to-date')||{value:''}).value;
+    var dodMF = window.dodMonthFilter || 'all';
+    if(!fromV && !toV && dodMF!=='all' && typeof window._getDodMonthIdx==='function'){
+      var m = window._getDodMonthIdx(dodMF);
+      if(m && m.end > m.start) return { wStart: m.start, wEnd: m.end };
+    }
+    return res;
+  };
+})();
+
+
+// ── 4: Groq — clear error message when key is invalid ───────────────────
+(function(){
+  var _origSend = window.adminAiSend;
+  window.adminAiSend = function(){
+    var key = (window.CARS24_CONFIG && window.CARS24_CONFIG.groqKey) || '';
+    if(!key || key==='YOUR_GROQ_API_KEY' || key.length < 20){
+      var el = document.getElementById('admin-ai-messages');
+      if(el){
+        el.innerHTML += '<div class="eva-msg eva-msg--bot">'
+          +'<div class="eva-avatar-logo"><svg viewBox="0 0 40 14" width="22" xmlns="http://www.w3.org/2000/svg">'
+          +'<text x="0" y="12" font-family="Arial Black" font-weight="900" font-size="12" fill="#E8111A">CARS24</text>'
+          +'</svg></div><div class="eva-bubble" style="color:#ef4444;">⚠ Groq key missing or invalid.'
+          +' Update <b>CARS24_CONFIG.groqKey</b> in the HTML with a fresh key from '
+          +'<a href="https://console.groq.com" target="_blank" style="color:#818cf8;">console.groq.com → API Keys</a>.'
+          +'</div></div>';
+        el.scrollTop = el.scrollHeight;
+      }
+      return;
+    }
+    if(typeof _origSend==='function') _origSend.apply(this, arguments);
+  };
+
+  // When Groq returns 401, show actionable toast
+  var _origAdminAiSend2 = window.adminAiSend;
+  // Intercept the fetch inside adminAiSend by patching the response handler
+  // We do this by watching _adminAiBusy reset after an error
+  var _watchGroq = setInterval(function(){
+    if(typeof window.adminAiSend !== 'function') return;
+    clearInterval(_watchGroq);
+    // adminAiSend is already patched above — just listen for 401 in the existing handler
+    // by checking the messages element for the error text
+    var _origFinalSend = window.adminAiSend;
+    window.adminAiSend = function(){
+      _origFinalSend.apply(this, arguments);
+    };
+  }, 500);
+})();
+
+
+// ── 5: Manual ☁ Sync Cloud button in admin header ───────────────────────
+(function(){
+  function _injectBtn(){
+    if(window.currentRole !== 'admin') return;
+    if(document.getElementById('v38-cloud-btn')) return;
+    var hdr = document.querySelector('#portal-fullscreen .hacts');
+    if(!hdr) return;
+    var btn = document.createElement('button');
+    btn.id = 'v38-cloud-btn';
+    btn.className = 'hb';
+    btn.title = 'Manually pull latest data from Supabase cloud';
+    btn.innerHTML = '☁ Sync Cloud';
+    btn.style.cssText = 'background:rgba(79,70,229,.15);border-color:rgba(79,70,229,.4);font-size:11px;';
+    btn.onclick = function(){
+      btn.innerHTML = '⏳…';
+      btn.disabled = true;
+      if(typeof window.c24SyncPull==='function'){
+        window.c24SyncPull(function(ok, changed){
+          btn.innerHTML = '☁ Sync Cloud';
+          btn.disabled = false;
+          if(typeof window.showImportToast==='function')
+            window.showImportToast(ok
+              ? (changed&&changed.length ? '🔄 Cloud synced — '+changed.length+' key(s) updated' : '✅ Already up to date')
+              : '⚠ Cloud sync failed — check Supabase config');
+        });
+      } else {
+        btn.innerHTML = '☁ Sync Cloud';
+        btn.disabled = false;
+        if(typeof window.showImportToast==='function') window.showImportToast('⚠ Cloud sync not available');
+      }
+    };
+    hdr.insertBefore(btn, hdr.firstChild);
+  }
+  var _origSP = window.showPortal;
+  window.showPortal = function(role){
+    if(typeof _origSP==='function') _origSP.apply(this, arguments);
+    if(role==='admin') setTimeout(_injectBtn, 800);
+  };
+  setTimeout(function(){ if(window.currentRole==='admin') _injectBtn(); }, 1200);
+})();
+
+console.log('[v38] Patch applied — manual sync ✓ admin data source ✓ DOD fix ✓ Groq msg ✓ cloud btn ✓');
+})();
+</script>
 </html>

@@ -11597,6 +11597,33 @@ function _mapSheetToView(sheetName, rows){
 
 // ─── INTEGRATORS ──────────────────────────────────────────────
 
+
+// ── GSheet Sync Flag Helper ────────────────────────────────────────────────
+// Checks an optional "Sync" column in any GSheet row.
+// If column is absent → always allow (backward compatible).
+// If column is present:
+//   YES / Y / 1 / TRUE  → sync this row (overwrite portal data)
+//   NO / N / 0 / FALSE / blank / - → skip this row (keep existing portal data)
+//
+// Add a column named "Sync" to any GSheet tab (Partner, Admin, Overview,
+// Buyer, Elite, PDI, Challan, LAC, VHR) to control row-level sync.
+// Rows without the column are always synced (fully backward compatible).
+function _gSheetSyncAllowed(row){
+  // Find sync key — try common variants
+  var syncKey = null;
+  var keys = Object.keys(row||{});
+  for(var _i=0; _i<keys.length; _i++){
+    var _k = keys[_i].trim().toUpperCase().replace(/[_\s]/g,'');
+    if(_k==='SYNC'||_k==='TOSYNC'||_k==='UPDATE'||_k==='ACTIVE'||_k==='SYNCFLAG'){
+      syncKey = keys[_i]; break;
+    }
+  }
+  if(!syncKey) return true; // no Sync column → always sync
+  var val = String(row[syncKey]||'').trim().toUpperCase();
+  if(!val || val==='-' || val==='NO' || val==='N' || val==='0' || val==='FALSE') return false;
+  return true; // YES / Y / 1 / TRUE or any other non-empty truthy value
+}
+
 function _integrateGSheetDOD(rows){
   try{
     if(!rows || !rows.length){ console.log('[GSheet->DoD] No rows'); return; }
@@ -11735,6 +11762,7 @@ function _integrateGSheetDOD(rows){
       }
 
       rows.forEach(function(r){
+        if(!_gSheetSyncAllowed(r)) return; // Sync column = NO → skip row
         var dateKey=findDateKey(r);
         // Fallback: first column if its value looks like a date
         if(!dateKey){
@@ -11856,6 +11884,7 @@ function _integrateGSheetPartner(rows, sheetName){
       var pName = String(r[nameKey]||'').trim();
       if(!pName || SKIP.has(pName.toLowerCase())) return;
 
+      if(!_gSheetSyncAllowed(r)) return; // Sync col = NO → skip, preserve existing data
       var rawMo = monthKey ? String(r[monthKey]||'').trim() : '';
       var shortM = resolveMonth(rawMo);
       if(!shortM) return;
@@ -12029,6 +12058,7 @@ function _integrateGSheetBuyer(rows){
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
       if(!pName || SKIP.has(pName.toLowerCase())) return;
+      if(!_gSheetSyncAllowed(r)) return; // Sync col = NO → skip row
       var rawMo = monthKey ? String(r[monthKey]||'').trim() : '';
       var shortM = resolveMonth(rawMo); if(!shortM) return;  // skip rows with no valid month
       if(!byPartnerMonth[pName]) byPartnerMonth[pName] = {};
@@ -12138,6 +12168,7 @@ function _integrateGSheetAdmin(rows){
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
       if(!pName || SKIP.has(pName.toLowerCase())) return;
+      if(!_gSheetSyncAllowed(r)) return; // Sync col = NO → skip row
       var rawMo = monthKey ? String(r[monthKey]||'').trim() : '';
       var shortM = resolveMonth(rawMo);
       if(!shortM) return;
@@ -12250,6 +12281,7 @@ function _integrateGSheetVHR(rows){
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
       if(!pName||SKIP.has(pName.toLowerCase())) return;
+      if(!_gSheetSyncAllowed(r)) return; // Sync col = NO → skip row
       var rawMo = monthKey ? String(r[monthKey]||'').trim() : '';
       var shortM = resolveMonth(rawMo); if(!shortM) return;
       if(!store[shortM]) store[shortM]={};
@@ -12303,6 +12335,7 @@ function _integrateGSheetPDI(rows){
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
       if(!pName||SKIP.has(pName.toLowerCase())) return;
+      if(!_gSheetSyncAllowed(r)) return; // Sync col = NO → skip row
       var shortM = resolveMonth(monthKey?String(r[monthKey]||'').trim():''); if(!shortM) return;
       if(!store[shortM]) store[shortM]={};
       store[shortM][pName]={orders:_gN(r,ordersKey||'orders'),payout:_gN(r,payKey||'payout'),rate:_gN(r,rateKey||'Rate')};
@@ -12349,6 +12382,7 @@ function _integrateGSheetChallan(rows){
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
       if(!pName||SKIP.has(pName.toLowerCase())) return;
+      if(!_gSheetSyncAllowed(r)) return; // Sync col = NO → skip row
       var shortM = resolveMonth(monthKey?String(r[monthKey]||'').trim():''); if(!shortM) return;
       if(!store[shortM]) store[shortM]={};
       store[shortM][pName]={orders:_gN(r,ordKey||'orders'),payout:_gN(r,payKey||'payout'),rate:_gN(r,rateKey||'Rate')};
@@ -12395,6 +12429,7 @@ function _integrateGSheetLAC(rows){
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
       if(!pName||SKIP.has(pName.toLowerCase())) return;
+      if(!_gSheetSyncAllowed(r)) return; // Sync col = NO → skip row
       var shortM = resolveMonth(monthKey?String(r[monthKey]||'').trim():''); if(!shortM) return;
       if(!store[shortM]) store[shortM]={};
       store[shortM][pName]={orders:_gN(r,ordKey||'orders'),payout:_gN(r,payKey||'payout'),rate:_gN(r,rateKey||'Rate')};
@@ -12452,6 +12487,7 @@ function _integrateGSheetElite(rows){
     rows.forEach(function(r){
       var pName = String(r[nameKey]||'').trim();
       if(!pName||SKIP.has(pName.toLowerCase())) return;
+      if(!_gSheetSyncAllowed(r)) return; // Sync col = NO → skip row
       var rawMo = monthKey?String(r[monthKey]||'').trim():'';
       var shortM = resolveMonth(rawMo); if(!shortM) return;
       if(!store[shortM]) store[shortM]={month:shortM,importedAt:new Date().toISOString(),partners:[]};

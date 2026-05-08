@@ -300,7 +300,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // This ensures every device starts from the same cloud state,
   // not from whatever happened to be in their localStorage last.
   // Gate on Supabase being configured — _c24Cloud uses Supabase, not Drive
-  if(window._c24Cloud && window._c24Cloud.bootPull){
+  // bootPull DISABLED — ALWAYS_TRUST_REMOTE would overwrite newer local creds with stale Supabase data.
+  // Sync is triggered on-demand during login if credentials are missing.
+  if(false && window._c24Cloud && window._c24Cloud.bootPull){
     window._c24Cloud.bootPull(function(ok, updatedKeys){
       if(!ok){
         console.warn('[C24Boot] Supabase unreachable — using local cache');
@@ -3918,7 +3920,29 @@ function doLogin(){
     // Always read fresh from localStorage — never use stale in-memory PARTNER_CREDS var
     const liveCreds = getLatestCreds();
     const cred=liveCreds.find(c=>(c.username||'').toLowerCase()===u);
-    if(!cred){err.textContent='❌ Username not found.';err.classList.add('show');return;}
+    if(!cred){
+      // Username not in local cache — try a one-time cloud sync then retry
+      if(typeof window.c24SyncPull === 'function'){
+        err.textContent='⏳ Syncing credentials…'; err.classList.add('show');
+        window.c24SyncPull(function(){
+          err.classList.remove('show');
+          var fc=[];
+          try{ var _s=localStorage.getItem('cars24_partner_creds'); fc=_s?JSON.parse(_s):[]; }catch(e){}
+          var found=fc.find(function(c){ return (c.username||'').toLowerCase()===u; });
+          if(!found){ err.textContent='❌ Username not found. Contact admin.'; err.classList.add('show'); return; }
+          if(found.status==='Not Active'){ err.textContent='❌ Account inactive. Contact admin.'; err.classList.add('show'); return; }
+          if(found.password!==p){ err.textContent='❌ Incorrect password.'; err.classList.add('show'); return; }
+          var psArr=Object.values(window.PARTNER_SHEET||{});
+          var partner=psArr.find(function(pt){ return pt.name===found.display||pt.name.toLowerCase()===found.display.toLowerCase(); });
+          if(!partner){ partner={name:found.display,display:found.display,username:found.username,status:'Active',leads:{},appts:{},insps:{},stocks:{},payout:{},ext:{}}; }
+          else{ partner.username=found.username; partner.display=found.display; partner.password=found.password; partner.credName=found.display; }
+          currentUser=found.display; currentRole='partner'; currentPartner=partner;
+          launchApp();
+        });
+        return;
+      }
+      err.textContent='❌ Username not found. Contact admin.';err.classList.add('show');return;
+    }
     if(cred.status==='Not Active'){err.textContent='❌ This partner account is inactive. Contact admin.';err.classList.add('show');return;}
     if(cred.password!==p){err.textContent='❌ Incorrect password.';err.classList.add('show');return;}
     // Partner login uses PARTNER_SHEET (from Partner GSheet tab), not admin PARTNERS
@@ -13679,7 +13703,7 @@ window.evaSend = function(){
       'Authorization': 'Bearer ' + _groqKey
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       messages: groqMessages,
       max_tokens: 800,
       temperature: 0.7
@@ -14088,7 +14112,7 @@ window.evaAdminGroqAssist = function(partnerName, safeId){
   fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+_groqKey },
-    body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages: groqMessages, max_tokens: 600, temperature: 0.6 })
+    body: JSON.stringify({ model:'llama-3.1-8b-instant', messages: groqMessages, max_tokens: 600, temperature: 0.6 })
   })
   .then(function(r){ return r.json(); })
   .then(function(data){
@@ -14361,7 +14385,7 @@ window.adminAiSend = function(){
   fetch('https://api.groq.com/openai/v1/chat/completions', {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+_groqKey },
-    body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages:groqMessages, max_tokens:900, temperature:0.5 })
+    body: JSON.stringify({ model:'llama-3.1-8b-instant', messages:groqMessages, max_tokens:900, temperature:0.5 })
   })
   .then(function(r){ return r.json(); })
   .then(function(data){

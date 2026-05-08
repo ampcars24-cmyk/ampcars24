@@ -121,7 +121,7 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
       method : 'POST',
       mode   : 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
+      body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts, token: (window.CARS24_CONFIG&&window.CARS24_CONFIG.relayToken)||'' })
     })
     .then(function(){
       console.log('[C24Cloud] ✅ push sent (no-cors):', key);
@@ -211,7 +211,7 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
       method : 'POST',
       mode   : 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
+      body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts, token: (window.CARS24_CONFIG&&window.CARS24_CONFIG.relayToken)||'' })
     })
     .then(function(){ console.log('[C24Early]', label||'push', 'sent (no-cors) →', key); })
     .catch(function(e){ console.warn('[C24Early] Push failed:', key, e.message); });
@@ -19477,7 +19477,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
         method : 'POST',
         mode   : 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
+        body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts, token: (window.CARS24_CONFIG&&window.CARS24_CONFIG.relayToken)||'' })
       })
       .then(function(){ console.log('[C24Sync] Push sent (no-cors):', key); })
       .catch(function(e){ console.warn('[C24Sync] Push error:', e.message); });
@@ -19605,7 +19605,8 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     _pullInFlight = true;
     _updateSyncIndicator('syncing');
 
-    fetch(DRIVE_URL() + '?action=getConfig', { method: 'GET', redirect: 'follow' })
+    var _tok = (window.CARS24_CONFIG&&window.CARS24_CONFIG.relayToken)||'';
+    fetch(DRIVE_URL() + '?action=getConfig&token='+encodeURIComponent(_tok), { method: 'GET', redirect: 'follow' })
     .then(function(resp){
       if(!resp.ok) return resp.text().then(function(t){ throw new Error('HTTP '+resp.status+' '+t); });
       return resp.json();
@@ -20011,7 +20012,8 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
 
     // Test: GET getConfig
     console.log('--- Test: GAS getConfig ---');
-    fetch(DRIVE_URL() + '?action=getConfig', { method: 'GET', redirect: 'follow' })
+    var _diagTok = (window.CARS24_CONFIG&&window.CARS24_CONFIG.relayToken)||'';
+    fetch(DRIVE_URL() + '?action=getConfig&token='+encodeURIComponent(_diagTok), { method: 'GET', redirect: 'follow' })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(d && d.error) console.warn('❌ getConfig error:', d.error);

@@ -92,9 +92,8 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
 (function _installCloudFirstEngine(){
   var LOCAL_ONLY_KEYS = ['c24_session','theme','cars24_logic_rules'];
 
-  function _sbUrl(){  return window.CARS24_SUPABASE_URL     || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.url)     || ''; }
-  function _sbKey(){  return window.CARS24_SUPABASE_ANONKEY || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.anonKey) || ''; }
-  function _ready(){ return !!(_sbUrl() && _sbKey()); }
+  function _driveUrl(){ return (window.CARS24_CONFIG&&window.CARS24_CONFIG.driveWebAppUrl) || window.CARS24_DRIVE_URL || ''; }
+  function _ready(){ return !!_driveUrl(); }
 
   // ── Core push: UPSERT single row into c24_config ──────────────────
   function _push(key, value, onDone){
@@ -118,18 +117,14 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
       localStorage.setItem('__ts_'+key, String(ts));
     }catch(e){}
 
-    fetch(_sbUrl()+'/rest/v1/c24_config', {
+    fetch(_driveUrl(), {
       method : 'POST',
-      headers: {
-        'Content-Type' : 'application/json',
-        'apikey'       : _sbKey(),
-        'Authorization': 'Bearer '+_sbKey(),
-        'Prefer'       : 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({ key: key, value: valStr, updated_at: ts })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
     })
-    .then(function(r){
-      if(!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+' '+t); });
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d||!d.ok) throw new Error(d&&d.error||'GAS relay error');
       console.log('[C24Cloud] ✅ push OK:', key);
       if(onDone) onDone(true);
     })
@@ -144,46 +139,28 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
     if(!_ready()){ if(onDone) onDone(false); return; }
     console.log('[C24Cloud] Boot pull from Supabase...');
 
-    fetch(_sbUrl()+'/rest/v1/c24_config?select=key,value,updated_at', {
-      method : 'GET',
-      headers: {
-        'apikey'       : _sbKey(),
-        'Authorization': 'Bearer '+_sbKey()
-      }
-    })
+    fetch(_driveUrl() + '?action=getConfig', { method: 'GET', redirect: 'follow' })
     .then(function(r){
       if(!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+' '+t); });
       return r.json();
     })
-    .then(function(rows){
-      if(!Array.isArray(rows)){
-        console.warn('[C24Cloud] bootPull: unexpected response', rows);
-        if(onDone) onDone(false); return;
-      }
-      if(rows.length === 0){
-        console.warn('[C24Cloud] bootPull: Supabase table is EMPTY — no data synced yet.');
-        console.warn('[C24Cloud] → Run c24SyncPushAll() from the device that has the correct data.');
-      }
-      var ALWAYS_TRUST_REMOTE = ['cars24_partner_creds'];
+    .then(function(data){
+      if(!data || data.error){ console.warn('[C24Cloud] bootPull error:', data&&data.error); if(onDone) onDone(false); return; }
       var GSHEET_SKIP=['cars24_partners_data','cars24_partner_sheet_data','cars24_admin_view_data',
         'cars24_month_registry','cars24_dod_arrays','cars24_gsheet_cache_admin','cars24_gsheet_cache_seller',
         'cars24_gsheet_cache_dod','cars24_gsheet_cache_buyer','cars24_gsheet_cache_elite',
         'cars24_gsheet_cache_vhr','cars24_gsheet_cache_pdi','cars24_gsheet_cache_challan','cars24_gsheet_cache_lac'];
       var updated = [];
-      rows.forEach(function(row){
-        var key = row.key;
+      Object.keys(data).forEach(function(key){
+        if(key.indexOf('__ts_') === 0) return;
         if(!key || LOCAL_ONLY_KEYS.indexOf(key) !== -1) return;
-        if(GSHEET_SKIP.indexOf(key)!==-1) return; // GSheet is live source — skip stale remote
-        var remoteVal = row.value || '';
-        var remoteTs  = Number(row.updated_at) || 0;
+        if(GSHEET_SKIP.indexOf(key) !== -1) return;
+        var rawVal = data[key];
+        var remoteVal = typeof rawVal === 'string' ? rawVal : JSON.stringify(rawVal);
+        var remoteTs  = Number(data['__ts_'+key]) || 0;
         var localTs   = parseInt(localStorage.getItem('__ts_'+key)||'0', 10);
-        var alwaysTrust = ALWAYS_TRUST_REMOTE.indexOf(key) !== -1;
-        if(alwaysTrust || remoteTs >= localTs || localTs === 0){
-          try{
-            localStorage.setItem(key, remoteVal);
-            if(remoteTs) localStorage.setItem('__ts_'+key, String(remoteTs));
-            updated.push(key);
-          }catch(e){}
+        if(remoteTs >= localTs || localTs === 0){
+          try{ localStorage.setItem(key, remoteVal); if(remoteTs) localStorage.setItem('__ts_'+key, String(remoteTs)); updated.push(key); }catch(e){}
         }
       });
       console.log('[C24Cloud] Boot pull complete — updated', updated.length, 'keys:', updated);
@@ -197,7 +174,7 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
 
   // ── Expose globally ────────────────────────────────────────────────
   window._c24Cloud = { push: _push, bootPull: _bootPull, localOnly: LOCAL_ONLY_KEYS };
-  console.log('[C24Cloud] Supabase cloud-first engine ready. Configured:', _ready());
+  console.log('[C24Cloud] Drive relay engine ready. Configured:', _ready());
 })();
 
 (function _installEarlyIntercept(){
@@ -225,27 +202,19 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
 
   // ── Push helper — Supabase UPSERT ─────────────────────────────────
   function _c24Push(key, value, label){
-    var sbUrl = window.CARS24_SUPABASE_URL || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.url) || '';
-    var sbKey = window.CARS24_SUPABASE_ANONKEY || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.anonKey) || '';
-    if(!sbUrl || !sbKey || sbUrl === 'YOUR_SUPABASE_PROJECT_URL') return;
+    var driveUrl = (window.CARS24_CONFIG&&window.CARS24_CONFIG.driveWebAppUrl) || window.CARS24_DRIVE_URL || '';
+    if(!driveUrl) return;
     var valStr = typeof value === 'string' ? value : JSON.stringify(value);
-    if(valStr.length > 4500000){
-      console.warn('[C24Early] Skipping — too large:', key);
-      return;
-    }
+    if(valStr.length > 4500000){ console.warn('[C24Early] Skipping — too large:', key); return; }
     var ts = Date.now();
     _rawSet('__ts_' + key, String(ts));
-    fetch(sbUrl+'/rest/v1/c24_config', {
+    fetch(driveUrl, {
       method : 'POST',
-      headers: {
-        'Content-Type' : 'application/json',
-        'apikey'       : sbKey,
-        'Authorization': 'Bearer '+sbKey,
-        'Prefer'       : 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({ key: key, value: valStr, updated_at: ts })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
     })
-    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); console.log('[C24Early]', label||'push', 'OK →', key); })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if(d&&d.ok) console.log('[C24Early]', label||'push', 'OK →', key); else console.warn('[C24Early] Push rejected:', key, d); })
     .catch(function(e){ console.warn('[C24Early] Push failed:', key, e.message); });
   }
 
@@ -19294,12 +19263,12 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
   // ─────────────────────────────────────────────────────────────────
   //  CONFIG
   // ─────────────────────────────────────────────────────────────────
-  // ── Supabase credentials (replaces Apps Script relay) ───────────────
-  var SB_URL   = function(){ return window.CARS24_SUPABASE_URL     || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.url)     || ''; };
-  var SB_KEY   = function(){ return window.CARS24_SUPABASE_ANONKEY || (window.CARS24_CONFIG&&window.CARS24_CONFIG.supabase&&window.CARS24_CONFIG.supabase.anonKey) || ''; };
-  var SB_READY = function(){ return !!(SB_URL() && SB_KEY() && SB_URL() !== 'YOUR_SUPABASE_PROJECT_URL'); };
-  // RELAY_URL alias — keeps banner + indicator logic working unchanged
-  var RELAY_URL = SB_READY() ? SB_URL() : '';
+  // ── Google Apps Script relay (Google Sheet backend) ─────────────────
+  var DRIVE_URL = function(){ return (window.CARS24_CONFIG&&window.CARS24_CONFIG.driveWebAppUrl) || window.CARS24_DRIVE_URL || ''; };
+  var SB_URL    = DRIVE_URL; // alias — keep any remaining references working
+  var SB_KEY    = function(){ return ''; };
+  var SB_READY  = function(){ return !!DRIVE_URL(); };
+  var RELAY_URL = DRIVE_URL();
 
   // All keys synced across devices via Drive relay
   var SYNC_KEYS = [
@@ -19512,27 +19481,21 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     return h;
   }
 
-  // ── PUSH: Supabase UPSERT ────────────────────────────────────────
+  // ── PUSH: Google Apps Script relay ──────────────────────────────
   function _pushToRelay(key, value){
-    if(!SB_READY()) return;
+    var url = DRIVE_URL();
+    if(!url) return;
     try{
       var valStr = typeof value === 'string' ? value : JSON.stringify(value);
-      if(valStr.length > 4500000){
-        console.warn('[C24Sync] Skipping push — key too large ('+Math.round(valStr.length/1024)+'KB > 4500KB):', key);
-        return;
-      }
+      if(valStr.length > 4500000){ console.warn('[C24Sync] Skipping push — too large:', key); return; }
       var ts = Date.now();
-      fetch(SB_URL()+'/rest/v1/c24_config', {
+      fetch(url, {
         method : 'POST',
-        headers: {
-          'Content-Type' : 'application/json',
-          'apikey'       : SB_KEY(),
-          'Authorization': 'Bearer '+SB_KEY(),
-          'Prefer'       : 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify({ key: key, value: valStr, updated_at: ts })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
       })
-      .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+' '+t); }); })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if(!d||!d.ok) console.warn('[C24Sync] Push rejected:', key, d); })
       .catch(function(e){ console.warn('[C24Sync] Push error:', e.message); });
     }catch(e){ console.warn('[C24Sync] Push exception:', e.message); }
   }
@@ -19651,38 +19614,26 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     _pullCallbacks.splice(0).forEach(function(cb){ try{ cb(true, changedKeys); }catch(e){} });
   }
 
-  // ── PULL: Supabase SELECT all rows ──────────────────────────────
+  // ── PULL: Google Apps Script relay getConfig ────────────────────
   function _pullFromRelay(onDone){
     if(!SB_READY()){ if(onDone) onDone(false,[]); return; }
     if(_pullInFlight){ if(onDone) _pullCallbacks.push(onDone); return; }
     _pullInFlight = true;
     _updateSyncIndicator('syncing');
 
-    fetch(SB_URL()+'/rest/v1/c24_config?select=key,value,updated_at', {
-      method : 'GET',
-      headers: {
-        'apikey'       : SB_KEY(),
-        'Authorization': 'Bearer '+SB_KEY()
-      }
-    })
+    fetch(DRIVE_URL() + '?action=getConfig', { method: 'GET', redirect: 'follow' })
     .then(function(resp){
       if(!resp.ok) return resp.text().then(function(t){ throw new Error('HTTP '+resp.status+' '+t); });
       return resp.json();
     })
-    .then(function(rows){
-      if(!Array.isArray(rows)) throw new Error('Unexpected response: '+JSON.stringify(rows));
-      // Convert array of rows → flat object matching _applyRemoteData expectations
-      var data = {};
-      rows.forEach(function(row){
-        if(!row.key) return;
-        data[row.key]          = row.value || '';
-        data['__ts_'+row.key]  = Number(row.updated_at) || 0;
-      });
+    .then(function(data){
+      if(!data || data.error) throw new Error(data&&data.error||'GAS relay error');
+      // GAS returns flat object {key: value, __ts_key: timestamp} — matches _applyRemoteData format directly
       _applyRemoteData(data, onDone);
     })
     .catch(function(err){
       _pullInFlight = false;
-      console.warn('[C24Sync] Supabase pull failed:', err.message);
+      console.warn('[C24Sync] Drive pull failed:', err.message);
       _updateSyncIndicator('offline');
       if(onDone) onDone(false, []);
       _pullCallbacks.splice(0).forEach(function(cb){ try{ cb(false, []); }catch(e){} });

@@ -24,7 +24,7 @@ const CARS24_CONFIG = {
   // 100% FREE — no billing, no credit card needed
   // Get your key in 2 mins: https://console.groq.com → API Keys → Create API Key
   // Free tier: 14,400 requests/day on Llama 3 — plenty for 30 partners
-  groqKey: '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',
+  groqKey: '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',
   // ── Supabase (cross-device sync — replaces Google Apps Script relay) ──
   // 1. Go to https://supabase.com → New project
   // 2. SQL Editor → run the setup query in the comment at the bottom of this file
@@ -300,10 +300,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // This ensures every device starts from the same cloud state,
   // not from whatever happened to be in their localStorage last.
   // Gate on Supabase being configured — _c24Cloud uses Supabase, not Drive
-  // bootPull DISABLED — manual sync only (prevents Google account blocks).
-  // Restore session directly from localStorage cache instead.
-  var _sbConfigured = false; // force local-cache path
-  if(false && window._c24Cloud && _sbConfigured){
+  if(window._c24Cloud && window._c24Cloud.bootPull){
     window._c24Cloud.bootPull(function(ok, updatedKeys){
       if(!ok){
         console.warn('[C24Boot] Supabase unreachable — using local cache');
@@ -16226,10 +16223,26 @@ window.doPortalLogin = function() {
   }
 
   // ── Partner login ─────────────────────────────────────────────────
+  var _syncedAlready = false;
   function _attemptPartnerLogin(credList){
     var cred = null;
     for(var i=0; i<credList.length; i++){ if((credList[i].username||'').toLowerCase()===u){ cred=credList[i]; break; } }
-    if(!cred){ err.textContent='❌ Username not found.'; err.style.display='block'; return; }
+    if(!cred){
+      // If username not found in local cache, try a fresh cloud sync once
+      if(!_syncedAlready && typeof window.c24SyncPull === 'function'){
+        _syncedAlready = true;
+        err.textContent = '⏳ Syncing credentials…';
+        err.style.display = 'block';
+        window.c24SyncPull(function(){
+          err.style.display = 'none';
+          var fc=[];
+          try{ var _fc=localStorage.getItem('cars24_partner_creds'); fc=_fc?JSON.parse(_fc):[]; }catch(e){}
+          _attemptPartnerLogin(fc);
+        });
+        return;
+      }
+      err.textContent='❌ Username not found. Contact admin if this is your first login.'; err.style.display='block'; return;
+    }
     if(cred.status==='Not Active'){ err.textContent='❌ Account inactive. Contact admin.'; err.style.display='block'; return; }
     if(cred.password !== p){ err.textContent='❌ Incorrect password.'; err.style.display='block'; return; }
     var partnerSheetData = {};
@@ -16254,6 +16267,7 @@ window.doPortalLogin = function() {
   }
 
   if(creds.length === 0 && typeof window.c24SyncPull === 'function'){
+    _syncedAlready = true;
     err.textContent = '⏳ Loading credentials…';
     err.style.display = 'block';
     window.c24SyncPull(function(){
@@ -19464,6 +19478,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
 
   var _lastChecksums = {};
   var _pullInFlight  = false;
+  var _pullCallbacks = [];
 
   function _checksum(str){
     var h=0,i,ch;
@@ -19607,12 +19622,13 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     }
     _updateSyncIndicator('live');
     if(onDone) onDone(true, changedKeys);
+    _pullCallbacks.splice(0).forEach(function(cb){ try{ cb(true, changedKeys); }catch(e){} });
   }
 
   // ── PULL: Supabase SELECT all rows ──────────────────────────────
   function _pullFromRelay(onDone){
     if(!SB_READY()){ if(onDone) onDone(false,[]); return; }
-    if(_pullInFlight){ return; }
+    if(_pullInFlight){ if(onDone) _pullCallbacks.push(onDone); return; }
     _pullInFlight = true;
     _updateSyncIndicator('syncing');
 
@@ -19643,6 +19659,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
       console.warn('[C24Sync] Supabase pull failed:', err.message);
       _updateSyncIndicator('offline');
       if(onDone) onDone(false, []);
+      _pullCallbacks.splice(0).forEach(function(cb){ try{ cb(false, []); }catch(e){} });
     });
   }
 

@@ -119,13 +119,12 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
 
     fetch(_driveUrl(), {
       method : 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode   : 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
     })
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if(!d||!d.ok) throw new Error(d&&d.error||'GAS relay error');
-      console.log('[C24Cloud] ✅ push OK:', key);
+    .then(function(){
+      console.log('[C24Cloud] ✅ push sent (no-cors):', key);
       if(onDone) onDone(true);
     })
     .catch(function(e){
@@ -210,11 +209,11 @@ window.CARS24_SUPABASE_ANONKEY = CARS24_CONFIG.supabase.anonKey;
     _rawSet('__ts_' + key, String(ts));
     fetch(driveUrl, {
       method : 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode   : 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
     })
-    .then(function(r){ return r.json(); })
-    .then(function(d){ if(d&&d.ok) console.log('[C24Early]', label||'push', 'OK →', key); else console.warn('[C24Early] Push rejected:', key, d); })
+    .then(function(){ console.log('[C24Early]', label||'push', 'sent (no-cors) →', key); })
     .catch(function(e){ console.warn('[C24Early] Push failed:', key, e.message); });
   }
 
@@ -16310,24 +16309,9 @@ function _restoreSession(){
   }catch(e){ console.warn('[C24Boot] Session restore:', e); }
 }
 
-// Fallback: if Supabase not configured, run session restore directly on DOMContentLoaded
-// If Supabase IS configured, bootPull calls _restoreSession after data is loaded
+// Restore session from localStorage on DOMContentLoaded (GAS relay — no bootPull delay needed)
 document.addEventListener('DOMContentLoaded', function(){
-  var sbReady = !!(window.CARS24_SUPABASE_URL && window.CARS24_SUPABASE_ANONKEY &&
-                   window.CARS24_SUPABASE_URL !== 'YOUR_SUPABASE_PROJECT_URL');
-  if(sbReady){
-    // Supabase: bootPull will call _restoreSession after data loads (~500ms)
-    // Safety net: also try after 2s in case bootPull is slow or fails
-    setTimeout(function(){
-      if(typeof _restoreSession==='function'){
-        var pf=document.getElementById('portal-fullscreen');
-        if(!pf||!pf.classList.contains('open')) _restoreSession();
-      }
-    }, 2000);
-  } else {
-    // No Supabase: restore immediately from localStorage
-    setTimeout(_restoreSession, 350);
-  }
+  setTimeout(_restoreSession, 350);
 });
 
 // ── 4. Better GSheet sync feedback ───────────────────────────────────────────
@@ -19491,11 +19475,11 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
       var ts = Date.now();
       fetch(url, {
         method : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        mode   : 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'saveConfig', configKey: key, configValue: valStr, ts: ts })
       })
-      .then(function(r){ return r.json(); })
-      .then(function(d){ if(!d||!d.ok) console.warn('[C24Sync] Push rejected:', key, d); })
+      .then(function(){ console.log('[C24Sync] Push sent (no-cors):', key); })
       .catch(function(e){ console.warn('[C24Sync] Push error:', e.message); });
     }catch(e){ console.warn('[C24Sync] Push exception:', e.message); }
   }
@@ -19964,7 +19948,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     var b=document.createElement('div');
     b.id='c24-no-relay-banner';
     b.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:99999;background:#92400e;color:#fef3c7;border:1px solid #b45309;border-radius:10px;padding:10px 18px;font-size:12px;font-weight:600;font-family:DM Sans,sans-serif;max-width:90vw;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.35);line-height:1.6';
-    b.innerHTML='⚠️ <strong>Cross-device sync not configured</strong> — data is local to this browser only.<br>Set <code style="background:rgba(0,0,0,.2);padding:1px 5px;border-radius:3px;">CARS24_CONFIG.supabase.url</code> + <code style="background:rgba(0,0,0,.2);padding:1px 5px;border-radius:3px;">anonKey</code> to enable live sync.';
+    b.innerHTML='⚠️ <strong>Cross-device sync not configured</strong> — data is local to this browser only.<br>Set <code style="background:rgba(0,0,0,.2);padding:1px 5px;border-radius:3px;">CARS24_CONFIG.driveWebAppUrl</code> to enable live sync.';
     var x=document.createElement('button'); x.textContent='✕'; x.style.cssText='background:none;border:none;color:inherit;font-size:14px;cursor:pointer;margin-left:10px;vertical-align:middle;'; x.onclick=function(){b.remove();}; b.appendChild(x);
     document.body.appendChild(b);
     setTimeout(function(){if(b.parentNode)b.remove();},14000);
@@ -20018,31 +20002,22 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
   // ── Public API + diagnostics ─────────────────────────────────────
   window.c24SyncPull  = function(cb){ _pullFromRelay(cb); };
   window.c24SyncDiag = function(){
-    console.group('[C24Sync] Diagnostics — Supabase');
-    console.log('Supabase URL  :', SB_URL() || '⚠️ NOT SET');
-    console.log('Supabase ready:', SB_READY());
-    console.log('Role          :', window.currentRole || 'not logged in');
+    console.group('[C24Sync] Diagnostics — GAS relay');
+    console.log('Drive URL  :', DRIVE_URL() || '⚠️ NOT SET');
+    console.log('Relay ready:', SB_READY());
+    console.log('Role       :', window.currentRole || 'not logged in');
     console.log('Pull in-flight:', _pullInFlight);
-    if(!SB_READY()){ console.warn('⚠️ Supabase not configured — set CARS24_CONFIG.supabase.url + anonKey'); console.groupEnd(); return; }
+    if(!SB_READY()){ console.warn('⚠️ GAS relay not configured — set CARS24_CONFIG.driveWebAppUrl'); console.groupEnd(); return; }
 
-    // Test 1: GET ping (select 0 rows)
-    console.log('--- Test 1: Supabase ping ---');
-    fetch(SB_URL()+'/rest/v1/c24_config?select=key&limit=1', {
-      headers:{ 'apikey': SB_KEY(), 'Authorization': 'Bearer '+SB_KEY() }
+    // Test: GET getConfig
+    console.log('--- Test: GAS getConfig ---');
+    fetch(DRIVE_URL() + '?action=getConfig', { method: 'GET', redirect: 'follow' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d && d.error) console.warn('❌ getConfig error:', d.error);
+      else console.log('✅ GAS relay OK — keys:', Object.keys(d).filter(function(k){ return k.indexOf('__ts_')!==0; }));
     })
-    .then(function(r){ return r.json().then(function(d){ console.log('✅ Supabase ping OK — status:', r.status, d); }); })
-    .catch(function(e){ console.warn('❌ Supabase ping failed:', e.message); });
-
-    // Test 2: full config pull
-    console.log('--- Test 2: Supabase getConfig ---');
-    fetch(SB_URL()+'/rest/v1/c24_config?select=key,value,updated_at', {
-      headers:{ 'apikey': SB_KEY(), 'Authorization': 'Bearer '+SB_KEY() }
-    })
-    .then(function(r){ return r.json().then(function(d){
-      if(!Array.isArray(d)) console.warn('❌ getConfig unexpected response:', d);
-      else console.log('✅ getConfig OK —', d.length, 'rows:', d.map(function(r){ return r.key; }));
-    }); })
-    .catch(function(e){ console.warn('❌ getConfig failed:', e.message); });
+    .catch(function(e){ console.warn('❌ GAS relay failed:', e.message); });
 
     console.log('(results appear in ~2s)');
     console.groupEnd();
@@ -20067,7 +20042,7 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
     setTimeout(_initSync, 500);
   }
 
-  console.log('[C24Sync v2] Supabase sync engine loaded. Configured:', SB_READY() ? '✅ '+SB_URL().slice(0,40)+'…' : '⚠️ NOT configured');
+  console.log('[C24Sync v2] GAS relay loaded. Configured:', SB_READY() ? '✅ '+DRIVE_URL().slice(0,60)+'…' : '⚠️ NOT configured');
 })();
 </script>
 

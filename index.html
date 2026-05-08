@@ -13703,7 +13703,7 @@ window.evaSend = function(){
       'Authorization': 'Bearer ' + _groqKey
     },
     body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
+      model: 'llama3-70b-8192',
       messages: groqMessages,
       max_tokens: 800,
       temperature: 0.7
@@ -14112,7 +14112,7 @@ window.evaAdminGroqAssist = function(partnerName, safeId){
   fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+_groqKey },
-    body: JSON.stringify({ model:'llama-3.1-8b-instant', messages: groqMessages, max_tokens: 600, temperature: 0.6 })
+    body: JSON.stringify({ model:'llama3-70b-8192', messages: groqMessages, max_tokens: 600, temperature: 0.6 })
   })
   .then(function(r){ return r.json(); })
   .then(function(data){
@@ -14385,7 +14385,7 @@ window.adminAiSend = function(){
   fetch('https://api.groq.com/openai/v1/chat/completions', {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+_groqKey },
-    body: JSON.stringify({ model:'llama-3.1-8b-instant', messages:groqMessages, max_tokens:900, temperature:0.5 })
+    body: JSON.stringify({ model:'llama3-70b-8192', messages:groqMessages, max_tokens:900, temperature:0.5 })
   })
   .then(function(r){ return r.json(); })
   .then(function(data){
@@ -16196,13 +16196,15 @@ window.showPortal = function(role, user, partner) {
         try{ window.buildAnnouncementsPartner && window.buildAnnouncementsPartner(); }catch(e){}
       }
 
-      // Render immediately with whatever is in localStorage (may be stale on fresh device)
+      // Render immediately with whatever is in localStorage (instant UI)
       _renderPartnerDashboard();
 
-      // Then pull fresh data from Drive relay and re-render
-      // c24SyncPull removed — partner sees localStorage data, syncs via Sync button
-
-      // Safety re-renders removed — data loads from localStorage immediately
+      // Then pull fresh data from Supabase and re-render with live values
+      if(typeof window.c24SyncPull === 'function'){
+        window.c24SyncPull(function(ok){
+          if(ok) _renderPartnerDashboard();
+        });
+      }
     }, 100);
   }
 };
@@ -20020,11 +20022,27 @@ console.log('[Cars24] Drive upload + expand fix + partner isolation + admin data
   // ─────────────────────────────────────────────────────────────────
   //  VISIBILITY CHANGE — re-sync when tab becomes active
   // ─────────────────────────────────────────────────────────────────
-  // visibilitychange auto-pull DISABLED — manual sync only (prevents Google blocks)
-  document.addEventListener('visibilitychange', function(){ /* manual only */ });
+  // Re-sync when partner returns to the tab (Supabase is plain REST — no rate-limit concern)
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState !== 'visible') return;
+    if(window.currentRole !== 'partner') return;
+    _pullFromRelay(function(ok){
+      if(!ok) return;
+      try{ if(typeof window.buildPartnerOverview==='function') window.buildPartnerOverview(); }catch(e){}
+      try{ if(typeof window.buildAnnouncementsPartner==='function') window.buildAnnouncementsPartner(); }catch(e){}
+      try{ if(typeof window._checkAndShowAnnBadge==='function') window._checkAndShowAnnBadge(); }catch(e){}
+    });
+  });
 
-  // pageshow auto-pull DISABLED — manual sync only
-  window.addEventListener('pageshow', function(e){ /* manual only */ });
+  // iOS back-navigation: re-sync when page is restored from bfcache
+  window.addEventListener('pageshow', function(e){
+    if(!e.persisted) return;
+    if(window.currentRole !== 'partner') return;
+    _pullFromRelay(function(ok){
+      if(!ok) return;
+      try{ if(typeof window.buildPartnerOverview==='function') window.buildPartnerOverview(); }catch(e){}
+    });
+  });
 
   // ─────────────────────────────────────────────────────────────────
   //  INIT

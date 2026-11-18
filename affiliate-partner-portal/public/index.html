@@ -776,8 +776,8 @@ input[type=range]::-webkit-slider-thumb {
         <button onclick="_refreshPortalData()" style="margin-top:6px;width:100%;background:rgba(79,70,229,0.15);border:1px solid rgba(79,70,229,0.4);color:#a5b4fc;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.5px;" title="Rebuild views from local data">⟳ Rebuild Views</button>
         <button onclick="_showAddMonthModal()" style="margin-top:5px;width:100%;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#fbbf24;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.5px;" title="Add a new month to the portal">+ Add Month</button>
         <button onclick="_clearEmptyMonths()" style="margin-top:4px;width:100%;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:6px;padding:5px 8px;font-size:10px;font-weight:600;cursor:pointer;" title="Remove months with no data (e.g. future months)">✕ Clear Empty Months</button>
-        <button onclick="refreshGSheetData()" id="gsheet-refresh-btn" style="margin-top:5px;width:100%;background:rgba(34,197,122,0.12);border:1px solid rgba(34,197,122,0.35);color:#4ade80;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.5px;display:flex;align-items:center;justify-content:center;gap:5px;" title="Refresh data from Google Sheet">
-          <span id="gsheet-refresh-icon">↻</span> <span id="gsheet-refresh-label">Sync Google Sheet</span>
+        <button onclick="refreshGSheetData()" id="gsheet-refresh-btn" style="margin-top:5px;width:100%;background:rgba(34,197,122,0.12);border:1px solid rgba(34,197,122,0.35);color:#4ade80;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.5px;display:flex;align-items:center;justify-content:center;gap:5px;" title="Refresh data from the latest Drive export">
+          <span id="gsheet-refresh-icon">↻</span> <span id="gsheet-refresh-label">Refresh Drive Export</span>
         </button>
         <div id="gsheet-last-update" style="font-size:9px;color:rgba(74,222,128,0.6);text-align:center;margin-top:3px;min-height:12px;font-family:'DM Mono',monospace;letter-spacing:.3px;"></div>
       </div>
@@ -1079,7 +1079,7 @@ input[type=range]::-webkit-slider-thumb {
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
             <span id="dod-data-source" style="font-size:10px;color:var(--t3);"></span>
-            <button onclick="refreshGSheetData()" style="background:rgba(34,197,122,.1);border:1px solid rgba(34,197,122,.3);color:#22c55e;border-radius:7px;padding:6px 13px;font-size:11px;font-weight:600;cursor:pointer;">↻ Sync Sheet</button>
+            <button onclick="refreshGSheetData()" style="background:rgba(34,197,122,.1);border:1px solid rgba(34,197,122,.3);color:#22c55e;border-radius:7px;padding:6px 13px;font-size:11px;font-weight:600;cursor:pointer;">↻ Refresh Export</button>
           </div>
         </div>
 
@@ -1320,7 +1320,7 @@ input[type=range]::-webkit-slider-thumb {
             <div class="pt">📈 Month Projection <span style="font-size:11px;font-weight:500;background:rgba(16,185,129,.12);color:#22c55e;border:1px solid rgba(16,185,129,.3);border-radius:6px;padding:2px 8px;margin-left:6px;">Overview + Partner Data</span></div>
             <div class="ps">EOM forecast: total ÷ (today − 2) × days-in-month · Target vs Actual · Top &amp; Bottom Partners</div>
           </div>
-          <button onclick="refreshGSheetData()" style="background:rgba(34,197,122,.1);border:1px solid rgba(34,197,122,.3);color:#22c55e;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;">↻ Sync Sheet</button>
+          <button onclick="refreshGSheetData()" style="background:rgba(34,197,122,.1);border:1px solid rgba(34,197,122,.3);color:#22c55e;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;">↻ Refresh Export</button>
         </div>
 
         <!-- Filters -->
@@ -1427,7 +1427,7 @@ input[type=range]::-webkit-slider-thumb {
             <div class="pt">📐 Business Analytics <span style="font-size:11px;font-weight:500;background:rgba(34,197,122,.12);color:#22c55e;border:1px solid rgba(34,197,122,.3);border-radius:6px;padding:2px 8px;margin-left:6px;">Overview Tab</span></div>
             <div class="ps" id="biz-ps">Day-of-week patterns · Weekly pulse · Peak days · Conversion rates — from Overview sheet</div>
           </div>
-          <button onclick="refreshGSheetData()" style="background:rgba(34,197,122,.1);border:1px solid rgba(34,197,122,.3);color:#22c55e;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;">↻ Sync Sheet</button>
+          <button onclick="refreshGSheetData()" style="background:rgba(34,197,122,.1);border:1px solid rgba(34,197,122,.3);color:#22c55e;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;">↻ Refresh Export</button>
         </div>
 
         <!-- Filters -->
@@ -1455,7 +1455,7 @@ input[type=range]::-webkit-slider-thumb {
           <div style="font-size:36px;margin-bottom:10px;">📊</div>
           <div style="font-size:14px;font-weight:700;color:var(--t2);margin-bottom:6px;">No daily data yet</div>
           <div style="font-size:13px;color:var(--t3);margin-bottom:16px;">This view needs data from the <strong>Overview</strong> tab (gid=588337111) in your Google Sheet.</div>
-          <button onclick="refreshGSheetData()" style="background:rgba(34,197,122,.15);border:1px solid rgba(34,197,122,.4);color:#22c55e;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer;">↻ Sync Google Sheet Now</button>
+          <button onclick="refreshGSheetData()" style="background:rgba(34,197,122,.15);border:1px solid rgba(34,197,122,.4);color:#22c55e;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer;">↻ Refresh Drive Export Now</button>
         </div>
 
         <!-- KPI strip -->
@@ -1594,7 +1594,7 @@ input[type=range]::-webkit-slider-thumb {
           <div style="display:flex;gap:8px;align-items:center;">
             <span id="elite-badge" style="font-size:12px;color:var(--t3);font-weight:500;"></span>
             <button onclick="exportEliteCSV()" style="background:var(--sf,#131b28);border:1px solid var(--bd);color:var(--t2);border-radius:7px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">⬇ Export CSV</button>
-            <button onclick="refreshGSheetData()" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;">↻ Sync Sheet</button>
+            <button onclick="refreshGSheetData()" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;">↻ Refresh Export</button>
           </div>
         </div>
         <div class="fb" style="margin-bottom:14px;">
@@ -16320,7 +16320,7 @@ console.log('[Cars24 v33] Master fix patch applied — login ✓ session restore
         var isRemote = !(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'||window.location.protocol==='file:');
         var hasData = window.PARTNERS && window.PARTNERS.length > 0;
         if(isRemote && !hasData && typeof showImportToast==='function'){
-          showImportToast('Hosted remotely — log in as Admin and click Sync Google Sheet to load data');
+          showImportToast('Hosted remotely — sign in to load the latest Drive export');
         }
       }catch(e){}
     }, 1500);

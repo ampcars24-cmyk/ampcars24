@@ -98,6 +98,35 @@ async function readExport(filePath) {
 }
 
 async function getDashboardData(admin) {
+  const relayUrl = process.env.DRIVE_RELAY_URL;
+  const relaySecret = process.env.DRIVE_RELAY_SECRET;
+  if (relayUrl || relaySecret) {
+    if (!relayUrl || !relaySecret) throw new Error('Drive relay URL and secret must both be configured.');
+    const response = await fetch(relayUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'getData',
+        dataset: admin ? 'admin' : 'partner',
+        token: relaySecret
+      }),
+      redirect: 'follow'
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok || !Array.isArray(result.rows)) {
+      throw new Error(result?.error || `Drive relay request failed (${response.status}).`);
+    }
+    return {
+      columns: Array.isArray(result.columns) ? result.columns : [],
+      rows: result.rows,
+      summary: result.summary || null,
+      period: result.period || null,
+      updatedAt: result.updatedAt || null,
+      filename: result.filename || (admin ? adminFilename : partnerFilename)
+    };
+  }
+
+  // Keep local export support for deployments that have not configured the relay yet.
   const filename = admin ? adminFilename : partnerFilename;
   return readExport(path.join(exportDirectory, filename));
 }
@@ -179,4 +208,3 @@ app.get(/.*/, (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.
 
 const port = Number(process.env.PORT || 3000);
 app.listen(port, () => console.log(`Affiliate portal listening on http://localhost:${port}`));
-

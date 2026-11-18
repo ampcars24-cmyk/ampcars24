@@ -27,7 +27,7 @@ function doGet(e) {
   if (!_authorized(p.token)) return _json({ error: 'Unauthorized' });
   if (action === 'getConfig') return _getConfig();
   if (action === 'saveConfig') return _saveConfig(p.configKey, p.configValue, p.ts);
-  if (action === 'getData') return _getData(p.dataset);
+  if (action === 'getData') return _getData(p.dataset, p.period);
   return _json({ error: 'Unsupported action' });
 }
 
@@ -43,7 +43,7 @@ function doPost(e) {
     if (!_authorized(body.token)) return _json({ error: 'Unauthorized' });
     switch (String(body.action || '')) {
       case 'getData':
-        return _getData(body.dataset);
+        return _getData(body.dataset, body.period);
       case 'getConfig':
         return _getConfig();
       case 'saveConfig':
@@ -70,7 +70,7 @@ function _authorized(candidate) {
   return difference === 0;
 }
 
-function _getData(dataset) {
+function _getData(dataset, requestedPeriod) {
   dataset = String(dataset || '');
   if (dataset !== 'admin' && dataset !== 'partner') return _json({ error: 'dataset must be admin or partner' });
 
@@ -81,7 +81,7 @@ function _getData(dataset) {
   var filename = dataset === 'admin'
     ? (props.getProperty('ADMIN_EXPORT_FILENAME') || 'Sampled X Orignal.xlsx')
     : (props.getProperty('PARTNER_EXPORT_FILENAME') || 'Report Level.xlsx');
-  var file = _latestFile(folderId, filename);
+  var file = _latestFile(folderId, filename, requestedPeriod);
   if (!file) return _json({ error: 'Export file not found: ' + filename });
 
   var cache = CacheService.getScriptCache();
@@ -105,26 +105,117 @@ function _getData(dataset) {
     dataset: dataset,
     filename: file.name,
     updatedAt: file.modifiedTime || new Date().toISOString(),
-    period: parsed.period,
+    period: parsed.period || file.period || _periodFromModifiedTime(file.modifiedTime),
+    availablePeriods: _uniquePeriods(file.availablePeriods || [], parsed.period || file.period),
     columns: parsed.columns,
     rows: parsed.rows,
     summary: parsed.summary
   });
 }
 
-function _latestFile(folderId, filename) {
-  var safeName = String(filename).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  var query = "'" + folderId + "' in parents and name = '" + safeName + "' and trashed = false";
-  var result = Drive.Files.list({
-    q: query,
-    pageSize: 100,
-    orderBy: 'modifiedTime desc',
-    fields: 'files(id,name,mimeType,modifiedTime,size)',
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true
+function _latestFile(folderId, filename, requestedPeriod) {
+  var base = String(filename).replace(/\.xlsx$/i, '');
+  var safeBase = base.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  var query = "'" + folderId + "' in parents and name contains '" + safeBase + "' and trashed = false";
+  var files = [];
+  var pageToken = null;
+  do {
+    var options = {
+      q: query,
+      pageSize: 100,
+      orderBy: 'modifiedTime desc',
+      fields: 'nextPageToken,files(id,name,mimeType,modifiedTime,size)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    };
+    if (pageToken) options.pageToken = pageToken;
+    var page = Drive.Files.list(options);
+    (page.files || []).forEach(function(file) {
+      var name = String(file.name || '');
+      if (!/^.+\.xlsx$/i.test(name) || name.toLowerCase().indexOf(base.toLowerCase()) !== 0) return;
+      file.period = _periodFromFilename(name, base);
+      files.push(file);
+    });
+    pageToken = page.nextPageToken || null;
+  } while (pageToken);
+
+  var availablePeriods = _uniquePeriods(files.map(function(file) { return file.period; }));
+  files.forEach(function(file) { file.availablePeriods = availablePeriods; });
+
+  if (requestedPeriod) {
+    var wanted = _normalizePeriod(requestedPeriod);
+    files = files.filter(function(file) { return file.period && _normalizePeriod(file.period) === wanted; });
+    files.sort(function(a, b) { return String(b.modifiedTime || '').localeCompare(String(a.modifiedTime || '')); });
+    return files[0] || null;
+  }
+
+  // Prefer the unqualified daily workbook when present. Otherwise choose the
+  // newest month/year archive, then the latest revision within that period.
+  var exact = files.filter(function(file) { return String(file.name).toLowerCase() === String(filename).toLowerCase(); });
+  if (exact.length) {
+    exact.sort(function(a, b) { return String(b.modifiedTime || '').localeCompare(String(a.modifiedTime || '')); });
+    return exact[0];
+  }
+  files = files.filter(function(file) { return !!file.period; });
+  files.sort(function(a, b) {
+    var pa = _periodOrdinal(a.period), pb = _periodOrdinal(b.period);
+    return pb - pa || String(b.modifiedTime || '').localeCompare(String(a.modifiedTime || ''));
   });
-  var files = result.files || [];
-  return files.length ? files[0] : null;
+  return files[0] || null;
+}
+
+function _periodFromFilename(name, base) {
+  var suffix = String(name).replace(/\.xlsx$/i, '').slice(String(base).length);
+  var monthPattern = '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
+  var match = suffix.match(new RegExp(monthPattern + "[\\s._'-]*(20\\d{2}|\\d{2})", 'i'));
+  if (match) return _shortMonth(match[1]) + '-' + _fullYear(match[2]);
+  match = suffix.match(/(20\d{2})[-_. ](0?[1-9]|1[0-2])\b/);
+  if (match) return _monthNumber(Number(match[2])) + '-' + match[1];
+  match = suffix.match(/\b(0?[1-9]|1[0-2])[-_. ](20\d{2})\b/);
+  return match ? _monthNumber(Number(match[1])) + '-' + match[2] : null;
+}
+
+function _normalizePeriod(value) {
+  var match = String(value || '').match(/(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[\s._'-]*(20\d{2}|\d{2})/i);
+  if (match) return _shortMonth(match[1]) + '-' + _fullYear(match[2]);
+  match = String(value || '').match(/(20\d{2})[-_. ](0?[1-9]|1[0-2])/);
+  if (match) return _monthNumber(Number(match[2])) + '-' + match[1];
+  match = String(value || '').match(/\b(0?[1-9]|1[0-2])[-_. ](20\d{2})\b/);
+  return match ? _monthNumber(Number(match[1])) + '-' + match[2] : '';
+}
+
+function _shortMonth(value) {
+  return String(value).slice(0, 3).replace(/^./, function(letter) { return letter.toUpperCase(); });
+}
+
+function _fullYear(value) {
+  value = String(value);
+  return value.length === 2 ? '20' + value : value;
+}
+
+function _monthNumber(value) {
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][value - 1] || '';
+}
+
+function _periodOrdinal(value) {
+  var normalized = _normalizePeriod(value).match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})$/);
+  if (!normalized) return 0;
+  var month = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[normalized[1]];
+  return Number(normalized[2]) * 12 + month;
+}
+
+function _uniquePeriods(values, additional) {
+  var unique = {};
+  (values || []).concat(additional || []).forEach(function(value) {
+    var normalized = _normalizePeriod(value);
+    if (normalized) unique[normalized] = true;
+  });
+  return Object.keys(unique).sort(function(a, b) { return _periodOrdinal(a) - _periodOrdinal(b); });
+}
+
+function _periodFromModifiedTime(value) {
+  var date = value ? new Date(value) : new Date();
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), 'MMM-yyyy');
 }
 
 function _readExcel(file) {
@@ -276,3 +367,4 @@ function _jsonValue(value) {
 function _json(value) {
   return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
 }
+

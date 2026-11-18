@@ -97,7 +97,7 @@ async function readExport(filePath) {
   };
 }
 
-async function getDashboardData(admin) {
+async function getDashboardData(admin, period = null) {
   const relayUrl = process.env.DRIVE_RELAY_URL;
   const relaySecret = process.env.DRIVE_RELAY_SECRET;
   if (relayUrl || relaySecret) {
@@ -108,6 +108,7 @@ async function getDashboardData(admin) {
       body: JSON.stringify({
         action: 'getData',
         dataset: admin ? 'admin' : 'partner',
+        ...(period ? { period } : {}),
         token: relaySecret
       }),
       redirect: 'follow'
@@ -121,6 +122,7 @@ async function getDashboardData(admin) {
       rows: result.rows,
       summary: result.summary || null,
       period: result.period || null,
+      availablePeriods: Array.isArray(result.availablePeriods) ? result.availablePeriods : [],
       updatedAt: result.updatedAt || null,
       filename: result.filename || (admin ? adminFilename : partnerFilename)
     };
@@ -128,7 +130,21 @@ async function getDashboardData(admin) {
 
   // Keep local export support for deployments that have not configured the relay yet.
   const filename = admin ? adminFilename : partnerFilename;
-  return readExport(path.join(exportDirectory, filename));
+  const dashboard = await readExport(path.join(exportDirectory, filename));
+  if (period && !periodMatches(dashboard.period, period)) {
+    throw new Error('Historical periods require the Drive relay or an archived export in the local data folder.');
+  }
+  return { ...dashboard, availablePeriods: dashboard.period ? [dashboard.period] : [] };
+}
+
+function periodMatches(source, requested) {
+  const normalize = (value) => {
+    const match = String(value || '').match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-\s](\d{2,4})$/i);
+    if (!match) return '';
+    const year = match[2].length === 2 ? `20${match[2]}` : match[2];
+    return `${match[1][0].toUpperCase()}${match[1].slice(1, 3).toLowerCase()}-${year}`;
+  };
+  return normalize(source) === normalize(requested);
 }
 
 async function authenticate(req, res, next) {
@@ -180,7 +196,11 @@ app.get('/api/data', authenticate, async (req, res) => {
   const access = accessFor(req.identity);
   if (!access) return res.status(403).json({ error: 'No partner account is linked to this sign-in.' });
   try {
-    const dashboard = await getDashboardData(access.role === 'admin');
+    const requestedPeriod = req.query.period ? String(req.query.period).trim() : null;
+    if (requestedPeriod && !/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(20\d{2}|\d{2})$/i.test(requestedPeriod)) {
+      return res.status(400).json({ error: 'period must use a month/year label such as Nov-2026.' });
+    }
+    const dashboard = await getDashboardData(access.role === 'admin', requestedPeriod);
     const visibleRows = access.role === 'admin'
       ? dashboard.rows
       : dashboard.rows.filter((row) => normalizePartner(row['Partner Name']) === normalizePartner(access.partnerName));
@@ -191,6 +211,7 @@ app.get('/api/data', authenticate, async (req, res) => {
     res.json({
       ...access,
       period: dashboard.period,
+      availablePeriods: dashboard.availablePeriods || [],
       updatedAt: dashboard.updatedAt,
       rowCount: visibleRows.length,
       columns: dashboard.columns,
@@ -208,3 +229,4 @@ app.get(/.*/, (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.
 
 const port = Number(process.env.PORT || 3000);
 app.listen(port, () => console.log(`Affiliate portal listening on http://localhost:${port}`));
+

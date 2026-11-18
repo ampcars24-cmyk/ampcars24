@@ -209,7 +209,8 @@ function _getConfig() {
       try { config[key] = JSON.parse(value); } catch (parseError) { config[key] = value; }
       if (timestamp) config['__ts_' + key] = Number(timestamp);
     }
-    return _json({ ok: true, config: config });
+    // Preserve the original relay's flat {key:value, __ts_key:timestamp} shape.
+    return _json(config);
   } catch (err) {
     console.error('Config read failed: ' + err.message);
     return _json({ error: 'Config read failed' });

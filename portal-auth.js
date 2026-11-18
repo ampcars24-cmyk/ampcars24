@@ -1,5 +1,7 @@
 import { UserManager, WebStorageStateStore } from 'https://cdn.jsdelivr.net/npm/oidc-client-ts@3.2.1/+esm';
 const $ = (selector) => document.querySelector(selector);
+// Do not restore the portal's former browser-password session; access now comes from OIDC.
+window._restoreSession = function () { try { localStorage.removeItem('c24_session'); } catch {} };
 let manager;
 function showAuthMessage(message) { const el=$('#portal-login-err'); if(el){el.textContent=message;el.style.display='block';} }
 async function api(path, token){const res=await fetch(path,{headers:{Authorization:'Bearer '+token},cache:'no-store'});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||'Sign-in failed.');return data;}
